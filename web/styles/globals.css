@@ -1,0 +1,10 @@
+/* This file will single handedly manage the styling of the site */
+
+@import "tailwindcss";
+
+@plugin "tailwindcss-animate";
+
+@theme { 
+    --font-sans: var(--font-geist-sans);
+    --font-mono: var(--font-geist-mono);
+}
