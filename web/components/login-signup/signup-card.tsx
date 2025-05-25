@@ -49,39 +49,40 @@ export default function SignupCard({ supabase, router }: SignupCardProps) {
   };
 
   return (
-    <Card className="w-full">
+    <Card className="w-full max-w-full sm:max-w-2xl lg:max-w-3xl">
       <CardHeader>
-        <CardTitle className="text-5xl">Welcome to Bittle!</CardTitle>
-        <CardDescription className="text-2xl">
+        <CardTitle className="text-6xl">Welcome to Bittle!</CardTitle>
+        <CardDescription className="text-3xl mt-2">
           Enter in your information to sign up!
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="space-y-1">
-          <Label className="text-xl">Email</Label>
+
+      <CardContent className="space-y-8 mt-6">
+        <div className="space-y-2">
+          <Label className="text-2xl">Email</Label>
           <Input
             type="email"
             placeholder="johndoe@example.com"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="p-6"
+            className="p-8 text-xl"
           />
         </div>
 
-        <div className="space-y-1">
-          <Label className="text-xl">Password</Label>
+        <div className="space-y-2">
+          <Label className="text-2xl">Password</Label>
           <div className="relative">
             <Input
               type={showPassword ? "text" : "password"}
               placeholder="Your password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="p-6 pr-20"
+              className="p-8 pr-28 text-xl"
             />
             <Button
               type="button"
               variant="ghost"
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-sm px-4 py-2 bg-white hover:bg-gray-300 active:bg-accent focus:bg-white focus:ring-0"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-lg px-6 py-3 bg-white hover:bg-gray-300 focus:ring-0"
               onClick={() => setShowPassword((prev) => !prev)}
             >
               {showPassword ? "Hide" : "Show"}
@@ -89,44 +90,44 @@ export default function SignupCard({ supabase, router }: SignupCardProps) {
           </div>
         </div>
 
-        <div className="space-y-1">
-          <Label className="text-xl">Confirm Password</Label>
+        <div className="space-y-2">
+          <Label className="text-2xl">Confirm Password</Label>
           <Input
             type={showPassword ? "text" : "password"}
             placeholder="Retype your password"
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
-            className="p-6"
+            className="p-8 text-xl"
           />
           {passwordMismatch && (
-            <p className="text-red-500 text-sm mt-1">Passwords do not match.</p>
+            <p className="text-red-500 text-lg mt-1">Passwords do not match.</p>
           )}
         </div>
 
-        <div className="space-y-1">
-          <Label className="text-xl">Organization Name</Label>
+        <div className="space-y-2">
+          <Label className="text-2xl">Organization Name</Label>
           <Input
             type="text"
             placeholder="Your organization's name"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="p-6"
+            className="p-8 text-xl"
           />
         </div>
 
-        <div className="space-y-1">
-          <Label className="text-xl">University or College (Optional)</Label>
+        <div className="space-y-2">
+          <Label className="text-2xl">University or College (Optional)</Label>
           <Input
             type="text"
             placeholder="University or College"
             value={affiliation}
             onChange={(e) => setAffiliation(e.target.value)}
-            className="p-6"
+            className="p-8 text-xl"
           />
         </div>
 
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center justify-between p-4">
-          <p className="text-sm">
+        <div className="flex flex-col gap-6 sm:flex-row sm:items-center justify-between mt-12">
+          <p className="text-xl">
             Already have an account?{" "}
             <Link
               href="/login"
@@ -135,7 +136,7 @@ export default function SignupCard({ supabase, router }: SignupCardProps) {
               Log In
             </Link>
           </p>
-          <Button className="px-20 py-6 text-lg" onClick={signUp}>
+          <Button className="px-24 py-8 text-2xl" onClick={signUp}>
             Sign Up
           </Button>
         </div>
