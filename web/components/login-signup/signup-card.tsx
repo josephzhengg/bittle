@@ -65,7 +65,7 @@ export default function SignupCard({ supabase, router }: SignupCardProps) {
             placeholder="johndoe@example.com"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="p-8 text-xl"
+            className="p-8 text-xl placeholder:text-xl"
           />
         </div>
 
@@ -77,12 +77,12 @@ export default function SignupCard({ supabase, router }: SignupCardProps) {
               placeholder="Your password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="p-8 pr-28 text-xl"
+              className="p-8 pr-28 text-xl placeholder:text-xl"
             />
             <Button
               type="button"
               variant="ghost"
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-lg px-6 py-3 bg-white hover:bg-gray-300 focus:ring-0"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-lg px-6 py-3 hover:bg-gray-300 focus:ring-0"
               onClick={() => setShowPassword((prev) => !prev)}
             >
               {showPassword ? "Hide" : "Show"}
@@ -97,7 +97,7 @@ export default function SignupCard({ supabase, router }: SignupCardProps) {
             placeholder="Retype your password"
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
-            className="p-8 text-xl"
+            className="p-8 text-xl placeholder:text-xl"
           />
           {passwordMismatch && (
             <p className="text-red-500 text-lg mt-1">Passwords do not match.</p>
@@ -111,7 +111,7 @@ export default function SignupCard({ supabase, router }: SignupCardProps) {
             placeholder="Your organization's name"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="p-8 text-xl"
+            className="p-8 text-xl placeholder:text-xl"
           />
         </div>
 
@@ -122,7 +122,7 @@ export default function SignupCard({ supabase, router }: SignupCardProps) {
             placeholder="University or College"
             value={affiliation}
             onChange={(e) => setAffiliation(e.target.value)}
-            className="p-8 text-xl"
+            className="p-8 text-xl placeholder:text-xl"
           />
         </div>
 

@@ -52,7 +52,7 @@ export default function LoginCard({ supabase, router }: LoginCardProps) {
             placeholder="johndoe@example.com"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="p-8 text-xl"
+            className="p-8 text-xl placeholder:text-xl"
           />
         </div>
 
@@ -64,12 +64,12 @@ export default function LoginCard({ supabase, router }: LoginCardProps) {
               placeholder="Your password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="p-8 pr-28 text-xl"
+              className="p-8 pr-28 text-xl placeholder:text-xl"
             />
             <Button
               type="button"
               variant="ghost"
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-lg px-6 py-3 bg-white hover:bg-gray-300 focus:ring-0"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-lg px-6 py-3 hover:bg-gray-300 focus:ring-0"
               onClick={() => setShowPassword((prev) => !prev)}
             >
               {showPassword ? "Hide" : "Show"}
