@@ -8,6 +8,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import Link from "next/link";
 
 
 export default function InputCodePage(){
@@ -52,6 +53,17 @@ export default function InputCodePage(){
                 <Label className="justify-center m-4">Fun awaits in your family!</Label>     
             </CardContent>
         </Card>
+        <div className="fixed bottom-0 font-bold">
+          <p>
+            Want to make your own form?{" "}
+            <Link
+              href="/login"
+              className="hover:underline"
+            >
+              Login
+            </Link>
+          </p>
+        </div>
     </div>
     )
 }
