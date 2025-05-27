@@ -1,12 +1,12 @@
-import { createSupabaseComponentClient } from "@/utils/supabase/clients/component";
-import { createSupabaseServerClient } from "@/utils/supabase/clients/server-props";
-import { User } from "@supabase/supabase-js";
-import { useQuery } from "@tanstack/react-query";
-import { create } from "domain";
-import { GetServerSideProps, GetServerSidePropsContext } from "next";
-import { useRouter } from "next/router";
-import { useEffect } from "react";
-import { Label } from "@/components/ui/label";
+import { createSupabaseComponentClient } from '@/utils/supabase/clients/component';
+import { createSupabaseServerClient } from '@/utils/supabase/clients/server-props';
+import { User } from '@supabase/supabase-js';
+import { useQuery } from '@tanstack/react-query';
+import { create } from 'domain';
+import { GetServerSideProps, GetServerSidePropsContext } from 'next';
+import { useRouter } from 'next/router';
+import { useEffect } from 'react';
+import { Label } from '@/components/ui/label';
 
 type HomeProps = {
   user: User;
@@ -31,16 +31,25 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
   const supabase = createSupabaseServerClient(context);
   const { data: user, error: userError } = await supabase.auth.getUser();
 
+  if (user) {
+    return {
+      redirect: {
+        destination: '/dashboard',
+        permanent: false
+      }
+    };
+  }
+
   if (userError || !user) {
     return {
       redirect: {
-        destination: "/login",
-        permanent: false,
-      },
+        destination: '/login',
+        permanent: false
+      }
     };
   }
 
   return {
-    props: {},
+    props: {}
   };
 }
