@@ -9,6 +9,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import Link from "next/link";
+import { MoveRight } from "lucide-react";
 
 
 export default function InputCodePage(){
@@ -34,20 +35,7 @@ export default function InputCodePage(){
                         className="px-6 py-6 flex-1"
                     />
                     <Button className="flex-none px-6 py-6 text-lg">
-                        <svg
-                        className="text-themeColor-500 w-10 h-10"
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                        >
-                        <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M14 5l7 7m0 0l-7 7m7-7H3"
-                        />
-                        </svg>
+                        <MoveRight></MoveRight>
                     </Button>
                 </div>
                 <Label className="justify-center m-4">Fun awaits in your family!</Label>     
