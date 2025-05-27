@@ -1,13 +1,12 @@
-import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'next/router';
 import { getForms } from '@/utils/supabase/queries/form';
 import type { User } from '@supabase/supabase-js';
-
 import { Label } from '@/components/ui/label';
 import { createSupabaseServerClient } from '@/utils/supabase/clients/server-props';
 import { GetServerSidePropsContext } from 'next';
 import { useSupabase } from '@/lib/supabase';
+import { useEffect } from 'react';
 
 type DashboardProps = {
   user: User;
@@ -17,20 +16,21 @@ export default function Dashboard({ user }: DashboardProps) {
   const supabase = useSupabase();
   const router = useRouter();
 
-  const { data: formData, isLoading: formLoading } = useQuery({
+  const { data: formData } = useQuery({
     queryKey: ['form'],
     queryFn: () => getForms(supabase, user.id)
   });
+
   useEffect(() => {
     if (formData && formData[0]) {
-      <p> </p>;
+      router.push(`/dashboard/current`);
     }
-  });
-  //   console.log(formData);
+  }, [router, formData, supabase]);
+
   return (
     <div>
       {formData?.map((form) => {
-        return <Label key={form.id}>{form.author}</Label>;
+        return <Label key={form.id}>{form.id}</Label>;
       })}
     </div>
   );
@@ -38,9 +38,9 @@ export default function Dashboard({ user }: DashboardProps) {
 
 export async function getServerSideProps(context: GetServerSidePropsContext) {
   const supabase = createSupabaseServerClient(context);
-  const { data: user, error } = await supabase.auth.getUser();
+  const { data: userData, error } = await supabase.auth.getUser();
 
-  if (!user || error) {
+  if (!userData || error) {
     return {
       redirect: {
         destination: '/login',
@@ -50,6 +50,8 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
   }
 
   return {
-    props: {}
+    props: {
+      user: userData.user
+    }
   };
 }

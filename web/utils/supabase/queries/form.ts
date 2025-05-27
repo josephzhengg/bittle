@@ -10,16 +10,14 @@ export const getForms = async (
   // Fetch all forms from a organzation
 
   const { data: formData, error: formError } = await supabase
-    .from("form")
-    .select("*")
-    .eq("author", id);
+    .from('form')
+    .select('*')
+    .eq('author', id);
 
   if (formError || !formData) {
     throw new Error(
       `Error fetching the forms for organization: ${formError?.message}`
     );
   }
-  console.log(formData);
-  console.log(formError);
   return formData as z.infer<typeof Form>[];
 };

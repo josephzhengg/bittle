@@ -1,14 +1,20 @@
-import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
-import { AppSidebar } from "@/components/ui/app-sidebar"
+import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
+import { AppSidebar } from '@/components/ui/app-sidebar';
 
-export default function DashBoardLayout({ children }: { children: React.ReactNode }) {
+export type DashBoardLayoutProps = {
+  children: React.ReactNode;
+};
+
+export default function DashBoardLayout({ children }: DashBoardLayoutProps) {
   return (
-    <SidebarProvider>
-      <AppSidebar />
-      <main>
-        <SidebarTrigger />
-        {children}
-      </main>
-    </SidebarProvider>
-  )
+    <div>
+      <SidebarProvider>
+        <AppSidebar />
+        <main>
+          <SidebarTrigger />
+          {children}
+        </main>
+      </SidebarProvider>
+    </div>
+  );
 }

@@ -1,5 +1,5 @@
-import { Calendar, Home, Inbox, Search, Settings } from "lucide-react"
- 
+import { Home, Inbox } from 'lucide-react';
+
 import {
   Sidebar,
   SidebarContent,
@@ -8,38 +8,23 @@ import {
   SidebarGroupLabel,
   SidebarMenu,
   SidebarMenuButton,
-  SidebarMenuItem,
-} from "@/components/ui/sidebar"
- 
+  SidebarMenuItem
+} from '@/components/ui/sidebar';
+
 // Menu items.
 const items = [
   {
-    title: "Home",
-    url: "#",
-    icon: Home,
+    title: 'Current',
+    url: '/dashboard/current',
+    icon: Home
   },
   {
-    title: "Inbox",
-    url: "#",
-    icon: Inbox,
-  },
-  {
-    title: "Calendar",
-    url: "#",
-    icon: Calendar,
-  },
-  {
-    title: "Search",
-    url: "#",
-    icon: Search,
-  },
-  {
-    title: "Settings",
-    url: "#",
-    icon: Settings,
-  },
-]
- 
+    title: 'Past',
+    url: '/dashboard/past',
+    icon: Inbox
+  }
+];
+
 export function AppSidebar() {
   return (
     <Sidebar>
@@ -63,5 +48,5 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
     </Sidebar>
-  )
+  );
 }
