@@ -26,14 +26,6 @@ export default function Dashboard({ user }: DashboardProps) {
       router.push(`/dashboard/current`);
     }
   }, [router, formData, supabase]);
-
-  return (
-    <div>
-      {formData?.map((form) => {
-        return <Label key={form.id}>{form.id}</Label>;
-      })}
-    </div>
-  );
 }
 
 export async function getServerSideProps(context: GetServerSidePropsContext) {
