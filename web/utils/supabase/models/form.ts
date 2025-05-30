@@ -1,11 +1,13 @@
-import { z } from "zod";
+import { z } from 'zod';
 
 export const Form = z.object({
-    id: z.string(),
-    author: z.string(),
-    created_at: z.date({ coerce: true }),
-    deadline: z.date({ coerce: true }).nullable(),
-    code: z.string()
-})
+  id: z.string(),
+  author: z.string(),
+  created_at: z.date({ coerce: true }),
+  deadline: z.date({ coerce: true }).nullable(),
+  code: z.string(),
+  description: z.string().nullable(),
+  title: z.string()
+});
 
-export type Form = z.infer<typeof Form>
+export type Form = z.infer<typeof Form>;

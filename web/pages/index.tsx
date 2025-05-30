@@ -1,11 +1,8 @@
 import { createSupabaseComponentClient } from '@/utils/supabase/clients/component';
 import { createSupabaseServerClient } from '@/utils/supabase/clients/server-props';
 import { User } from '@supabase/supabase-js';
-import { useQuery } from '@tanstack/react-query';
-import { create } from 'domain';
-import { GetServerSideProps, GetServerSidePropsContext } from 'next';
+import { GetServerSidePropsContext } from 'next';
 import { useRouter } from 'next/router';
-import { useEffect } from 'react';
 import { Label } from '@/components/ui/label';
 
 type HomeProps = {

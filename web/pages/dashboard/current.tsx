@@ -1,5 +1,4 @@
 import DashBoardLayout from '@/components/layouts/dashboard-layout';
-import { CardHeader, Card } from '@/components/ui/card';
 import { useSupabase } from '@/lib/supabase';
 import type { User } from '@supabase/supabase-js';
 import { useRouter } from 'next/router';
@@ -7,6 +6,7 @@ import { createSupabaseServerClient } from '@/utils/supabase/clients/server-prop
 import { GetServerSidePropsContext } from 'next';
 import { getForms } from '@/utils/supabase/queries/form';
 import { useQuery } from '@tanstack/react-query';
+import FormCard from '@/components/dashboard-components/form-card';
 
 export type CurrentFormsPageProps = {
   user: User;
@@ -22,15 +22,12 @@ export default function CurrentFormsPage({ user }: CurrentFormsPageProps) {
   });
 
   return (
-    <DashBoardLayout>
-      <p>testing</p>
-      {formData?.map((form) => (
-        <Card key={form.id}>
-          <CardHeader>
-            <h2 className="text-lg font-semibold">{form.id}</h2>
-          </CardHeader>
-        </Card>
-      ))}
+    <DashBoardLayout user={user}>
+      <div className="flex flex-wrap gap-4">
+        {formData?.map((form) => (
+          <FormCard key={form.id} form={form} />
+        ))}
+      </div>
     </DashBoardLayout>
   );
 }

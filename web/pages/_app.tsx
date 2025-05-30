@@ -1,17 +1,18 @@
-import "@/styles/globals.css";
-import type { AppProps } from "next/app";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useRouter } from "next/router";
-import { useEffect, useState } from "react";
-import { User } from "@supabase/supabase-js";
-import { useSupabase } from "@/lib/supabase";
-import { ThemeProvider } from "@/components/theme/theme-provider";
+import '@/styles/globals.css';
+import type { AppProps } from 'next/app';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { useRouter } from 'next/router';
+import { useEffect, useState } from 'react';
+import { User } from '@supabase/supabase-js';
+import { useSupabase } from '@/lib/supabase';
+import { ThemeProvider } from '@/components/theme/theme-provider';
+import { Toaster } from 'sonner';
 
 const queryClient = new QueryClient();
 
 export default function App({ Component, pageProps }: AppProps) {
   const router = useRouter();
-  const excludedRoutes = ["/login", "/signup"];
+  const excludedRoutes = ['/login', '/signup'];
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const supabase = useSupabase();
@@ -21,11 +22,11 @@ export default function App({ Component, pageProps }: AppProps) {
     async function fetchUser() {
       try {
         const {
-          data: { user },
+          data: { user }
         } = await supabase.auth.getUser();
         setUser(user);
       } catch (error) {
-        console.error("Error fetching user:", error);
+        console.error('Error fetching user:', error);
       } finally {
         setIsLoading(false);
       }
@@ -41,8 +42,8 @@ export default function App({ Component, pageProps }: AppProps) {
         defaultTheme="system"
         enableSystem
         disableTransitionOnChange
-        themes={["light", "dark"]}
-      >
+        themes={['light', 'dark']}>
+        <Toaster />
         <div className="flex h-screen items-center justify-center">
           <div className="text-foreground">Loading application…</div>
         </div>
@@ -59,8 +60,8 @@ export default function App({ Component, pageProps }: AppProps) {
           defaultTheme="system"
           enableSystem
           disableTransitionOnChange
-          themes={["light", "dark"]}
-        >
+          themes={['light', 'dark']}>
+          <Toaster />
           <Component {...pageProps} />
         </ThemeProvider>
       </QueryClientProvider>
@@ -75,8 +76,8 @@ export default function App({ Component, pageProps }: AppProps) {
         defaultTheme="system"
         enableSystem
         disableTransitionOnChange
-        themes={["light", "dark"]}
-      >
+        themes={['light', 'dark']}>
+        <Toaster />
         <div className="flex h-screen items-center justify-center">
           <div className="text-foreground">Please log in to continue</div>
         </div>
@@ -92,8 +93,8 @@ export default function App({ Component, pageProps }: AppProps) {
         defaultTheme="system"
         enableSystem
         disableTransitionOnChange
-        themes={["light", "dark"]}
-      >
+        themes={['light', 'dark']}>
+        <Toaster />
         <Component {...pageProps} />
       </ThemeProvider>
     </QueryClientProvider>
