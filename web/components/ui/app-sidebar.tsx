@@ -10,6 +10,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem
 } from '@/components/ui/sidebar';
+import { useRouter } from 'next/router';
 
 // Menu items.
 const items = [
@@ -26,6 +27,7 @@ const items = [
 ];
 
 export function AppSidebar() {
+  const router = useRouter();
   return (
     <Sidebar>
       <SidebarContent>
@@ -33,16 +35,23 @@ export function AppSidebar() {
           <SidebarGroupLabel>Application</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {items.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild>
-                    <a href={item.url}>
-                      <item.icon />
-                      <span>{item.title}</span>
-                    </a>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+              {items.map((item) => {
+                const isActive = router.pathname.startsWith(item.url);
+                return (
+                  <SidebarMenuItem
+                    key={item.title}
+                    className={
+                      isActive ? 'bg-muted text-foreground font-semibold' : ''
+                    }>
+                    <SidebarMenuButton asChild>
+                      <a href={item.url}>
+                        <item.icon />
+                        <span>{item.title}</span>
+                      </a>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
