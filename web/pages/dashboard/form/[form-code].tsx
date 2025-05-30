@@ -1,3 +1,3 @@
 export default function FormPage() {
-  return <p>Form</p>;
+  return <p>Hello</p>;
 }
