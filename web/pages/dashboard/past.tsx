@@ -1,31 +1,31 @@
-import { useQuery } from '@tanstack/react-query';
-import { useRouter } from 'next/router';
-import { getForms } from '@/utils/supabase/queries/form';
+import DashBoardLayout from '@/components/layouts/dashboard-layout';
+import { useSupabase } from '@/lib/supabase';
 import type { User } from '@supabase/supabase-js';
-import { Label } from '@/components/ui/label';
+import { useRouter } from 'next/router';
 import { createSupabaseServerClient } from '@/utils/supabase/clients/server-props';
 import { GetServerSidePropsContext } from 'next';
-import { useSupabase } from '@/lib/supabase';
-import { useEffect } from 'react';
+import { getForms } from '@/utils/supabase/queries/form';
+import { useQuery } from '@tanstack/react-query';
+import FormCard from '@/components/dashboard-components/form-card';
 
-type DashboardProps = {
+export type CurrentFormsPageProps = {
   user: User;
 };
 
-export default function Dashboard({ user }: DashboardProps) {
+export default function CurrentFormsPage({ user }: CurrentFormsPageProps) {
   const supabase = useSupabase();
   const router = useRouter();
 
   const { data: formData } = useQuery({
     queryKey: ['form'],
-    queryFn: () => getForms(supabase, user.id)
+    queryFn: async () => getForms(supabase, user.id)
   });
 
-  useEffect(() => {
-    if (formData && formData[0]) {
-      router.push(`/dashboard/current`);
-    }
-  }, [router, formData, supabase]);
+  return (
+    <DashBoardLayout user={user}>
+      <p> past forms</p>
+    </DashBoardLayout>
+  );
 }
 
 export async function getServerSideProps(context: GetServerSidePropsContext) {

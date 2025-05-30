@@ -17,21 +17,27 @@ export type FormCardProps = {
 export default function FormCard({ form }: FormCardProps) {
   const router = useRouter();
   return (
-    <Card className="w-72 my-2">
+    <Card className="flex flex-col justify-between w-full max-w-sm my-4">
       <CardHeader>
-        <CardTitle>{form.title}</CardTitle>
+        <CardTitle>
+          {form.title} - Created:
+          {new Date(form.created_at).toLocaleDateString(undefined, {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+          })}
+        </CardTitle>
         <CardDescription>{form.description}</CardDescription>
       </CardHeader>
-      <CardContent className="flex flex-col items-center">
-        <CardFooter>
-          <Button
-            variant="outline"
-            className="w-full"
-            onClick={() => router.push(`/dashboard/form/${form.code}`)}>
-            View Form
-          </Button>
-        </CardFooter>
-      </CardContent>
+
+      <CardFooter className="mt-auto w-full">
+        <Button
+          variant="outline"
+          className="w-full"
+          onClick={() => router.push(`/dashboard/current/form/${form.code}`)}>
+          View Form
+        </Button>
+      </CardFooter>
     </Card>
   );
 }

@@ -12,11 +12,11 @@ export default function DashBoardLayout({
   user,
   children
 }: DashBoardLayoutProps) {
+
   return (
     <div className="flex h-screen">
       <SidebarProvider>
         <AppSidebar />
-
         <div className="flex flex-col flex-1 overflow-hidden">
           <DashboardHeader user={user} />
           <main className="flex-1 overflow-auto p-4">{children}</main>
