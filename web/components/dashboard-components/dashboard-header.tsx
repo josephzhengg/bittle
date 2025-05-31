@@ -84,7 +84,7 @@ export default function DashboardHeader({ user }: DashboardHeaderProps) {
   }, [organization]);
 
   return (
-    <header className="bg-sidebar flex flex-row shrink-0 items-center gap-4 border-b z-50 h-30 p-4">
+    <header className="bg-sidebar flex flex-row shrink-0 items-center gap-4 border-b z-50 h-22 p-4">
       <div className="flex flex-col space-y-2">
         <Label className="text-2xl">{organization?.name}</Label>
         <Label className="text-secondary">{organization?.affiliation}</Label>

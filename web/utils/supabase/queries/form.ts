@@ -63,3 +63,23 @@ export const getCodes = async (supabase: SupabaseClient): Promise<string[]> => {
 
   return codeData.map((item) => item.code);
 };
+
+export const getFormTitle = async (
+  supabase: SupabaseClient,
+  code: string
+): Promise<string> => {
+  // Fetch the title of a form by its code
+
+  const { data: formData, error: formError } = await supabase
+    .from('form')
+    .select('*')
+    .eq('code', code)
+    .single();
+
+  if (formError || !formData || formData.length === 0) {
+    throw new Error(
+      `Error fetching the Title for a form: ${formError?.message}`
+    );
+  }
+  return formData.title;
+};
