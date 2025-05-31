@@ -32,7 +32,9 @@ export function AppSidebar() {
     <Sidebar>
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>{' Bittle '}</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-lg font-semibold text-foreground">
+            {' Bittle '}
+          </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {items.map((item) => {
@@ -43,7 +45,7 @@ export function AppSidebar() {
                     className={
                       isActive ? 'bg-muted text-foreground font-semibold' : ''
                     }>
-                    <SidebarMenuButton asChild>
+                    <SidebarMenuButton asChild size="lg">
                       <a href={item.url}>
                         <item.icon />
                         <span>{item.title}</span>

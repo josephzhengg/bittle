@@ -19,14 +19,16 @@ export default function FormCard({ form }: FormCardProps) {
   return (
     <Card className="flex flex-col justify-between w-full max-w-sm my-4">
       <CardHeader>
-        <CardTitle>
-          {form.title} - Created:
-          {new Date(form.created_at).toLocaleDateString(undefined, {
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric'
-          })}
-        </CardTitle>
+        <div className="flex flex-row items-center justify-between">
+          <CardTitle>{form.title}</CardTitle>
+          <div className="text-sm text-muted-foreground ml-4">
+            {new Date(form.created_at).toLocaleDateString(undefined, {
+              year: 'numeric',
+              month: 'long',
+              day: 'numeric'
+            })}
+          </div>
+        </div>
         <CardDescription>{form.description}</CardDescription>
       </CardHeader>
 

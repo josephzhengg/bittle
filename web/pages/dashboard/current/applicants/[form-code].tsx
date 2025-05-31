@@ -28,25 +28,29 @@ export default function FormPage({ user }: CurrentFormsPageProps) {
 
   return (
     <DashBoardLayout user={user}>
-      <Label className="text-2xl font-bold text-foreground my-4">
-        {formData}
-      </Label>
-      <Tabs className="flex-grow" defaultValue="applicants">
-        <TabsList>
-          <TabsTrigger
-            value="forms"
-            onClick={() => router.push(`/dashboard/current/form/${formCode}`)}>
-            Forms
-          </TabsTrigger>
-          <TabsTrigger
-            value="applicants"
-            onClick={() =>
-              router.push(`/dashboard/current/applicants/${formCode}`)
-            }>
-            Applicants
-          </TabsTrigger>
-        </TabsList>
-      </Tabs>
+      <div className="flex flex-col w-full">
+        <Label className="text-2xl font-bold text-foreground mb-4 ml-4">
+          {formData}
+        </Label>
+        <Tabs className="w-full" defaultValue="Applicants">
+          <TabsList>
+            <TabsTrigger
+              value="forms"
+              onClick={() =>
+                router.push(`/dashboard/current/form/${formCode}`)
+              }>
+              Forms
+            </TabsTrigger>
+            <TabsTrigger
+              value="applicants"
+              onClick={() =>
+                router.push(`/dashboard/current/applicants/${formCode}`)
+              }>
+              Applicants
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </div>
       <p>testing</p>
     </DashBoardLayout>
   );
