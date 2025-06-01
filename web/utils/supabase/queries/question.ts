@@ -1,4 +1,7 @@
 import { SupabaseClient } from '@supabase/supabase-js';
+import { Question } from '../models/question';
+import { z } from 'zod';
+import { QuestionOption } from '../models/question-option';
 
 export const createTemplateQuestions = async (
   supabase: SupabaseClient,
@@ -120,5 +123,51 @@ export const createTemplateQuestions = async (
         );
       }
     }
+  }
+};
+
+export const getQuestions = async (
+  supabase: SupabaseClient,
+  form_id: string
+): Promise<z.infer<typeof Question>[]> => {
+  const { data: questionData, error: questionError } = await supabase
+    .from('question')
+    .select('*')
+    .eq('form_id', form_id);
+
+  if (!questionData || questionError) {
+    throw new Error(`Error fetching questions: ${questionError?.message}`);
+  }
+
+  return questionData as z.infer<typeof Question>[];
+};
+
+export const getOptions = async (
+  supabase: SupabaseClient,
+  question_id: string
+): Promise<z.infer<typeof QuestionOption>[]> => {
+  const { data: optionData, error: optionError } = await supabase
+    .from('question_option')
+    .select('*')
+    .eq('question_id', question_id);
+
+  if (!optionData || optionError) {
+    throw new Error(`Error fetching question options: ${optionError?.message}`);
+  }
+
+  return optionData as z.infer<typeof QuestionOption>[];
+};
+
+export const deleteQuestion = async (
+  supabase: SupabaseClient,
+  question_id: string
+): Promise<void> => {
+  const { error: deleteError } = await supabase
+    .from('question')
+    .delete()
+    .eq('id', question_id);
+
+  if (deleteError) {
+    throw new Error(`Error deleting question: ${deleteError.message}`);
   }
 };

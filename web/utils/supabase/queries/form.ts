@@ -83,3 +83,36 @@ export const getFormTitle = async (
   }
   return formData.title;
 };
+
+export const getFormIdByCode = async (
+  supabase: SupabaseClient,
+  formCode: string
+): Promise<string> => {
+  const { data: formData, error: formIdError } = await supabase
+    .from('form')
+    .select('id')
+    .eq('code', formCode)
+    .single();
+
+  if (!formData || formIdError) {
+    throw new Error(
+      `Error fetching form ID from form code: ${formIdError.message}`
+    );
+  }
+
+  return formData.id as string;
+};
+
+export const deleteForm = async (
+  supabase: SupabaseClient,
+  form_id: string
+): Promise<void> => {
+  const { error: deleteError } = await supabase
+    .from('form')
+    .delete()
+    .eq('id', form_id);
+
+  if (deleteError) {
+    throw new Error(`Error deleting form: ${deleteError.message}`);
+  }
+};
