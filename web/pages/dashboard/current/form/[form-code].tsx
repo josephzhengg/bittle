@@ -36,8 +36,8 @@ export default function FormPage({ user }: CurrentFormsPageProps) {
   return (
     <DashBoardLayout user={user}>
       <div className="flex flex-col w-full">
-        <div className="flex items-center justify-between px-4 mb-4">
-          <Label className="text-2xl font-bold text-foreground">
+        <div className="flex items-center justify-between mb-4">
+          <Label className="text-2xl font-bold text-foreground ml-4">
             {formData}
           </Label>
           <Button
