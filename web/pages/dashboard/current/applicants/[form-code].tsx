@@ -32,7 +32,7 @@ export default function FormPage({ user }: CurrentFormsPageProps) {
         <Label className="text-2xl font-bold text-foreground mb-4 ml-4">
           {formData}
         </Label>
-        <Tabs className="w-full" defaultValue="Applicants">
+        <Tabs className="w-full" defaultValue="applicants">
           <TabsList>
             <TabsTrigger
               value="forms"

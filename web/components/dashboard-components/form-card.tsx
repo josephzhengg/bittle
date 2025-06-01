@@ -1,12 +1,12 @@
 import { Form } from '@/utils/supabase/models/form';
 import {
   Card,
-  CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
   CardFooter
 } from '@/components/ui/card';
+
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/router';
 import { X } from 'lucide-react';
@@ -14,6 +14,15 @@ import { useQueryClient } from '@tanstack/react-query';
 import { deleteForm } from '@/utils/supabase/queries/form';
 import { useSupabase } from '@/lib/supabase';
 import { toast } from 'sonner';
+import {
+  Dialog,
+  DialogTrigger,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription
+} from '@/components/ui/dialog';
 
 export type FormCardProps = {
   form: Form;
@@ -37,10 +46,10 @@ export default function FormCard({ form }: FormCardProps) {
   return (
     <Card className="flex flex-col justify-between w-full max-w-sm my-4">
       <CardHeader>
-        <div className="flex flex-row items-center justify-between">
+        <div className="flex flex-row items-start justify-between">
           <div className="flex flex-col">
-            <CardTitle>{form.title}</CardTitle>
-            <div className="text-sm text-muted-foreground ml-4">
+            <CardTitle className="text-lg mb-1">{form.title}</CardTitle>
+            <div className="text-xs text-muted-foreground">
               Created:&nbsp;
               {new Date(form.created_at).toLocaleDateString(undefined, {
                 year: 'numeric',
@@ -49,7 +58,7 @@ export default function FormCard({ form }: FormCardProps) {
               })}
             </div>
             {form.deadline && (
-              <div className="text-sm text-muted-foreground ml-4">
+              <div className="text-xs text-muted-foreground">
                 Deadline:&nbsp;
                 {new Date(form.deadline).toLocaleDateString(undefined, {
                   year: 'numeric',
@@ -59,14 +68,33 @@ export default function FormCard({ form }: FormCardProps) {
               </div>
             )}
           </div>
-
-          <Button
-            variant="destructive"
-            size="icon"
-            onClick={handleDelete}
-            aria-label="Delete question">
-            <X className="w-4 h-4" />
-          </Button>
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button
+                variant="destructive"
+                size="icon"
+                aria-label="Delete form">
+                <X className="w-4 h-4" />
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Are you absolutely sure?</DialogTitle>
+                <DialogDescription>
+                  This action cannot be undone. This will permanently delete
+                  your form and all of its data.
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter>
+                <Button
+                  variant="destructive"
+                  type="button"
+                  onClick={handleDelete}>
+                  Confirm
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
         <CardDescription>{form.description}</CardDescription>
       </CardHeader>

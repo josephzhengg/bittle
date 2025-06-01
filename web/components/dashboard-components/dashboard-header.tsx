@@ -117,7 +117,8 @@ export default function DashboardHeader({ user }: DashboardHeaderProps) {
 
       // Success - show toast and navigate
       toast('Form successfully created!', {
-        description: 'Template questions have been added automatically.'
+        description:
+          'Template questions have been added automatically. Please give us a moment.'
       });
 
       // Refresh codes cache
@@ -125,7 +126,7 @@ export default function DashboardHeader({ user }: DashboardHeaderProps) {
 
       // Close dialog and navigate
       setCreateFormOpen(false);
-      router.push(`/dashboard/form/${code}/edit`);
+      router.push(`/dashboard/current/form/${code}/edit`);
     } catch (error) {
       console.error('Error creating form:', error);
 

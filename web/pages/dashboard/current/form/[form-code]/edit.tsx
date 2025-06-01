@@ -9,6 +9,7 @@ import { useRouter } from 'next/router';
 import { z } from 'zod';
 import QuestionCard from '@/components/question-components/question-card';
 import { getFormIdByCode } from '@/utils/supabase/queries/form';
+import { Button } from '@/components/ui/button';
 
 export type EditPageProps = {
   user: User;
@@ -33,6 +34,12 @@ export default function EditPage({ user }: EditPageProps) {
 
   return (
     <DashBoardLayout user={user}>
+      <Button
+        onClick={() => {
+          router.push(`/dashboard/current/form/${formCode}`);
+        }}>
+        Stop Editing
+      </Button>
       {questionData?.map((question) => (
         <QuestionCard key={question.id} question={question} />
       ))}
