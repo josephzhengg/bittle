@@ -1,21 +1,11 @@
-import { createSupabaseComponentClient } from '@/utils/supabase/clients/component';
 import { createSupabaseServerClient } from '@/utils/supabase/clients/server-props';
-import { User } from '@supabase/supabase-js';
 import { GetServerSidePropsContext } from 'next';
-import { useRouter } from 'next/router';
 import { Label } from '@/components/ui/label';
 
-type HomeProps = {
-  user: User;
-};
-
-export default function Home({ user }: HomeProps) {
+export default function Home() {
   // This is the default page that displays when the app is accessed.
   // You can add dynamic paths using folders of the form [param] in the pages directory.
   // In these folders, you can create a file called [param].tsx to handle dynamic routing.
-
-  const supabase = createSupabaseComponentClient();
-  const router = useRouter();
 
   return (
     <div>
@@ -31,7 +21,7 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
   if (user) {
     return {
       redirect: {
-        destination: '/dashboard',
+        destination: '/dashboard/current',
         permanent: false
       }
     };

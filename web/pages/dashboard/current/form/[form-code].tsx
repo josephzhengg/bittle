@@ -1,6 +1,8 @@
 import DashBoardLayout from '@/components/layouts/dashboard-layout';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Button } from '@/components/ui/button';
 import { useSupabase } from '@/lib/supabase';
+import { Edit } from 'lucide-react';
 
 import { createSupabaseServerClient } from '@/utils/supabase/clients/server-props';
 import { getFormTitle } from '@/utils/supabase/queries/form';
@@ -34,9 +36,17 @@ export default function FormPage({ user }: CurrentFormsPageProps) {
   return (
     <DashBoardLayout user={user}>
       <div className="flex flex-col w-full">
-        <Label className="text-2xl font-bold text-foreground mb-4 ml-4">
-          {formData}
-        </Label>
+        <div className="flex items-center justify-between px-4 mb-4">
+          <Label className="text-2xl font-bold text-foreground">
+            {formData}
+          </Label>
+          <Button
+            onClick={() => {
+              router.push(`/dashboard/current/form/${formCode}/edit`);
+            }}>
+            <Edit className="h-4 w-4" />
+          </Button>
+        </div>
         <Tabs className="w-full" defaultValue="forms">
           <TabsList>
             <TabsTrigger

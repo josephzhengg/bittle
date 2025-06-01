@@ -30,6 +30,7 @@ import {
 } from '@/components/ui/popover';
 import { Calendar as CalendarIcon } from 'lucide-react';
 import { createForm, getCodes } from '@/utils/supabase/queries/form';
+import { createTemplateQuestions } from '@/utils/supabase/queries/question';
 
 export type DashboardHeaderProps = {
   user: User;
@@ -49,10 +50,15 @@ export default function DashboardHeader({ user }: DashboardHeaderProps) {
   const [description, setDescription] = useState<string | undefined>(undefined);
   const [code, setCode] = useState('');
   const [deadline, setDeadline] = useState<Date | undefined>(new Date());
+  const [isCreatingForm, setIsCreatingForm] = useState(false);
 
   useEffect(() => {
     if (!createFormOpen) {
       setDeadline(undefined);
+      // Reset form when dialog closes
+      setTitle('');
+      setDescription(undefined);
+      setCode('');
     }
   }, [createFormOpen]);
 
@@ -78,6 +84,73 @@ export default function DashboardHeader({ user }: DashboardHeaderProps) {
     router.push('/login');
   };
 
+  const handleCreateForm = async () => {
+    if (!title || !code) {
+      toast('Please fill in required fields', {
+        description: 'Title and Code are required.'
+      });
+      return;
+    }
+
+    setIsCreatingForm(true);
+
+    try {
+      // Check if code is taken first
+      const isCodeTaken = codes?.includes(code);
+      if (isCodeTaken) {
+        toast('Code already taken! Please choose another.');
+        return;
+      }
+
+      // Create the form
+      const form = await createForm(
+        supabase,
+        user.id,
+        code,
+        description,
+        deadline,
+        title
+      );
+
+      // Create template questions
+      await createTemplateQuestions(supabase, form.id);
+
+      // Success - show toast and navigate
+      toast('Form successfully created!', {
+        description: 'Template questions have been added automatically.'
+      });
+
+      // Refresh codes cache
+      queryUtils.invalidateQueries({ queryKey: ['codes'] });
+
+      // Close dialog and navigate
+      setCreateFormOpen(false);
+      router.push(`/dashboard/form/${code}/edit`);
+    } catch (error) {
+      console.error('Error creating form:', error);
+
+      // More specific error handling
+      if (error instanceof Error) {
+        if (error.message.includes('template questions')) {
+          toast('Form created but failed to add template questions', {
+            description: 'You can add questions manually in the form editor.'
+          });
+          // Still navigate to the form editor
+          setCreateFormOpen(false);
+          router.push(`/dashboard/form/${code}/edit`);
+        } else {
+          toast('Failed to create form', {
+            description: error.message
+          });
+        }
+      } else {
+        toast('Failed to create form. Please try again.');
+      }
+    } finally {
+      setIsCreatingForm(false);
+    }
+  };
+
   useEffect(() => {
     setRenameText(organization?.name ?? '');
     setUpdateAffiliation(organization?.affiliation ?? '');
@@ -89,7 +162,7 @@ export default function DashboardHeader({ user }: DashboardHeaderProps) {
         <Label className="text-2xl">{organization?.name}</Label>
         <Label className="text-secondary">{organization?.affiliation}</Label>
       </div>
-      <div className="flex-grow text-lg font-bold text-center">Dashboard</div>
+      <div className="flex-grow text-lg font-bold text-center"></div>
 
       <Dialog
         open={createFormOpen}
@@ -103,20 +176,21 @@ export default function DashboardHeader({ user }: DashboardHeaderProps) {
           </DialogHeader>
           <DialogDescription>
             This is the beginning of crafting perfect families in your
-            organization!
+            organization! Template questions will be added automatically.
           </DialogDescription>
           <div className="flex flex-col gap-3 py-3">
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-2 space-y-2">
               <Label htmlFor="title" className="text-right">
-                Title
+                Title *
               </Label>
               <Input
-                id="name"
+                id="title"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
+                placeholder="Enter form title"
               />
               <Label htmlFor="code" className="text-right">
-                Code (the code to let other people submit your form!)
+                Code * (the code to let other people submit your form!)
               </Label>
               <Input
                 id="code"
@@ -124,6 +198,7 @@ export default function DashboardHeader({ user }: DashboardHeaderProps) {
                 onChange={(e) =>
                   setCode(e.target.value.replace(/\s+/g, '').toUpperCase())
                 }
+                placeholder="FORM_CODE"
               />
               <Label htmlFor="description" className="text-right">
                 Description (Optional)
@@ -132,6 +207,7 @@ export default function DashboardHeader({ user }: DashboardHeaderProps) {
                 id="description"
                 value={description ?? ''}
                 onChange={(e) => setDescription(e.target.value)}
+                placeholder="Brief description of your form"
               />
               <Label htmlFor="deadline" className="text-right">
                 Deadline (Form&apos;s closing date / Optional)
@@ -160,41 +236,18 @@ export default function DashboardHeader({ user }: DashboardHeaderProps) {
           </div>
           <DialogFooter>
             <Button
-              onClick={() => {
-                if (title && code) {
-                  queryUtils.refetchQueries({ queryKey: ['codes'] });
-
-                  const isCodeTaken = codes?.includes(code);
-                  if (isCodeTaken) {
-                    toast('Code already taken! Please choose another.');
-                    return;
-                  }
-
-                  try {
-                    createForm(
-                      supabase,
-                      user.id,
-                      code,
-                      description,
-                      deadline,
-                      title
-                    );
-                    toast('Form successfully created!');
-                    router.push(`/dashboard/form/${code}`);
-                  } catch (error) {
-                    console.error('Error creating form:', error);
-                    toast('Failed to create form. Please try again.');
-                  }
-                }
-              }}>
-              Create Form
+              onClick={handleCreateForm}
+              disabled={isCreatingForm || !title || !code}>
+              {isCreatingForm ? 'Creating...' : 'Create Form'}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
       <Button variant="destructive" onClick={handleLogout}>
         Logout
       </Button>
+
       <Dialog
         open={editInfoOpen}
         onOpenChange={(isOpen) => setEditInfoOpen(isOpen)}>

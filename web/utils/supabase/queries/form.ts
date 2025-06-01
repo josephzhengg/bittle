@@ -28,7 +28,7 @@ export const createForm = async (
   description: string | undefined,
   deadline: Date | undefined,
   title: string
-): Promise<z.infer<typeof Form>[]> => {
+): Promise<z.infer<typeof Form>> => {
   // Posts a form
   const payload = {
     author: id,
@@ -49,7 +49,7 @@ export const createForm = async (
     throw new Error(formError?.message);
   }
 
-  return formData as z.infer<typeof Form>[];
+  return formData as z.infer<typeof Form>;
 };
 
 export const getCodes = async (supabase: SupabaseClient): Promise<string[]> => {
