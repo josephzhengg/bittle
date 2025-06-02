@@ -24,7 +24,11 @@ import { getOptions } from '@/utils/supabase/queries/question';
 import { useSupabase } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
 import { X } from 'lucide-react';
-import { deleteQuestion } from '@/utils/supabase/queries/question';
+import {
+  deleteQuestion,
+  getQuestions,
+  reorderQuestions
+} from '@/utils/supabase/queries/question';
 import { toast } from 'sonner';
 
 export type QuestionCardProps = {
@@ -59,15 +63,21 @@ export default function QuestionCard({
   const handleDelete = async () => {
     try {
       await deleteQuestion(supabase, question.id);
-      toast.success('Question deleted');
+
+      const remainingQuestions = await getQuestions(supabase, question.form_id);
+
+      remainingQuestions.sort((a, b) => a.index - b.index);
+
+      await reorderQuestions(supabase, remainingQuestions);
+
+      toast.success('Question deleted and reordered successfully.');
     } catch {
-      toast.error('Error deleting question, please try again');
+      toast.error('Error deleting or reordering questions, please try again');
     } finally {
-      await queryUtils.refetchQueries({ queryKey: ['question'] });
+      await queryUtils.refetchQueries({ queryKey: ['questions'] });
     }
   };
 
-  // Handle loading state
   if (
     isLoading &&
     (question.type === 'MULTIPLE_CHOICE' || question.type === 'SELECT_ALL')

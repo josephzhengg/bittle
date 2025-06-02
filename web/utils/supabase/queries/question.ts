@@ -126,6 +126,32 @@ export const createTemplateQuestions = async (
   }
 };
 
+export const createQuestion = async (
+  supabase: SupabaseClient,
+  form_id: string,
+  prompt: string,
+  type: string,
+  index: number
+): Promise<z.infer<typeof Question>> => {
+  const payload = {
+    prompt: prompt,
+    form_id: form_id,
+    type: type,
+    index: index
+  };
+
+  const { data: questionData, error: questionError } = await supabase
+    .from('question')
+    .insert([payload])
+    .select()
+    .single();
+
+  if (!questionData || questionError) {
+    throw new Error(`Error creating question: ${questionError?.message}`);
+  }
+  return questionData;
+};
+
 export const getQuestions = async (
   supabase: SupabaseClient,
   form_id: string
@@ -140,6 +166,27 @@ export const getQuestions = async (
   }
 
   return questionData as z.infer<typeof Question>[];
+};
+
+export const createOption = async (
+  supabase: SupabaseClient,
+  question_id: string,
+  options_payload: {
+    question_id: string;
+    label: string;
+    index: number;
+  }[]
+): Promise<z.infer<typeof QuestionOption>[]> => {
+  const { data: optionData, error: optionError } = await supabase
+    .from('question_option')
+    .insert(options_payload)
+    .select();
+
+  if (!optionData || optionError) {
+    throw new Error(`Error creating question options: ${optionError.message}`);
+  }
+
+  return optionData;
 };
 
 export const getOptions = async (
@@ -171,3 +218,19 @@ export const deleteQuestion = async (
     throw new Error(`Error deleting question: ${deleteError.message}`);
   }
 };
+
+export async function reorderQuestions(
+  supabase: SupabaseClient,
+  questions: Question[]
+) {
+  const updates = questions.map((q, i) => ({
+    id: q.id,
+    index: i + 1
+  }));
+
+  const { error } = await supabase
+    .from('question')
+    .upsert(updates, { onConflict: 'id' });
+
+  if (error) throw error;
+}
