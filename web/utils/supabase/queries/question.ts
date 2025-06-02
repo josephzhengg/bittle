@@ -219,18 +219,64 @@ export const deleteQuestion = async (
   }
 };
 
-export async function reorderQuestions(
+export const reorderQuestions = async (
   supabase: SupabaseClient,
   questions: Question[]
-) {
+): Promise<void> => {
   const updates = questions.map((q, i) => ({
     id: q.id,
     index: i + 1
   }));
 
-  const { error } = await supabase
+  const { error: updateError } = await supabase
     .from('question')
     .upsert(updates, { onConflict: 'id' });
 
-  if (error) throw error;
-}
+  if (updateError) {
+    throw new Error(`Error updating indices: ${updateError.message}`);
+  }
+};
+
+export const updateQuestion = async (
+  supabase: SupabaseClient,
+  question_id: string,
+  prompt: string
+): Promise<void> => {
+  const { error: questionError } = await supabase
+    .from('question')
+    .update({ prompt: prompt })
+    .eq('id', question_id);
+
+  if (questionError) {
+    throw new Error(`Error updating question prompt: ${questionError.message}`);
+  }
+};
+
+export const updateOption = async (
+  supabase: SupabaseClient,
+  option_id: string,
+  label: string
+): Promise<void> => {
+  const { error: optionError } = await supabase
+    .from('question_option')
+    .update({ label: label })
+    .eq('id', option_id);
+
+  if (optionError) {
+    throw new Error(`Error updating option label: ${optionError.message}`);
+  }
+};
+
+export const deleteOption = async (
+  supabase: SupabaseClient,
+  option_id: string
+): Promise<void> => {
+  const { error: deleteError } = await supabase
+    .from('question_option')
+    .delete()
+    .eq('id', option_id);
+
+  if (deleteError) {
+    throw new Error(`Error deleting option: ${deleteError.message}`);
+  }
+};
