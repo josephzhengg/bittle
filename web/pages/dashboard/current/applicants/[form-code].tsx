@@ -28,10 +28,12 @@ export default function FormPage({ user }: CurrentFormsPageProps) {
 
   return (
     <DashBoardLayout user={user}>
-      <div className="flex flex-col w-full">
-        <Label className="text-2xl font-bold text-foreground mb-4 ml-4">
-          {formData}
-        </Label>
+      <div className="flex flex-col w-full max-w-4xl mx-auto p-6">
+        <div className="flex items-center justify-between mb-4">
+          <Label className="text-2xl font-bold text-foreground">
+            {formData || 'Loading...'}
+          </Label>
+        </div>
         <Tabs className="w-full" defaultValue="applicants">
           <TabsList>
             <TabsTrigger
@@ -50,8 +52,8 @@ export default function FormPage({ user }: CurrentFormsPageProps) {
             </TabsTrigger>
           </TabsList>
         </Tabs>
+        <p>testing</p>
       </div>
-      <p>testing</p>
     </DashBoardLayout>
   );
 }

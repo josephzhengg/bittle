@@ -127,7 +127,6 @@ export default function DashboardHeader({ user }: DashboardHeaderProps) {
       // Close dialog and navigate
       setCreateFormOpen(false);
       router.push(`/dashboard/current/form/${code}/edit`);
-      router.reload();
     } catch (error) {
       console.error('Error creating form:', error);
 
@@ -139,8 +138,7 @@ export default function DashboardHeader({ user }: DashboardHeaderProps) {
           });
           // Still navigate to the form editor
           setCreateFormOpen(false);
-          router.push(`/dashboard/form/${code}/edit`);
-          router.reload();
+          router.push(`/dashboard/current/form/${code}/edit`);
         } else {
           toast('Failed to create form', {
             description: error.message
