@@ -1,4 +1,10 @@
-import { Card, CardHeader, CardContent, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardHeader,
+  CardContent,
+  CardTitle,
+  CardDescription
+} from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Textarea } from '@/components/ui/textarea';
@@ -18,6 +24,19 @@ export default function ReadOnlyQuestionCard({
 }: ReadOnlyQuestionCardProps) {
   const supabase = useSupabase();
 
+  const getQuestionTypeDisplay = (type: string) => {
+    switch (type) {
+      case 'MULTIPLE_CHOICE':
+        return 'Multiple Choice';
+      case 'SELECT_ALL':
+        return 'Select All That Apply';
+      case 'FREE_RESPONSE':
+        return 'Free Response';
+      default:
+        return type;
+    }
+  };
+
   const { data: questionOptions } = useQuery({
     queryKey: ['options', question.id],
     queryFn: () => getOptions(supabase, question.id),
@@ -33,6 +52,9 @@ export default function ReadOnlyQuestionCard({
           <CardTitle>
             Question {question.index}: {question.prompt}
           </CardTitle>
+          <CardDescription className="mt-1">
+            {getQuestionTypeDisplay(question.type)}
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <RadioGroup disabled>
@@ -55,12 +77,12 @@ export default function ReadOnlyQuestionCard({
           <CardTitle>
             Question {question.index}: {question.prompt}
           </CardTitle>
+          <CardDescription className="mt-1">
+            {getQuestionTypeDisplay(question.type)}
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-2">
-            <p className="text-sm text-gray-600 mb-3">
-              (Multiple selections allowed)
-            </p>
             <Button
               variant="outline"
               className="w-full justify-between cursor-not-allowed bg-gray-50"
@@ -79,10 +101,13 @@ export default function ReadOnlyQuestionCard({
           <CardTitle>
             Question {question.index}: {question.prompt}
           </CardTitle>
+          <CardDescription className="mt-1">
+            {getQuestionTypeDisplay(question.type)}
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <Textarea
-            placeholder="Text response expected..."
+            placeholder="Write your response here..."
             disabled
             className="min-h-[100px] bg-gray-50"
           />

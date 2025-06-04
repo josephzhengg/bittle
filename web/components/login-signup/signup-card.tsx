@@ -1,17 +1,17 @@
-import { SupabaseClient } from "@supabase/supabase-js";
-import { NextRouter } from "next/router";
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import Link from "next/link";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { SupabaseClient } from '@supabase/supabase-js';
+import { NextRouter } from 'next/router';
+import { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import Link from 'next/link';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+  CardTitle
+} from '@/components/ui/card';
 
 type SignupCardProps = {
   supabase: SupabaseClient;
@@ -19,11 +19,11 @@ type SignupCardProps = {
 };
 
 export default function SignupCard({ supabase, router }: SignupCardProps) {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [name, setName] = useState("");
-  const [affiliation, setAffiliation] = useState("");
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [name, setName] = useState('');
+  const [affiliation, setAffiliation] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [passwordMismatch, setPasswordMismatch] = useState(false);
 
@@ -38,13 +38,13 @@ export default function SignupCard({ supabase, router }: SignupCardProps) {
     const { error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { name: name, affiliation: affiliation } },
+      options: { data: { name: name, affiliation: affiliation } }
     });
 
     if (error) {
       window.alert(error.message);
     } else {
-      router.push("/");
+      router.push('/');
     }
   };
 
@@ -73,7 +73,7 @@ export default function SignupCard({ supabase, router }: SignupCardProps) {
           <Label className="text-2xl">Password</Label>
           <div className="relative">
             <Input
-              type={showPassword ? "text" : "password"}
+              type={showPassword ? 'text' : 'password'}
               placeholder="Your password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -83,9 +83,8 @@ export default function SignupCard({ supabase, router }: SignupCardProps) {
               type="button"
               variant="ghost"
               className="absolute right-3 top-1/2 -translate-y-1/2 text-lg px-6 py-3 hover:bg-gray-300 focus:ring-0"
-              onClick={() => setShowPassword((prev) => !prev)}
-            >
-              {showPassword ? "Hide" : "Show"}
+              onClick={() => setShowPassword((prev) => !prev)}>
+              {showPassword ? 'Hide' : 'Show'}
             </Button>
           </div>
         </div>
@@ -93,7 +92,7 @@ export default function SignupCard({ supabase, router }: SignupCardProps) {
         <div className="space-y-2">
           <Label className="text-2xl">Confirm Password</Label>
           <Input
-            type={showPassword ? "text" : "password"}
+            type={showPassword ? 'text' : 'password'}
             placeholder="Retype your password"
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
@@ -128,11 +127,10 @@ export default function SignupCard({ supabase, router }: SignupCardProps) {
 
         <div className="flex flex-col gap-6 sm:flex-row sm:items-center justify-between mt-12">
           <p className="text-xl">
-            Already have an account?{" "}
+            Already have an account? <br></br>
             <Link
               href="/login"
-              className="hover:underline font-bold text-primary"
-            >
+              className="hover:underline font-bold text-primary">
               Log In
             </Link>
           </p>

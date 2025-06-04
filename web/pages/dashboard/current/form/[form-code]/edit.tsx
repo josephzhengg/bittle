@@ -6,8 +6,10 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   getQuestions,
   createQuestion,
-  createOption
+  createOption,
+  reorderQuestions
 } from '@/utils/supabase/queries/question';
+import { useEffect } from 'react';
 import { getFormIdByCode } from '@/utils/supabase/queries/form';
 import { useSupabase } from '@/lib/supabase';
 import { useRouter } from 'next/router';
@@ -28,8 +30,11 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
-import { DoorOpen, Plus, Save, Trash2 } from 'lucide-react';
+import { DoorOpen, Plus, Save, Trash2, GripVertical } from 'lucide-react';
 import { toast } from 'sonner';
+import { Reorder, useDragControls } from 'framer-motion';
+import { Question } from '@/utils/supabase/models/question';
+import { useMediaQuery } from '@/hooks/use-media-query';
 
 // Constants
 const QUESTION_TYPES = [
@@ -108,7 +113,7 @@ const OptionInput = ({
       value={value}
       onChange={(e) => onChange(index, e.target.value)}
       placeholder={`Option ${index + 1}`}
-      className="flex-1"
+      className="flex-1 min-w-0"
     />
     {canRemove && (
       <Button
@@ -116,7 +121,8 @@ const OptionInput = ({
         variant="outline"
         size="icon"
         onClick={() => onRemove(index)}
-        aria-label={`Remove option ${index + 1}`}>
+        aria-label={`Remove option ${index + 1}`}
+        className="shrink-0">
         <Trash2 className="w-4 h-4" />
       </Button>
     )}
@@ -140,7 +146,7 @@ const QuestionTypeSelect = ({
           key={type.id}
           className="flex items-start space-x-3 p-3 border rounded-lg hover:bg-gray-50">
           <RadioGroupItem value={type.id} id={type.id} className="mt-1" />
-          <div className="flex-1">
+          <div className="flex-1 min-w-0">
             <Label htmlFor={type.id} className="cursor-pointer font-medium">
               {type.label}
             </Label>
@@ -257,7 +263,7 @@ const CreateQuestionDialog = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-2xl max-h-[80dvh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Create New Question</DialogTitle>
           <DialogDescription>
@@ -328,6 +334,69 @@ const CreateQuestionDialog = ({
   );
 };
 
+// Draggable Question Item Component
+interface DraggableQuestionItemProps {
+  question: Question;
+}
+
+const DraggableQuestionItem = ({ question }: DraggableQuestionItemProps) => {
+  const controls = useDragControls();
+  const isMobile = useMediaQuery('(max-width: 640px)');
+
+  return (
+    <Reorder.Item
+      value={question}
+      dragListener={false}
+      dragControls={controls}
+      className="mb-4 sm:mb-6 select-none touch-none"
+      whileDrag={{
+        scale: 1.02,
+        boxShadow: '0 10px 25px rgba(0,0,0,0.15)',
+        zIndex: 9999,
+        position: 'relative'
+      }}
+      transition={{ duration: 0.2 }}
+      style={{
+        userSelect: 'none',
+        position: 'relative',
+        zIndex: 1,
+        touchAction: 'none' // Important for touch devices
+      }}>
+      <div className="bg-white border rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200 select-none relative">
+        <div className="flex items-start gap-3 p-3 sm:p-4 select-none relative">
+          {/* Drag Handle - Larger on mobile for better touch target */}
+          <div
+            className={`flex-shrink-0 mt-1 cursor-grab active:cursor-grabbing select-none relative z-10 ${
+              isMobile ? 'p-2 -ml-1' : ''
+            }`}
+            onPointerDown={(e) => {
+              e.preventDefault();
+              controls.start(e);
+            }}
+            style={{
+              userSelect: 'none',
+              WebkitUserSelect: 'none',
+              MozUserSelect: 'none',
+              msUserSelect: 'none',
+              touchAction: 'none'
+            }}>
+            <GripVertical
+              className={`${
+                isMobile ? 'w-6 h-6' : 'w-5 h-5'
+              } text-gray-400 hover:text-gray-600 transition-colors pointer-events-none`}
+            />
+          </div>
+
+          {/* Question Content */}
+          <div className="flex-1 min-w-0 select-none relative">
+            <QuestionCard question={question} />
+          </div>
+        </div>
+      </div>
+    </Reorder.Item>
+  );
+};
+
 // Main Component
 export type EditPageProps = {
   user: User;
@@ -338,12 +407,23 @@ export default function EditPage({ user }: EditPageProps) {
   const queryClient = useQueryClient();
   const { 'form-code': formCode } = router.query;
   const supabase = useSupabase();
+  const isMobile = useMediaQuery('(max-width: 640px)');
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isReordering, setIsReordering] = useState(false);
 
   const { formId, questions, isLoading, refetchQuestions } =
     useFormQuestions(formCode);
+
+  // Local state for question order
+  const [orderedQuestions, setOrderedQuestions] = useState(questions);
+
+  // Update local state when questions change
+  useEffect(() => {
+    const sortedQuestions = [...questions].sort((a, b) => a.index - b.index);
+    setOrderedQuestions(sortedQuestions);
+  }, [questions]);
 
   const handleSaveQuestion = async (data: CreateQuestionFormData) => {
     if (!formId) {
@@ -396,6 +476,52 @@ export default function EditPage({ user }: EditPageProps) {
     }
   };
 
+  const [reorderTimeout, setReorderTimeout] = useState<NodeJS.Timeout>();
+
+  const handleReorder = (newOrder: Question[]) => {
+    setOrderedQuestions(newOrder);
+
+    if (reorderTimeout) {
+      clearTimeout(reorderTimeout);
+    }
+
+    setReorderTimeout(
+      setTimeout(async () => {
+        setIsReordering(true);
+
+        try {
+          const updatedQuestions = newOrder.map((question, index) => ({
+            ...question,
+            index: index + 1
+          }));
+
+          await reorderQuestions(supabase, updatedQuestions);
+          await refetchQuestions();
+          await queryClient.invalidateQueries({ queryKey: ['questions'] });
+
+          toast.success('Questions reordered successfully!');
+        } catch (error) {
+          console.error('Failed to reorder questions:', error);
+          toast.error('Failed to reorder questions. Please try again.');
+          const sortedQuestions = [...questions].sort(
+            (a, b) => a.index - b.index
+          );
+          setOrderedQuestions(sortedQuestions);
+        } finally {
+          setIsReordering(false);
+        }
+      }, 500)
+    );
+  };
+
+  useEffect(() => {
+    return () => {
+      if (reorderTimeout) {
+        clearTimeout(reorderTimeout);
+      }
+    };
+  }, [reorderTimeout]);
+
   const exitEdit = () => {
     router.push(`/dashboard/current/form/${formCode}`);
   };
@@ -415,57 +541,87 @@ export default function EditPage({ user }: EditPageProps) {
 
   return (
     <DashBoardLayout user={user}>
-      <div className="max-w-4xl mx-auto p-6">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4 sm:py-6">
         {/* Header */}
-        <div className="flex justify-between items-center mb-8">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Edit Form</h1>
-            <p className="text-gray-600 mt-1">
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
+              Edit Form
+            </h1>
+            <p className="text-sm sm:text-base text-gray-600 mt-1">
               Manage your questions and form structure
             </p>
+            {orderedQuestions.length > 1 && (
+              <p className="text-xs sm:text-sm text-blue-600 mt-1">
+                💡{' '}
+                {isMobile
+                  ? 'Press and hold to drag questions'
+                  : 'Drag questions by the grip handle to reorder them'}
+              </p>
+            )}
           </div>
-          <div className="flex gap-3">
+          <div className="flex gap-2 sm:gap-3">
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
-                <Button onClick={() => setIsDialogOpen(true)}>
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add Question
+                <Button
+                  onClick={() => setIsDialogOpen(true)}
+                  className="flex-1 sm:flex-none">
+                  <Plus className="w-4 h-4 mr-1 sm:mr-2" />
+                  <span className="sm:inline">Add Question</span>
                 </Button>
               </DialogTrigger>
 
-              <Button onClick={exitEdit} variant="default">
-                <DoorOpen className="w-4 h-4 mr-2" />
-                Exit
+              <Button
+                onClick={exitEdit}
+                variant="default"
+                className="flex-1 sm:flex-none">
+                <DoorOpen className="w-4 h-4 mr-1 sm:mr-2" />
+                <span className="sm:inline">Exit</span>
               </Button>
             </Dialog>
           </div>
         </div>
 
         {/* Questions List */}
-        <div className="space-y-6">
-          {questions.length === 0 ? (
-            <div className="text-center py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
-              <div className="max-w-sm mx-auto">
+        <div className="space-y-0">
+          {orderedQuestions.length === 0 ? (
+            <div className="text-center py-8 sm:py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+              <div className="max-w-sm mx-auto px-4">
                 <h3 className="text-lg font-medium text-gray-900 mb-2">
                   No questions yet
                 </h3>
-                <p className="text-gray-600 mb-6">
+                <p className="text-sm sm:text-base text-gray-600 mb-4 sm:mb-6">
                   Get started by creating your first question for this form.
                 </p>
-                <Button onClick={() => setIsDialogOpen(true)}>
+                <Button
+                  onClick={() => setIsDialogOpen(true)}
+                  className="w-full sm:w-auto">
                   <Plus className="w-4 h-4 mr-2" />
                   Create First Question
                 </Button>
               </div>
             </div>
           ) : (
-            questions
-              .sort((a, b) => a.index - b.index)
-              .map((question) => (
-                <QuestionCard key={question.id} question={question} />
-              ))
+            <Reorder.Group
+              axis="y"
+              values={orderedQuestions}
+              onReorder={handleReorder}
+              className="space-y-0 select-none"
+              style={{ userSelect: 'none' }}>
+              {orderedQuestions.map((question) => (
+                <DraggableQuestionItem key={question.id} question={question} />
+              ))}
+            </Reorder.Group>
           )}
         </div>
+
+        {/* Loading indicator for reordering */}
+        {isReordering && (
+          <div className="fixed bottom-4 right-4 bg-blue-600 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2">
+            <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+            <span className="text-sm">Saving order...</span>
+          </div>
+        )}
 
         {/* Create Question Dialog */}
         <CreateQuestionDialog

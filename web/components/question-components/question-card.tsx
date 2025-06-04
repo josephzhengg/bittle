@@ -1,5 +1,11 @@
 import { Question } from '@/utils/supabase/models/question';
-import { Card, CardHeader, CardContent, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardHeader,
+  CardContent,
+  CardTitle,
+  CardDescription
+} from '@/components/ui/card';
 import {
   Command,
   CommandEmpty,
@@ -78,6 +84,20 @@ export default function QuestionCard({
       !!question.id &&
       (question.type === 'MULTIPLE_CHOICE' || question.type === 'SELECT_ALL')
   });
+
+  // Helper function to format question type for display
+  const getQuestionTypeDisplay = (type: string) => {
+    switch (type) {
+      case 'MULTIPLE_CHOICE':
+        return 'Multiple Choice';
+      case 'SELECT_ALL':
+        return 'Select All That Apply';
+      case 'FREE_RESPONSE':
+        return 'Free Response';
+      default:
+        return type;
+    }
+  };
 
   const handleDelete = async () => {
     try {
@@ -200,9 +220,15 @@ export default function QuestionCard({
       <Card>
         <CardHeader>
           <div className="flex justify-between items-start">
-            <CardTitle>
-              Question {question.index}: {question.prompt}
-            </CardTitle>
+            <div className="flex-1">
+              <CardTitle>
+                Question {question.index}: {question.prompt}
+              </CardTitle>
+              <CardDescription className="mt-1">
+                {getQuestionTypeDisplay(question.type)}
+              </CardDescription>
+            </div>
+
             <Button
               variant="destructive"
               size="icon"
@@ -223,9 +249,16 @@ export default function QuestionCard({
     return (
       <Card>
         <CardHeader>
-          <CardTitle>
-            Question {question.index}: {question.prompt}
-          </CardTitle>
+          <div className="flex justify-between items-start">
+            <div className="flex-1">
+              <CardTitle>
+                Question {question.index}: {question.prompt}
+              </CardTitle>
+              <CardDescription className="mt-1">
+                {getQuestionTypeDisplay(question.type)}
+              </CardDescription>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           <p className="text-red-500">Error loading options</p>
@@ -268,9 +301,14 @@ export default function QuestionCard({
                 </div>
               ) : (
                 <div className="flex items-start gap-2">
-                  <CardTitle className="flex-1">
-                    Question {question.index}: {question.prompt}
-                  </CardTitle>
+                  <div className="flex-1">
+                    <CardTitle className="flex-1">
+                      Question {question.index}: {question.prompt}
+                    </CardTitle>
+                    <CardDescription className="mt-1">
+                      {getQuestionTypeDisplay(question.type)}
+                    </CardDescription>
+                  </div>
                   <Button
                     size="icon"
                     variant="ghost"
@@ -440,9 +478,14 @@ export default function QuestionCard({
                 </div>
               ) : (
                 <div className="flex items-start gap-2">
-                  <CardTitle className="flex-1">
-                    Question {question.index}: {question.prompt}
-                  </CardTitle>
+                  <div className="flex-1">
+                    <CardTitle className="flex-1">
+                      Question {question.index}: {question.prompt}
+                    </CardTitle>
+                    <CardDescription className="mt-1">
+                      {getQuestionTypeDisplay(question.type)}
+                    </CardDescription>
+                  </div>
                   <Button
                     size="icon"
                     variant="ghost"
@@ -649,9 +692,14 @@ export default function QuestionCard({
                 </div>
               ) : (
                 <div className="flex items-start gap-2">
-                  <CardTitle className="flex-1">
-                    Question {question.index}: {question.prompt}
-                  </CardTitle>
+                  <div className="flex-1">
+                    <CardTitle className="flex-1">
+                      Question {question.index}: {question.prompt}
+                    </CardTitle>
+                    <CardDescription className="mt-1">
+                      {getQuestionTypeDisplay(question.type)}
+                    </CardDescription>
+                  </div>
                   <Button
                     size="icon"
                     variant="ghost"
@@ -689,7 +737,14 @@ export default function QuestionCard({
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Unknown Question Type</CardTitle>
+          <div className="flex justify-between items-start">
+            <div className="flex-1">
+              <CardTitle>Unknown Question Type</CardTitle>
+              <CardDescription className="mt-1">
+                {getQuestionTypeDisplay(question.type)}
+              </CardDescription>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           <p>Question type &quot;{question.type}&quot; is not supported.</p>

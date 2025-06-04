@@ -1,17 +1,17 @@
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { SupabaseClient } from "@supabase/supabase-js";
-import { useState } from "react";
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { SupabaseClient } from '@supabase/supabase-js';
+import { useState } from 'react';
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
-import Link from "next/link";
-import { NextRouter } from "next/router";
+  CardTitle
+} from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
+import Link from 'next/link';
+import { NextRouter } from 'next/router';
 
 type LoginCardProps = {
   supabase: SupabaseClient;
@@ -19,19 +19,19 @@ type LoginCardProps = {
 };
 
 export default function LoginCard({ supabase, router }: LoginCardProps) {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
   const logIn = async () => {
     const { error } = await supabase.auth.signInWithPassword({
       email,
-      password,
+      password
     });
     if (error) {
       window.alert(error.message);
     } else {
-      router.push("/");
+      router.push('/');
     }
   };
 
@@ -60,7 +60,7 @@ export default function LoginCard({ supabase, router }: LoginCardProps) {
           <Label className="text-2xl">Password</Label>
           <div className="relative">
             <Input
-              type={showPassword ? "text" : "password"}
+              type={showPassword ? 'text' : 'password'}
               placeholder="Your password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -70,20 +70,18 @@ export default function LoginCard({ supabase, router }: LoginCardProps) {
               type="button"
               variant="ghost"
               className="absolute right-3 top-1/2 -translate-y-1/2 text-lg px-6 py-3 hover:bg-gray-300 focus:ring-0"
-              onClick={() => setShowPassword((prev) => !prev)}
-            >
-              {showPassword ? "Hide" : "Show"}
+              onClick={() => setShowPassword((prev) => !prev)}>
+              {showPassword ? 'Hide' : 'Show'}
             </Button>
           </div>
         </div>
 
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center justify-between p-4">
           <p className="text-xl">
-            Don&apos;t have an account?{" "}
+            Don&apos;t have an account? <br></br>
             <Link
               href="/signup"
-              className="hover:underline font-bold text-primary"
-            >
+              className="hover:underline font-bold text-primary">
               Sign Up
             </Link>
           </p>
