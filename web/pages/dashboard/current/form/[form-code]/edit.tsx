@@ -9,7 +9,7 @@ import {
   createOption,
   reorderQuestions
 } from '@/utils/supabase/queries/question';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { getFormIdByCode } from '@/utils/supabase/queries/form';
 import { useSupabase } from '@/lib/supabase';
 import { useRouter } from 'next/router';
@@ -342,43 +342,73 @@ interface DraggableQuestionItemProps {
 const DraggableQuestionItem = ({ question }: DraggableQuestionItemProps) => {
   const controls = useDragControls();
   const isMobile = useMediaQuery('(max-width: 640px)');
+  const dragHandleRef = useRef<HTMLDivElement>(null);
+
+  const handleDragStart = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    controls.start(e.nativeEvent);
+  };
+
+  useEffect(() => {
+    const dragHandle = dragHandleRef.current;
+    if (!dragHandle) return;
+
+    const handleTouchStart = (e: TouchEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      e.preventDefault();
+    };
+
+    dragHandle.addEventListener('touchstart', handleTouchStart, {
+      passive: false
+    });
+    dragHandle.addEventListener('touchmove', handleTouchMove, {
+      passive: false
+    });
+
+    return () => {
+      dragHandle.removeEventListener('touchstart', handleTouchStart);
+      dragHandle.removeEventListener('touchmove', handleTouchMove);
+    };
+  }, []);
 
   return (
     <Reorder.Item
       value={question}
       dragListener={false}
       dragControls={controls}
-      className="mb-4 sm:mb-6 select-none touch-none"
+      className="mb-4 sm:mb-6"
       whileDrag={{
         scale: 1.02,
         boxShadow: '0 10px 25px rgba(0,0,0,0.15)',
-        zIndex: 9999,
-        position: 'relative'
+        zIndex: 9999
       }}
       transition={{ duration: 0.2 }}
       style={{
+        touchAction: 'pan-y',
         userSelect: 'none',
-        position: 'relative',
-        zIndex: 1,
-        touchAction: 'none' // Important for touch devices
+        WebkitUserSelect: 'none'
       }}>
-      <div className="bg-white border rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200 select-none relative">
-        <div className="flex items-start gap-3 p-3 sm:p-4 select-none relative">
-          {/* Drag Handle - Larger on mobile for better touch target */}
+      <div className="bg-white border rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200">
+        <div className="flex items-start gap-3 p-3 sm:p-4">
+          {/* Enhanced Drag Handle for Mobile */}
           <div
-            className={`flex-shrink-0 mt-1 cursor-grab active:cursor-grabbing select-none relative z-10 ${
-              isMobile ? 'p-2 -ml-1' : ''
+            ref={dragHandleRef}
+            className={`flex-shrink-0 mt-1 cursor-grab active:cursor-grabbing ${
+              isMobile ? 'p-3 -ml-2 -mt-1' : 'p-1'
             }`}
-            onPointerDown={(e) => {
-              e.preventDefault();
-              controls.start(e);
-            }}
+            onPointerDown={handleDragStart}
             style={{
+              touchAction: 'none',
               userSelect: 'none',
               WebkitUserSelect: 'none',
-              MozUserSelect: 'none',
-              msUserSelect: 'none',
-              touchAction: 'none'
+              WebkitTouchCallout: 'none',
+              WebkitTapHighlightColor: 'transparent'
             }}>
             <GripVertical
               className={`${
@@ -388,7 +418,7 @@ const DraggableQuestionItem = ({ question }: DraggableQuestionItemProps) => {
           </div>
 
           {/* Question Content */}
-          <div className="flex-1 min-w-0 select-none relative">
+          <div className="flex-1 min-w-0">
             <QuestionCard question={question} />
           </div>
         </div>
@@ -606,8 +636,11 @@ export default function EditPage({ user }: EditPageProps) {
               axis="y"
               values={orderedQuestions}
               onReorder={handleReorder}
-              className="space-y-0 select-none"
-              style={{ userSelect: 'none' }}>
+              className="space-y-0"
+              style={{
+                userSelect: 'none',
+                touchAction: 'pan-y'
+              }}>
               {orderedQuestions.map((question) => (
                 <DraggableQuestionItem key={question.id} question={question} />
               ))}
