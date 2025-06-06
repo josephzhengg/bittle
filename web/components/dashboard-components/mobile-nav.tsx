@@ -1,4 +1,4 @@
-import { Home, Inbox, Menu } from 'lucide-react';
+import { ClipboardList, Menu, LibraryBig } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -13,12 +13,12 @@ const navigationItems = [
   {
     title: 'Current',
     url: '/dashboard/current',
-    icon: Home
+    icon: LibraryBig
   },
   {
     title: 'Past',
     url: '/dashboard/past',
-    icon: Inbox
+    icon: ClipboardList
   }
 ];
 
@@ -43,7 +43,7 @@ export function MobileNav() {
           <span className="sr-only">Toggle navigation menu</span>
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-48">
+      <DropdownMenuContent align="start" className="w-screen">
         {navigationItems.map((item) => {
           const isActive = router.pathname.startsWith(item.url);
           return (
