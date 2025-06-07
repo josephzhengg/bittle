@@ -12,7 +12,7 @@ const queryClient = new QueryClient();
 
 export default function App({ Component, pageProps }: AppProps) {
   const router = useRouter();
-  const excludedRoutes = ['/login', '/signup'];
+  const excludedRoutes = ['/login', '/signup', '/input-code'];
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const supabase = useSupabase();
