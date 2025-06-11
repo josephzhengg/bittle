@@ -12,10 +12,15 @@ const queryClient = new QueryClient();
 
 export default function App({ Component, pageProps }: AppProps) {
   const router = useRouter();
-  const excludedRoutes = ['/login', '/signup'];
+  const excludedRoutes = ['/login', '/signup', '/input-code'];
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const supabase = useSupabase();
+
+  // Check if current route is excluded (including dynamic input-code routes)
+  const isExcludedRoute =
+    excludedRoutes.includes(router.pathname) ||
+    router.pathname.startsWith('/input-code/');
 
   useEffect(() => {
     // Fetches the user currently logged in
@@ -34,7 +39,7 @@ export default function App({ Component, pageProps }: AppProps) {
     fetchUser();
   }, [supabase, router]);
 
-  if (isLoading && !excludedRoutes.includes(router.pathname)) {
+  if (isLoading && !isExcludedRoute) {
     // Handles loading state
     return (
       <ThemeProvider
@@ -51,7 +56,7 @@ export default function App({ Component, pageProps }: AppProps) {
     );
   }
 
-  if (excludedRoutes.includes(router.pathname)) {
+  if (isExcludedRoute) {
     // Handles routes that don't require authentication
     return (
       <QueryClientProvider client={queryClient}>
