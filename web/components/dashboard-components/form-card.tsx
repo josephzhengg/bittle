@@ -48,7 +48,9 @@ export default function FormCard({ form }: FormCardProps) {
       <CardHeader>
         <div className="flex flex-row items-start justify-between">
           <div className="flex flex-col">
-            <CardTitle className="text-lg mb-1">{form.title}</CardTitle>
+            <CardTitle className="text-lg mb-1 break-all">
+              {form.title}
+            </CardTitle>
             <div className="text-xs text-muted-foreground">
               Created:&nbsp;
               {new Date(form.created_at).toLocaleDateString(undefined, {

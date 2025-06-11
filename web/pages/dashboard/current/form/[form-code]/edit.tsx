@@ -543,12 +543,12 @@ export default function EditPage({ user }: EditPageProps) {
     <DashBoardLayout user={user}>
       <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4 sm:py-6">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
-          <div>
-            <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
+        <div className="flex justify-between items-center mb-8">
+          <div className="space-y-2">
+            <h2 className="text-xl sm:text-2xl font-bold text-foreground">
               Edit Form
-            </h1>
-            <p className="text-sm sm:text-base text-gray-600 mt-1">
+            </h2>
+            <p className="text-sm sm:text-base text-muted-foreground leading-relaxed">
               Manage your questions and form structure
             </p>
             {orderedQuestions.length > 1 && (

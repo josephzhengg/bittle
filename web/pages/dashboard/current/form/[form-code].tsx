@@ -57,7 +57,7 @@ export default function FormPage({ user }: CurrentFormsPageProps) {
     <DashBoardLayout user={user}>
       <div className="flex flex-col w-full max-w-4xl mx-auto p-6">
         <div className="flex items-center justify-between mb-4">
-          <Label className="text-2xl font-bold text-foreground">
+          <Label className="text-2xl font-bold text-foreground break-all">
             {formData || 'Loading...'}
           </Label>
           <Button
