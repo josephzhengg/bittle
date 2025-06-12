@@ -171,8 +171,8 @@ export default function SignupCard({ supabase, router }: SignupCardProps) {
             <p className="text-base text-gray-600">
               Already have an account?{' '}
               <button className="text-lg font-bold text-purple-600 hover:text-purple-800 hover:underline transition-all duration-200">
-                <Link href="/signup" className="ml-1">
-                  Sign Up
+                <Link href="/login" className="ml-1">
+                  Login
                 </Link>
               </button>
             </p>

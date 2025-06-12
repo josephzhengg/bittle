@@ -10,7 +10,6 @@ import {
   CardTitle
 } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
-
 import { NextRouter } from 'next/router';
 import { ArrowRight, Eye, EyeOff, Mail, Lock } from 'lucide-react';
 import { toast } from 'sonner';
@@ -43,11 +42,11 @@ export default function LoginCard({ supabase, router }: LoginCardProps) {
 
   return (
     <div className="flex-1 w-full max-w-md">
-      <Card className="bg-white/95 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 transform transition-all duration-300 overflow-hidden">
+      <Card className="bg-white shadow-2xl rounded-3xl border border-gray-200 overflow-hidden">
         {/* Decorative top border */}
         <div className="h-1 bg-gradient-to-r from-pink-500 via-purple-500 to-blue-500"></div>
 
-        <CardHeader>
+        <CardHeader className="pb-6">
           <CardTitle className="text-4xl lg:text-5xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
             Welcome to Bittle!
           </CardTitle>
@@ -56,45 +55,43 @@ export default function LoginCard({ supabase, router }: LoginCardProps) {
           </CardDescription>
         </CardHeader>
 
-        <CardContent className="space-y-8">
+        <CardContent className="space-y-6 px-6 pb-6">
           {/* Email Field */}
-          <div className="space-y-3">
-            <Label className="text-xl font-semibold text-gray-800 flex items-center gap-2">
+          <div className="space-y-2">
+            <Label className="text-lg font-semibold text-gray-800 flex items-center gap-2">
               <Mail className="w-5 h-5" />
               Email
             </Label>
-            <div className="relative group">
+            <div className="relative">
               <Input
                 type="email"
                 placeholder="johndoe@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="p-6 text-lg placeholder:text-lg bg-gray-50 border-2 border-gray-200 rounded-2xl focus:border-purple-500 focus:bg-white transition-all duration-200 outline-none"
+                className="h-14 text-lg bg-gray-50 border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:bg-white transition-all duration-200 px-4"
               />
-              <div className="absolute right-4 top-1/2 transform -translate-y-1/2 opacity-0 group-focus-within:opacity-100 transition-opacity">
-                <div className="w-2 h-2 bg-purple-500 rounded-full animate-pulse"></div>
-              </div>
             </div>
           </div>
 
           {/* Password Field */}
-          <div className="space-y-3">
-            <Label className="text-xl font-semibold text-gray-800 flex items-center gap-2">
+          <div className="space-y-2">
+            <Label className="text-lg font-semibold text-gray-800 flex items-center gap-2">
               <Lock className="w-5 h-5" />
               Password
             </Label>
-            <div className="relative group">
+            <div className="relative">
               <Input
                 type={showPassword ? 'text' : 'password'}
                 placeholder="Your password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="p-6 pr-16 text-lg placeholder:text-lg bg-gray-50 border-2 border-gray-200 rounded-2xl focus:border-purple-500 focus:bg-white transition-all duration-200 outline-none"
+                className="h-14 pr-14 text-lg bg-gray-50 border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:bg-white transition-all duration-200 px-4"
               />
               <Button
                 type="button"
                 variant="ghost"
-                className="absolute right-3 top-1/2 -translate-y-1/2 p-2 hover:bg-gray-200 rounded-xl transition-colors"
+                size="sm"
+                className="absolute right-2 top-1/2 -translate-y-1/2 h-10 w-10 hover:bg-gray-200 rounded-lg"
                 onClick={() => setShowPassword((prev) => !prev)}>
                 {showPassword ? (
                   <EyeOff className="w-5 h-5" />
@@ -107,30 +104,30 @@ export default function LoginCard({ supabase, router }: LoginCardProps) {
 
           {/* Login Button */}
           <Button
-            className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-bold py-6 px-8 rounded-2xl text-xl shadow-lg hover:shadow-xl transform transition-all duration-300 hover:scale-[1.02] flex items-center justify-center gap-3 mt-8 relative overflow-hidden"
+            className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-bold h-14 rounded-xl text-lg shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center gap-2 mt-6"
             onClick={logIn}
             disabled={isLoading}>
             {isLoading ? (
               <>
-                <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
                 <span>Logging in...</span>
               </>
             ) : (
               <>
                 <span>Log In</span>
-                <ArrowRight className="w-6 h-6 transition-transform duration-300 group-hover:translate-x-1" />
+                <ArrowRight className="w-5 h-5" />
               </>
             )}
           </Button>
 
           {/* Sign Up Link */}
-          <div className="text-center pt-4 border-t border-gray-100">
-            <p className="text-lg text-gray-600">Don&apos;t have an account?</p>
-            <button className="text-xl font-bold text-purple-600 hover:text-purple-800 hover:underline transition-all duration-200 mt-1">
-              <Link href="/signup" className="ml-1">
-                Sign Up
-              </Link>
-            </button>
+          <div className="text-center pt-6 border-t border-gray-100">
+            <p className="text-gray-600 mb-2">Don&apos;t have an account?</p>
+            <Link
+              href="/signup"
+              className="text-lg font-semibold text-purple-600 hover:text-purple-800 hover:underline transition-colors duration-200">
+              Sign Up
+            </Link>
           </div>
         </CardContent>
       </Card>
