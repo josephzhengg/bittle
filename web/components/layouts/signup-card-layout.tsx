@@ -1,47 +1,41 @@
-import { ReactNode } from "react";
-import Image from "next/image";
-import { Label } from "@/components/ui/label";
+import { ReactNode } from 'react';
 
-export default function SignupLayout({ children }: { children: ReactNode }) {
+export default function LoginLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="relative min-h-screen bg-cover bg-no-repeat bg-center px-4 w-screen bg-login-gradient">
-      {/* Desktop */}
-      <div className="hidden lg:flex items-center justify-end min-h-screen">
-        <div className="absolute top-[clamp(1rem,2vh,2rem)] left-[clamp(1rem,2vw,2rem)] flex flex-col items-start max-w-[clamp(300px,35vw,450px)]">
-          <Image
-            src="/bittle_logo.png"
-            alt="Bittle Logo"
-            width={350}
-            height={100}
-            priority
-            className="block -mb-2 w-[clamp(200px,25vw,350px)] h-auto"
-          />
-          <Label className="text-[clamp(1.5rem,4vw,3.5rem)] leading-[clamp(1.2,1.3,1.4)] pl-[clamp(0.5rem,1.5vw,1.25rem)] py-[clamp(2rem,8vh,5rem)] text-background break-words">
-            Your best companion in building families
-            <br />
-            in your organization
-          </Label>
-        </div>
-        <div className="w-full max-w-[clamp(400px,45vw,700px)] transition-all duration-300 mr-0 lg:mr-20">
-          {children}
-        </div>
+    <div className="animated-bg-container">
+      <div className="animated-bg-elements">
+        <div className="bg-blob-1"></div>
+        <div className="bg-blob-2"></div>
+        <div className="bg-blob-3"></div>
       </div>
 
-      {/* Mobile */}
-      <div className="lg:hidden min-h-screen py-8">
-        <div className="flex flex-col items-center">
-          <div className="flex justify-center pb-8">
-            <Image
-              src="/bittle_logo.png"
-              alt="Bittle Logo"
-              width={250}
-              height={75}
-              priority
-              className="block"
-            />
+      <div className="relative z-10 w-full max-w-6xl flex flex-col lg:flex-row items-center gap-12">
+        {/* Left Panel - Hero Content */}
+        <div className="flex-1 text-center lg:text-left">
+          <div className="mb-8">
+            <h1 className="text-7xl lg:text-8xl font-black text-white mb-4 tracking-tight">
+              BtL
+            </h1>
+            <div className="h-2 w-32 bg-gradient-to-r from-pink-500 to-purple-500 rounded-full mx-auto lg:mx-0 mb-8"></div>
           </div>
-          {children}
+
+          {/* Option 1: More consistent sizing and alignment */}
+          <div className="max-w-2xl mx-auto lg:mx-0">
+            <h2 className="text-3xl lg:text-4xl font-bold text-white mb-6 leading-tight">
+              Your best companion in{' '}
+              <span className="bg-gradient-to-r from-pink-400 to-purple-400 bg-clip-text text-transparent">
+                building families
+              </span>{' '}
+              in your organization
+            </h2>
+
+            <p className="text-xl text-blue-100 leading-relaxed">
+              Connect, engage, and grow together with tools designed to
+              strengthen bonds and create lasting relationships.
+            </p>
+          </div>
         </div>
+        {children}
       </div>
     </div>
   );
