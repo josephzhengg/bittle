@@ -31,10 +31,11 @@ export default function InputCodePage() {
   };
 
   return (
-    <div className="bg-login-gradient min-h-screen text-white flex items-center justify-center flex-col">
-      <Card className="w-5/6 max-w-xl mx-4">
+    <div className="animated-bg-container min-h-screen text-white flex items-center justify-center flex-col">
+      <Card className="w-5/6 max-w-xl mx-4 shadow-2xl rounded-3xl border border-gray-200">
+        <div className="h-1 bg-gradient-to-r from-pink-500 via-purple-500 to-blue-500"></div>
         <CardHeader>
-          <CardTitle className="text-3xl sm:text-2xl">
+          <CardTitle className="text-3xl lg:text-3xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
             Welcome to Bittle!
           </CardTitle>
           <CardDescription className="text-xl sm:text-lg">
@@ -54,7 +55,7 @@ export default function InputCodePage() {
             <Button
               onClick={handleFetchForm}
               disabled={inputCode.length < 1}
-              className="w-full sm:w-auto sm:flex-none px-8 py-6 text-lg bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:from-gray-400 disabled:to-gray-500 border-0 rounded-2xl shadow-lg hover:shadow-xl transform transition-all duration-200 hover:scale-105 disabled:scale-100 disabled:cursor-not-allowed min-w-[60px]">
+              className="w-full sm:w-auto sm:flex-none px-8 py-6 text-lg bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 disabled:from-gray-400 disabled:to-gray-500 border-0 rounded-2xl shadow-lg hover:shadow-xl transform transition-all duration-200 hover:scale-105 disabled:scale-100 disabled:cursor-not-allowed min-w-[60px]">
               <MoveRight />
             </Button>
           </div>

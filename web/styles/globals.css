@@ -144,10 +144,13 @@
   left: 2.5rem;
   width: 18rem;
   height: 18rem;
-  background: linear-gradient(to right, rgba(244, 114, 182, 0.2), rgba(196, 181, 253, 0.2));
+  background: linear-gradient(
+    to right,
+    rgba(244, 114, 182, 0.2),
+    rgba(196, 181, 253, 0.2)
+  );
   border-radius: 50%;
   filter: blur(48px);
-  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
 .bg-blob-2 {
@@ -156,11 +159,13 @@
   right: 2.5rem;
   width: 24rem;
   height: 24rem;
-  background: linear-gradient(to right, rgba(96, 165, 250, 0.2), rgba(34, 211, 238, 0.2));
+  background: linear-gradient(
+    to right,
+    rgba(96, 165, 250, 0.2),
+    rgba(34, 211, 238, 0.2)
+  );
   border-radius: 50%;
   filter: blur(48px);
-  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-  animation-delay: 1s;
 }
 
 .bg-blob-3 {
@@ -169,39 +174,12 @@
   left: 25%;
   width: 12rem;
   height: 12rem;
-  background: linear-gradient(to right, rgba(251, 191, 36, 0.2), rgba(251, 146, 60, 0.2));
+  background: linear-gradient(
+    to right,
+    rgba(251, 191, 36, 0.2),
+    rgba(251, 146, 60, 0.2)
+  );
   border-radius: 50%;
   filter: blur(32px);
-  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-  animation-delay: 0.5s;
   transform: translateY(-50%);
-}
-
-/* Custom pulse animation that matches Tailwind's behavior */
-@keyframes pulse {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.5;
-  }
-}
-
-/* Content wrapper to ensure proper z-index */
-.animated-bg-content {
-  position: relative;
-  z-index: 10;
-  width: 100%;
-  max-width: 72rem;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 3rem;
-}
-
-/* Responsive adjustments */
-@media (min-width: 1024px) {
-  .animated-bg-content {
-    flex-direction: row;
-  }
 }
