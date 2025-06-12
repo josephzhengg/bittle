@@ -120,98 +120,88 @@
     @apply bg-background text-foreground;
   }
 }
-.bg-login-gradient {
-  background: linear-gradient(216deg, #d960ce 15.61%, #4042d1 75.63%);
-}
 
-/* Animation for background (Takes too much resources)
-.animated-background {
-  background: linear-gradient(
-      270deg,
-      #d960ce,
-      #4042d1,
-      #d196e6,
-      #4042d1,
-      #d960ce
-  );
-  background-size: 1000% 1000%;
-  animation: waveGradient 20s ease infinite;
+.animated-bg-container {
+  min-height: 100vh;
+  background: linear-gradient(to bottom right, #581c87, #1e3a8a, #312e81);
   position: relative;
   overflow: hidden;
-  will-change: background-position;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
 }
 
-.animated-background::before {
-  content: '';
+.animated-bg-elements {
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: radial-gradient(
-      circle at 20% 80%,
-      rgba(217, 96, 206, 0.25) 0%,
-      transparent 50%
-  ),
-  radial-gradient(
-      circle at 80% 20%,
-      rgba(64, 66, 209, 0.25) 0%,
-      transparent 50%
-  ),
-  radial-gradient(
-      circle at 40% 40%,
-      rgba(209, 150, 230, 0.15) 0%,
-      transparent 50%
-  );
-  animation: pulseOrbs 12s ease infinite alternate;
-  will-change: transform, opacity;
+  inset: 0;
+  pointer-events: none;
 }
 
-.animated-background::after {
-  content: '';
+.bg-blob-1 {
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: linear-gradient(
-      45deg,
-      transparent 30%,
-      rgba(255, 255, 255, 0.05) 50%,
-      transparent 70%
-  );
-  transform: translateX(-100%);
-  animation: shimmer 8s ease infinite;
-  will-change: transform, opacity;
+  top: 5rem;
+  left: 2.5rem;
+  width: 18rem;
+  height: 18rem;
+  background: linear-gradient(to right, rgba(244, 114, 182, 0.2), rgba(196, 181, 253, 0.2));
+  border-radius: 50%;
+  filter: blur(48px);
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
-@keyframes waveGradient {
-0%   { background-position: 0% 50%; }
-50%  { background-position: 100% 50%; }
-100% { background-position: 0% 50%; }
+.bg-blob-2 {
+  position: absolute;
+  bottom: 5rem;
+  right: 2.5rem;
+  width: 24rem;
+  height: 24rem;
+  background: linear-gradient(to right, rgba(96, 165, 250, 0.2), rgba(34, 211, 238, 0.2));
+  border-radius: 50%;
+  filter: blur(48px);
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  animation-delay: 1s;
 }
 
-@keyframes pulseOrbs {
-  0% {
-      opacity: 0.4;
-      transform: scale(1);
-  }
-  100% {
-      opacity: 0.6;
-      transform: scale(1.03);
-  }
+.bg-blob-3 {
+  position: absolute;
+  top: 50%;
+  left: 25%;
+  width: 12rem;
+  height: 12rem;
+  background: linear-gradient(to right, rgba(251, 191, 36, 0.2), rgba(251, 146, 60, 0.2));
+  border-radius: 50%;
+  filter: blur(32px);
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  animation-delay: 0.5s;
+  transform: translateY(-50%);
 }
 
-@keyframes shimmer {
-  0% {
-      transform: translateX(-100%) skewX(-10deg);
-      opacity: 0;
+/* Custom pulse animation that matches Tailwind's behavior */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
   }
   50% {
-      opacity: 0.3;
+    opacity: 0.5;
   }
-  100% {
-      transform: translateX(100%) skewX(-10deg);
-      opacity: 0;
+}
+
+/* Content wrapper to ensure proper z-index */
+.animated-bg-content {
+  position: relative;
+  z-index: 10;
+  width: 100%;
+  max-width: 72rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3rem;
+}
+
+/* Responsive adjustments */
+@media (min-width: 1024px) {
+  .animated-bg-content {
+    flex-direction: row;
   }
-} */
+}
