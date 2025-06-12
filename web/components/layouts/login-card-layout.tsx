@@ -1,6 +1,6 @@
-import { ReactNode } from "react";
-import Image from "next/image";
-import { Label } from "@/components/ui/label";
+import { ReactNode } from 'react';
+import Image from 'next/image';
+import { Label } from '@/components/ui/label';
 
 export default function LoginLayout({ children }: { children: ReactNode }) {
   return (

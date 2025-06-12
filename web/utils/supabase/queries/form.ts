@@ -1,6 +1,9 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 import { Form } from '@/utils/supabase/models/form';
 import { z } from 'zod';
+import { FormSubmission } from '../models/form-submission';
+import { QuestionResponse } from '../models/question-response';
+import { ResponseOptionSelection } from '../models/response-option-selection';
 
 export const getForms = async (
   supabase: SupabaseClient,
@@ -115,4 +118,71 @@ export const deleteForm = async (
   if (deleteError) {
     throw new Error(`Error deleting form: ${deleteError.message}`);
   }
+};
+
+export const createFormSubmission = async (
+  supabase: SupabaseClient,
+  form_id: string
+): Promise<z.infer<typeof FormSubmission>> => {
+  const { data: submissionData, error: submissionError } = await supabase
+    .from('form_submission')
+    .insert({ form_id: form_id })
+    .select()
+    .single();
+
+  if (!submissionData || submissionError) {
+    throw new Error(`Error submitting: ${submissionError?.message}`);
+  }
+
+  return submissionData;
+};
+
+export const createQuestionResponse = async (
+  supabase: SupabaseClient,
+  form_id: string,
+  question_id: string,
+  free_text: string | null,
+  form_submission_id: string
+): Promise<z.infer<typeof QuestionResponse>> => {
+  const { data: questionResponseData, error: questionResponseError } =
+    await supabase
+      .from('question_response')
+      .insert({
+        form_id: form_id,
+        question_id: question_id,
+        form_submission_id: form_submission_id,
+        free_text: free_text
+      })
+      .select()
+      .single();
+
+  if (!questionResponseData || questionResponseError) {
+    throw new Error(`Error responding to question: ${questionResponseError}`);
+  }
+  return questionResponseData;
+};
+
+export const createReponseOptionSelection = async (
+  supabase: SupabaseClient,
+  response_id: string,
+  option_id: string,
+  form_submission_id: string
+): Promise<z.infer<typeof ResponseOptionSelection>> => {
+  const { data: responseOptionData, error: responseOptionError } =
+    await supabase
+      .from('response_option_selection')
+      .insert({
+        response_id: response_id,
+        option_id: option_id,
+        form_submission_id: form_submission_id
+      })
+      .select()
+      .single();
+
+  if (!responseOptionData || responseOptionError) {
+    throw new Error(
+      `Error assigning question option's response: ${responseOptionError}`
+    );
+  }
+  return responseOptionData;
 };
