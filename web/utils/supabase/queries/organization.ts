@@ -53,3 +53,29 @@ export const changeAffiliation = async (
     throw new Error(`Error updating affiliation: ${updateError?.message}`);
   }
 };
+
+export const getOrganizationFromFormCode = async (
+  supabase: SupabaseClient,
+  code: string
+): Promise<z.infer<typeof Organization>> => {
+  const { data: authorId, error: authorIdError } = await supabase
+    .from('form')
+    .select('author')
+    .eq('code', code)
+    .single();
+
+  if (!authorId || authorIdError) {
+    throw new Error(`Error fetching author ID: ${authorIdError.message}`);
+  }
+
+  const { data: authorData, error: authorError } = await supabase
+    .from('organization')
+    .select()
+    .eq('id', authorId)
+    .single();
+
+  if (!authorData || authorError) {
+    throw new Error(`Error fetching author's data: ${authorError?.message}`);
+  }
+  return authorData;
+};

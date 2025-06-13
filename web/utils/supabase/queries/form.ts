@@ -162,7 +162,7 @@ export const createQuestionResponse = async (
   return questionResponseData;
 };
 
-export const createReponseOptionSelection = async (
+export const createResponseOptionSelection = async (
   supabase: SupabaseClient,
   response_id: string,
   option_id: string,
@@ -181,8 +181,27 @@ export const createReponseOptionSelection = async (
 
   if (!responseOptionData || responseOptionError) {
     throw new Error(
-      `Error assigning question option's response: ${responseOptionError}`
+      `Error assigning question option's response: ${
+        responseOptionError?.message || 'Unknown error'
+      }`
     );
   }
   return responseOptionData;
+};
+
+export const getFormByCode = async (
+  supabase: SupabaseClient,
+  code: string
+): Promise<z.infer<typeof Form>> => {
+  const { data: formData, error: formError } = await supabase
+    .from('form')
+    .select()
+    .eq('code', code)
+    .single();
+
+  if (!formData || formError) {
+    throw new Error(`Error fetching form by its code: ${formError?.message}`);
+  }
+
+  return formData;
 };
