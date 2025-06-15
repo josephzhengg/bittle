@@ -280,3 +280,19 @@ export const deleteOption = async (
     throw new Error(`Error deleting option: ${deleteError.message}`);
   }
 };
+
+export const getQuestion = async (
+  supabase: SupabaseClient,
+  question_id: string
+): Promise<z.infer<typeof Question>> => {
+  const { data: questionData, error: questionError } = await supabase
+    .from('question')
+    .select()
+    .eq('id', question_id)
+    .single();
+
+  if (!questionData || questionError) {
+    throw new Error(`Error getting question: ${questionError?.message}`);
+  }
+  return questionData;
+};
