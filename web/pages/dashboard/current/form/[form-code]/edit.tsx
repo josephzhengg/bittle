@@ -560,6 +560,7 @@ export default function EditPage({ user }: EditPageProps) {
               </p>
             )}
           </div>
+
           <div className="flex gap-2 sm:gap-3">
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
@@ -580,6 +581,14 @@ export default function EditPage({ user }: EditPageProps) {
               </Button>
             </Dialog>
           </div>
+        </div>
+
+        <div className="mb-6 p-4 bg-yellow-50 border-l-4 border-yellow-400 rounded-md">
+          <p className="text-sm text-yellow-800">
+            <strong>Note:</strong> We recommend adding a question asking for the
+            user&#39;s name, email, or student ID if you need to identify who
+            submitted each response.
+          </p>
         </div>
 
         {/* Questions List */}

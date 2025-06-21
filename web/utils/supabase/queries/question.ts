@@ -21,16 +21,28 @@ export const createTemplateQuestions = async (
     index: 2
   };
 
-  const payloadSAQuestion = {
-    prompt: 'From these choices, what might you say about your vibe?',
+  const payloadBigLittleQuestion = {
+    prompt: 'Do you want to be a big or little?',
+    form_id: form_id,
+    type: 'MULTIPLE_CHOICE',
+    index: 3
+  };
+
+  const payloadHobbiesQuestion = {
+    prompt: 'What are your hobbies?',
     form_id: form_id,
     type: 'SELECT_ALL',
-    index: 3
+    index: 4
   };
 
   const { data: insertedQuestions, error: insertError } = await supabase
     .from('question')
-    .insert([payloadFRQuestion, payloadMCQuestion, payloadSAQuestion])
+    .insert([
+      payloadFRQuestion,
+      payloadMCQuestion,
+      payloadBigLittleQuestion,
+      payloadHobbiesQuestion
+    ])
     .select();
 
   if (insertError) {
@@ -51,10 +63,18 @@ export const createTemplateQuestions = async (
   }
 
   const mcQuestion = insertedQuestions.find(
-    (q) => q.type === 'MULTIPLE_CHOICE'
+    (q) => q.type === 'MULTIPLE_CHOICE' && q.prompt === 'What year are you?'
   );
-  const saQuestion = insertedQuestions.find((q) => q.type === 'SELECT_ALL');
+  const bigLittleQuestion = insertedQuestions.find(
+    (q) =>
+      q.type === 'MULTIPLE_CHOICE' &&
+      q.prompt === 'Do you want to be a big or little?'
+  );
+  const hobbiesQuestion = insertedQuestions.find(
+    (q) => q.type === 'SELECT_ALL'
+  );
 
+  // Create options for year question
   if (mcQuestion) {
     const mcQuestionOptions = [
       {
@@ -76,6 +96,11 @@ export const createTemplateQuestions = async (
         question_id: mcQuestion.id,
         label: 'Senior',
         index: 4
+      },
+      {
+        question_id: mcQuestion.id,
+        label: 'Other',
+        index: 5
       }
     ];
 
@@ -88,40 +113,127 @@ export const createTemplateQuestions = async (
         `Error creating MC question options: ${mcOptionsError.message}`
       );
     }
+  }
 
-    if (saQuestion) {
-      const saQuestionOptions = [
-        {
-          question_id: saQuestion.id,
-          label: 'Chill and laid-back',
-          index: 1
-        },
-        {
-          question_id: saQuestion.id,
-          label: 'Energetic and outgoing',
-          index: 2
-        },
-        {
-          question_id: saQuestion.id,
-          label: 'Creative and artistic',
-          index: 3
-        },
-        {
-          question_id: saQuestion.id,
-          label: 'Academic and studious',
-          index: 4
-        }
-      ];
-
-      const { error: saOptionsError } = await supabase
-        .from('question_option')
-        .insert(saQuestionOptions);
-
-      if (saOptionsError) {
-        throw new Error(
-          `Error creating SA question options: ${saOptionsError.message}`
-        );
+  // Create options for big/little question
+  if (bigLittleQuestion) {
+    const bigLittleOptions = [
+      {
+        question_id: bigLittleQuestion.id,
+        label: 'Big',
+        index: 1
+      },
+      {
+        question_id: bigLittleQuestion.id,
+        label: 'Little',
+        index: 2
+      },
+      {
+        question_id: bigLittleQuestion.id,
+        label: 'Both',
+        index: 3
       }
+    ];
+
+    const { error: bigLittleOptionsError } = await supabase
+      .from('question_option')
+      .insert(bigLittleOptions);
+
+    if (bigLittleOptionsError) {
+      throw new Error(
+        `Error creating big/little question options: ${bigLittleOptionsError.message}`
+      );
+    }
+  }
+
+  // Create options for hobbies question
+  if (hobbiesQuestion) {
+    const hobbiesOptions = [
+      {
+        question_id: hobbiesQuestion.id,
+        label: 'Partying',
+        index: 1
+      },
+      {
+        question_id: hobbiesQuestion.id,
+        label: 'Volleyball',
+        index: 2
+      },
+      {
+        question_id: hobbiesQuestion.id,
+        label: 'Basketball',
+        index: 3
+      },
+      {
+        question_id: hobbiesQuestion.id,
+        label: 'Soccer',
+        index: 4
+      },
+      {
+        question_id: hobbiesQuestion.id,
+        label: 'Gaming',
+        index: 5
+      },
+      {
+        question_id: hobbiesQuestion.id,
+        label: 'Reading',
+        index: 6
+      },
+      {
+        question_id: hobbiesQuestion.id,
+        label: 'Music',
+        index: 7
+      },
+      {
+        question_id: hobbiesQuestion.id,
+        label: 'Photography',
+        index: 8
+      },
+      {
+        question_id: hobbiesQuestion.id,
+        label: 'Hiking',
+        index: 9
+      },
+      {
+        question_id: hobbiesQuestion.id,
+        label: 'Cooking',
+        index: 10
+      },
+      {
+        question_id: hobbiesQuestion.id,
+        label: 'Art/Drawing',
+        index: 11
+      },
+      {
+        question_id: hobbiesQuestion.id,
+        label: 'Working out',
+        index: 12
+      },
+      {
+        question_id: hobbiesQuestion.id,
+        label: 'Netflix/Movies',
+        index: 13
+      },
+      {
+        question_id: hobbiesQuestion.id,
+        label: 'Dancing',
+        index: 14
+      },
+      {
+        question_id: hobbiesQuestion.id,
+        label: 'Studying',
+        index: 15
+      }
+    ];
+
+    const { error: hobbiesOptionsError } = await supabase
+      .from('question_option')
+      .insert(hobbiesOptions);
+
+    if (hobbiesOptionsError) {
+      throw new Error(
+        `Error creating hobbies question options: ${hobbiesOptionsError.message}`
+      );
     }
   }
 };

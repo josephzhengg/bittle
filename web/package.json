@@ -9,6 +9,10 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "openai": "^4.24.0",
+    "csv-parser": "^3.0.0",
+    "csv-writer": "^1.6.0",
+    "dotenv": "^16.3.1",
     "@radix-ui/react-alert-dialog": "^1.1.14",
     "@radix-ui/react-avatar": "^1.1.10",
     "@radix-ui/react-checkbox": "^1.3.2",
@@ -51,6 +55,7 @@
     "zod": "^3.24.2"
   },
   "devDependencies": {
+    "ts-node": "^10.9.0",
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4.1.7",
     "@tanstack/eslint-plugin-query": "^5.66.1",

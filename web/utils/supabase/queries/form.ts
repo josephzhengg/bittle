@@ -205,3 +205,48 @@ export const getFormByCode = async (
 
   return formData;
 };
+
+export const updateDeadline = async (
+  supabase: SupabaseClient,
+  form_id: string,
+  deadline: Date | undefined
+): Promise<void> => {
+  const { error: updateError } = await supabase
+    .from('form')
+    .update({ deadline: deadline })
+    .eq('id', form_id);
+
+  if (updateError) {
+    throw new Error(`Error updating form deadline: ${updateError.message}`);
+  }
+};
+
+export const updateTitle = async (
+  supabase: SupabaseClient,
+  form_id: string,
+  title: string
+): Promise<void> => {
+  const { error: updateError } = await supabase
+    .from('form')
+    .update({ title: title })
+    .eq('id', form_id);
+
+  if (updateError) {
+    throw new Error(`Error updating form title: ${updateError.message}`);
+  }
+};
+
+export const updateDescription = async (
+  supabase: SupabaseClient,
+  form_id: string,
+  description: string
+): Promise<void> => {
+  const { error: updateError } = await supabase
+    .from('form')
+    .update({ description: description })
+    .eq('id', form_id);
+
+  if (updateError) {
+    throw new Error(`Error updating form description: ${updateError.message}`);
+  }
+};

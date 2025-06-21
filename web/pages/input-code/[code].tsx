@@ -194,6 +194,72 @@ export default function QuestionnairePage() {
     }
   };
 
+  // Helper function to render progress dots with smart scaling
+  const renderProgressDots = () => {
+    if (!questionsData) return null;
+
+    const totalQuestions = questionsData.length;
+
+    // For many questions (>15), show a condensed view
+    if (totalQuestions > 15) {
+      const answeredCount = questionsData.filter((question) =>
+        isQuestionAnswered(question.id, question.type)
+      ).length;
+
+      return (
+        <div className="flex items-center space-x-2">
+          <div className="text-xs text-blue-100 font-medium">
+            {answeredCount} / {totalQuestions} completed
+          </div>
+          <div className="w-16 bg-white/20 rounded-full h-1.5">
+            <div
+              className="bg-gradient-to-r from-pink-500 to-purple-500 h-1.5 rounded-full transition-all duration-300"
+              style={{ width: `${(answeredCount / totalQuestions) * 100}%` }}
+            />
+          </div>
+        </div>
+      );
+    }
+
+    // For moderate questions (8-15), show smaller dots
+    if (totalQuestions > 8) {
+      return (
+        <div className="flex space-x-1">
+          {questionsData.map((question, index) => (
+            <div
+              key={question.id}
+              className={`w-1.5 h-1.5 rounded-full transition-all duration-300 ${
+                index === currentQuestionIndex
+                  ? 'bg-gradient-to-r from-pink-500 to-purple-500 scale-150'
+                  : isQuestionAnswered(question.id, question.type)
+                  ? 'bg-green-400'
+                  : 'bg-white/30'
+              }`}
+            />
+          ))}
+        </div>
+      );
+    }
+
+    // For few questions (≤8), show regular-sized dots
+    return (
+      <div className="flex space-x-1.5">
+        {questionsData.map((question, index) => (
+          <div
+            key={question.id}
+            className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${
+              index === currentQuestionIndex
+                ? 'bg-gradient-to-r from-pink-500 to-purple-500 scale-125'
+                : isQuestionAnswered(question.id, question.type)
+                ? 'bg-green-400'
+                : 'bg-white/30'
+            }`}
+          />
+        ))}
+      </div>
+    );
+  };
+
   if (isLoadingForm || isLoadingQuestions) {
     return (
       <div className="animated-bg-container">
@@ -439,42 +505,30 @@ export default function QuestionnairePage() {
           </div>
         </div>
 
-        {/* Navigation - Fixed at bottom */}
-        <div className="flex justify-between items-center animate-fade-in-up flex-shrink-0 pt-2">
+        {/* Navigation - Fixed at bottom with improved responsive design */}
+        <div className="flex justify-between items-center animate-fade-in-up flex-shrink-0 pt-2 min-h-[40px]">
           <button
             onClick={handlePrevious}
             disabled={currentQuestionIndex === 0}
-            className={`flex items-center px-4 py-2 rounded-xl font-semibold transition-all duration-300 transform hover:scale-105 text-sm ${
+            className={`flex items-center px-3 sm:px-4 py-2 rounded-xl font-semibold transition-all duration-300 transform hover:scale-105 text-sm flex-shrink-0 ${
               currentQuestionIndex === 0
                 ? 'opacity-30 cursor-not-allowed'
                 : 'bg-white/10 backdrop-blur-lg text-white border border-white/20 hover:bg-white/20'
             }`}>
             <ChevronLeft className="w-4 h-4 mr-1" />
-            Previous
+            <span className="hidden sm:inline">Previous</span>
+            <span className="sm:hidden">Prev</span>
           </button>
 
-          <div className="text-center">
-            <div className="flex space-x-1.5">
-              {questionsData.map((question, index) => (
-                <div
-                  key={question.id}
-                  className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${
-                    index === currentQuestionIndex
-                      ? 'bg-gradient-to-r from-pink-500 to-purple-500 scale-125'
-                      : isQuestionAnswered(question.id, question.type)
-                      ? 'bg-green-400'
-                      : 'bg-white/30'
-                  }`}
-                />
-              ))}
-            </div>
+          <div className="flex-1 flex justify-center px-2 sm:px-4">
+            {renderProgressDots()}
           </div>
 
           {isLastQuestion ? (
             <button
               onClick={handleSubmit}
               disabled={submitting || !allQuestionsAnswered}
-              className={`flex items-center px-6 py-2 rounded-xl font-semibold transition-all duration-300 transform hover:scale-105 text-sm ${
+              className={`flex items-center px-4 sm:px-6 py-2 rounded-xl font-semibold transition-all duration-300 transform hover:scale-105 text-sm flex-shrink-0 ${
                 allQuestionsAnswered && !submitting
                   ? 'bg-gradient-to-r from-pink-500 to-purple-500 text-white shadow-lg hover:shadow-xl'
                   : 'opacity-50 cursor-not-allowed bg-white/10 text-white border border-white/20'
@@ -482,7 +536,8 @@ export default function QuestionnairePage() {
               {submitting ? (
                 <>
                   <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2" />
-                  Submitting...
+                  <span className="hidden sm:inline">Submitting...</span>
+                  <span className="sm:hidden">...</span>
                 </>
               ) : (
                 <>
@@ -495,12 +550,13 @@ export default function QuestionnairePage() {
             <button
               onClick={handleNext}
               disabled={!hasAnsweredCurrent}
-              className={`flex items-center px-4 py-2 rounded-xl font-semibold transition-all duration-300 transform hover:scale-105 text-sm ${
+              className={`flex items-center px-3 sm:px-4 py-2 rounded-xl font-semibold transition-all duration-300 transform hover:scale-105 text-sm flex-shrink-0 ${
                 hasAnsweredCurrent
                   ? 'bg-gradient-to-r from-pink-500 to-purple-500 text-white shadow-lg hover:shadow-xl'
                   : 'opacity-50 cursor-not-allowed bg-white/10 text-white border border-white/20'
               }`}>
-              Next
+              <span className="hidden sm:inline">Next</span>
+              <span className="sm:hidden">Next</span>
               <ChevronRight className="w-4 h-4 ml-1" />
             </button>
           )}

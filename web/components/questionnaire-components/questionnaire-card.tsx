@@ -84,7 +84,7 @@ export default function QuestionnaireCard({
     (question.type === 'MULTIPLE_CHOICE' || question.type === 'SELECT_ALL')
   ) {
     return (
-      <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 border border-white/20 animate-pulse">
+      <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 border border-white/20 animate-pulse max-h-[80vh] overflow-y-auto">
         <div className="space-y-4">
           <div className="h-6 bg-white/20 rounded w-3/4"></div>
           <div className="h-4 bg-white/20 rounded w-1/2"></div>
@@ -100,7 +100,7 @@ export default function QuestionnaireCard({
 
   if (error) {
     return (
-      <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 border border-white/20">
+      <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 border border-white/20 max-h-[80vh] overflow-y-auto">
         <div className="text-center text-white">
           <div className="mb-4">
             <svg
@@ -131,7 +131,7 @@ export default function QuestionnaireCard({
     };
 
     return (
-      <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 border border-white/20">
+      <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 border border-white/20 max-h-[80vh] overflow-y-auto">
         <div className="space-y-6">
           <div>
             <h3 className="text-2xl font-semibold text-white mb-2">
@@ -199,7 +199,7 @@ export default function QuestionnaireCard({
     };
 
     return (
-      <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 border border-white/20">
+      <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 border border-white/20 max-h-[80vh] overflow-y-auto">
         <div className="space-y-6">
           <div>
             <h3 className="text-2xl font-semibold text-white mb-2">
@@ -268,48 +268,52 @@ export default function QuestionnaireCard({
             </PopoverContent>
           </Popover>
 
-          {/* Cohesive selected items display with blue-purple theme */}
+          {/* Scrollable selected items display with blue-purple theme */}
           {selectedValues.length > 0 && (
             <div className="space-y-4">
-              <div className="bg-blue-900/40 backdrop-blur-sm rounded-xl p-4 border border-blue-400/40 shadow-sm">
-                <div className="flex items-center justify-between mb-3">
-                  <Label className="text-white font-semibold text-sm">
-                    Selected options:
-                  </Label>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      setSelectedValues([]);
-                      onAnswerChange?.(question.id, []);
-                    }}
-                    className="text-white bg-blue-600/80 hover:text-white hover:bg-blue-500 text-xs px-3 py-1.5 h-auto border border-blue-400/60 shadow-sm font-medium">
-                    Clear all
-                  </Button>
+              <div className="bg-blue-900/40 backdrop-blur-sm rounded-xl border border-blue-400/40 shadow-sm">
+                <div className="p-4 border-b border-blue-400/20">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-white font-semibold text-sm">
+                      Selected options ({selectedValues.length}):
+                    </Label>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setSelectedValues([]);
+                        onAnswerChange?.(question.id, []);
+                      }}
+                      className="text-white bg-blue-600/80 hover:text-white hover:bg-blue-500 text-xs px-3 py-1.5 h-auto border border-blue-400/60 shadow-sm font-medium">
+                      Clear all
+                    </Button>
+                  </div>
                 </div>
 
-                <div className="flex flex-wrap gap-2">
-                  {selectedValues.map((valueId) => {
-                    const option = questionOption?.find(
-                      (opt) => opt.id === valueId
-                    );
-                    return (
-                      <Badge
-                        key={valueId}
-                        variant="secondary"
-                        className="bg-gradient-to-r from-blue-500/80 to-purple-500/80 text-white border-blue-400/60 hover:from-blue-500/90 hover:to-purple-500/90 transition-all duration-200 px-3 py-1.5 text-sm font-semibold shadow-md">
-                        {option?.label}
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            toggleOption(valueId);
-                          }}
-                          className="text-blue-100 hover:text-white transition-colors ml-2 hover:bg-white/30 rounded-full p-0.5">
-                          <X className="h-3 w-3 stroke-2" />
-                        </button>
-                      </Badge>
-                    );
-                  })}
+                <div className="p-4 max-h-48 overflow-y-auto">
+                  <div className="flex flex-wrap gap-2">
+                    {selectedValues.map((valueId) => {
+                      const option = questionOption?.find(
+                        (opt) => opt.id === valueId
+                      );
+                      return (
+                        <Badge
+                          key={valueId}
+                          variant="secondary"
+                          className="bg-gradient-to-r from-blue-500/80 to-purple-500/80 text-white border-blue-400/60 hover:from-blue-500/90 hover:to-purple-500/90 transition-all duration-200 px-3 py-1.5 text-sm font-semibold shadow-md">
+                          {option?.label}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleOption(valueId);
+                            }}
+                            className="text-blue-100 hover:text-white transition-colors ml-2 hover:bg-white/30 rounded-full p-0.5">
+                            <X className="h-3 w-3 stroke-2" />
+                          </button>
+                        </Badge>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
             </div>
@@ -327,7 +331,7 @@ export default function QuestionnaireCard({
     };
 
     return (
-      <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 border border-white/20">
+      <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 border border-white/20 max-h-[80vh] overflow-y-auto">
         <div className="space-y-6">
           <div>
             <h3 className="text-2xl font-semibold text-white mb-2">
@@ -345,7 +349,7 @@ export default function QuestionnaireCard({
               placeholder="Type your response here..."
               value={textAnswer}
               onChange={(e) => handleTextChange(e.target.value)}
-              className="min-h-[120px] text-lg bg-white/5 border-white/20 text-white placeholder:text-blue-200/60 focus:border-pink-300/50 focus:ring-pink-300/20 resize-none"
+              className="min-h-[200px] text-lg bg-white/5 border-white/20 text-white placeholder:text-blue-200/60 focus:border-pink-300/50 focus:ring-pink-300/20 resize-none"
             />
             {textAnswer && (
               <div className="mt-3 text-right animate-fade-in">
@@ -365,7 +369,7 @@ export default function QuestionnaireCard({
   // Fallback for unknown question types
   else {
     return (
-      <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 border border-white/20">
+      <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 border border-white/20 max-h-[80vh] overflow-y-auto">
         <div className="text-center text-white">
           <div className="mb-4">
             <svg

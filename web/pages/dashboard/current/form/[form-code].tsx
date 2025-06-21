@@ -94,22 +94,24 @@ export default function FormPage({ user }: CurrentFormsPageProps) {
 
   return (
     <DashBoardLayout user={user}>
-      <div className="flex flex-col w-full max-w-full mx-auto p-6 space-y-6">
+      <div className="flex flex-col w-full max-w-full mx-auto p-3 sm:p-6 space-y-4 sm:space-y-6">
         {/* Header Section */}
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        <div className="flex flex-col space-y-4">
           <div className="space-y-2">
-            <div className="flex items-center gap-3">
-              <h1 className="text-3xl font-bold text-foreground">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+              <h1 className="text-2xl sm:text-3xl font-bold text-foreground break-words">
                 {formData || <Skeleton className="h-8 w-64" />}
               </h1>
-              <Badge variant="outline" className="text-xs">
+              <Badge variant="outline" className="text-xs w-fit">
                 {formCode}
               </Badge>
             </div>
-            <p className="text-muted-foreground">Form preview and structure</p>
+            <p className="text-muted-foreground text-sm">
+              Form preview and structure
+            </p>
           </div>
 
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-col sm:flex-row gap-2 sm:gap-2">
             <Button
               variant="outline"
               size="sm"
@@ -117,14 +119,16 @@ export default function FormPage({ user }: CurrentFormsPageProps) {
                 refetchForm();
                 refetchQuestions();
               }}
-              disabled={isPageLoading}>
+              disabled={isPageLoading}
+              className="w-full sm:w-auto">
               <RefreshCw className="w-4 h-4 mr-2" />
               Refresh
             </Button>
             <Button
               onClick={() => {
                 router.push(`/dashboard/current/form/${formCode}/edit`);
-              }}>
+              }}
+              className="w-full sm:w-auto">
               <Edit className="w-4 h-4 mr-2" />
               Edit Form
             </Button>
@@ -132,30 +136,29 @@ export default function FormPage({ user }: CurrentFormsPageProps) {
         </div>
 
         {/* Navigation Tabs */}
-
         <Tabs className="w-full" defaultValue="forms">
-          <TabsList className="h-12 p-1 bg-muted/50 rounded-lg w-full justify-start">
+          <TabsList className="h-12 p-1 bg-muted/50 rounded-lg w-full">
             <TabsTrigger
               value="forms"
               onClick={() => router.push(`/dashboard/current/form/${formCode}`)}
-              className="flex items-center gap-2 h-10 px-6 rounded-md font-medium transition-all data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-foreground">
+              className="flex items-center gap-2 h-10 px-3 sm:px-6 rounded-md font-medium transition-all data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-foreground flex-1">
               <FileText className="w-4 h-4" />
-              Forms
+              <span className="hidden xs:inline">Forms</span>
             </TabsTrigger>
             <TabsTrigger
               value="applicants"
               onClick={() =>
                 router.push(`/dashboard/current/applicants/${formCode}`)
               }
-              className="flex items-center gap-2 h-10 px-6 rounded-md font-medium transition-all data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-foreground">
+              className="flex items-center gap-2 h-10 px-3 sm:px-6 rounded-md font-medium transition-all data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-foreground flex-1">
               <Users className="w-4 h-4" />
-              Applicants
+              <span className="hidden xs:inline">Applicants</span>
             </TabsTrigger>
           </TabsList>
         </Tabs>
 
         {/* Statistics Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
@@ -192,7 +195,7 @@ export default function FormPage({ user }: CurrentFormsPageProps) {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="sm:col-span-1 col-span-1">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
                 <Users className="w-4 h-4" />

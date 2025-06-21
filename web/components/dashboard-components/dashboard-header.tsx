@@ -20,7 +20,7 @@ import {
   DialogDescription
 } from '@/components/ui/dialog';
 import { useState, useEffect } from 'react';
-import { Edit, Plus, LogOut } from 'lucide-react';
+import { Edit, Plus, LogOut, Clock } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Calendar } from '@/components/ui/calendar';
 import {
@@ -51,11 +51,13 @@ export default function DashboardHeader({ user }: DashboardHeaderProps) {
   const [description, setDescription] = useState<string | undefined>(undefined);
   const [code, setCode] = useState('');
   const [deadline, setDeadline] = useState<Date | undefined>(new Date());
+  const [deadlineTime, setDeadlineTime] = useState('23:59'); // Default to end of day
   const [isCreatingForm, setIsCreatingForm] = useState(false);
 
   useEffect(() => {
     if (!createFormOpen) {
       setDeadline(undefined);
+      setDeadlineTime('23:59');
       // Reset form when dialog closes
       setTitle('');
       setDescription(undefined);
@@ -85,6 +87,17 @@ export default function DashboardHeader({ user }: DashboardHeaderProps) {
     router.push('/login');
   };
 
+  // Helper function to combine date and time
+  const getDeadlineWithTime = () => {
+    if (!deadline) return undefined;
+
+    const [hours, minutes] = deadlineTime.split(':').map(Number);
+    const deadlineWithTime = new Date(deadline);
+    deadlineWithTime.setHours(hours, minutes, 0, 0);
+
+    return deadlineWithTime;
+  };
+
   const handleCreateForm = async () => {
     if (!title || !code) {
       toast('Please fill in required fields', {
@@ -103,13 +116,16 @@ export default function DashboardHeader({ user }: DashboardHeaderProps) {
         return;
       }
 
+      // Get the deadline with time combined
+      const finalDeadline = getDeadlineWithTime();
+
       // Create the form
       const form = await createForm(
         supabase,
         user.id,
         code,
         description,
-        deadline,
+        finalDeadline,
         title
       );
 
@@ -157,6 +173,21 @@ export default function DashboardHeader({ user }: DashboardHeaderProps) {
     setRenameText(organization?.name ?? '');
     setUpdateAffiliation(organization?.affiliation ?? '');
   }, [organization]);
+
+  // Format display text for deadline
+  const getDeadlineDisplayText = () => {
+    if (!deadline) return 'Select a deadline';
+
+    const finalDeadline = getDeadlineWithTime();
+    return finalDeadline?.toLocaleString('en-US', {
+      weekday: 'short',
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
 
   return (
     <header className="relative bg-gradient-to-r from-purple-900/80 via-blue-900/80 to-pink-900/80 backdrop-blur-xl border-b border-white/10 shadow-2xl">
@@ -332,31 +363,54 @@ export default function DashboardHeader({ user }: DashboardHeaderProps) {
                   <Label
                     htmlFor="deadline"
                     className="text-blue-100 font-semibold">
-                    Deadline (Form&apos;s closing date / Optional)
+                    Deadline (Form&apos;s closing date & time / Optional)
                   </Label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className="bg-white/10 backdrop-blur-lg border border-white/20 text-white hover:bg-white/20 justify-start">
-                        {deadline ? (
-                          deadline.toDateString()
-                        ) : (
-                          <span>Select a deadline</span>
-                        )}
-                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="bg-gradient-to-br from-slate-900/95 to-purple-900/95 backdrop-blur-xl border border-white/20">
-                      <Calendar
-                        mode="single"
-                        selected={deadline}
-                        onSelect={setDeadline}
-                        disabled={(date) => date < new Date()}
-                        className="text-white"
-                      />
-                    </PopoverContent>
-                  </Popover>
+                  <div className="space-y-2">
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className="bg-white/10 backdrop-blur-lg border border-white/20 text-white hover:bg-white/20 justify-start w-full">
+                          <CalendarIcon className="mr-2 h-4 w-4 opacity-50" />
+                          {getDeadlineDisplayText()}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="bg-gradient-to-br from-slate-900/95 to-purple-900/95 backdrop-blur-xl border border-white/20 w-auto p-0">
+                        <div className="p-4">
+                          <Calendar
+                            mode="single"
+                            selected={deadline}
+                            onSelect={setDeadline}
+                            disabled={(date) => {
+                              const today = new Date();
+                              today.setHours(0, 0, 0, 0);
+                              return date < today;
+                            }}
+                            className="text-white"
+                          />
+                          {deadline && (
+                            <div className="mt-4 pt-4 border-t border-white/20">
+                              <Label className="text-blue-100 font-semibold text-sm mb-2 block">
+                                <Clock className="inline w-4 h-4 mr-1" />
+                                Set Time
+                              </Label>
+                              <Input
+                                type="time"
+                                value={deadlineTime}
+                                onChange={(e) =>
+                                  setDeadlineTime(e.target.value)
+                                }
+                                className="bg-white/10 backdrop-blur-lg border border-white/20 text-white focus:border-pink-500/50 focus:ring-pink-500/20"
+                              />
+                              <p className="text-xs text-blue-200/70 mt-2">
+                                Final deadline: {getDeadlineDisplayText()}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
                 </div>
               </div>
               <DialogFooter>
@@ -384,7 +438,7 @@ export default function DashboardHeader({ user }: DashboardHeaderProps) {
             variant="destructive"
             onClick={handleLogout}
             className="whitespace-nowrap bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 border-0">
-            <LogOut className="w-4 h-4 mr-2" />
+            <LogOut className="w-4 w-4 mr-2" />
             Logout
           </Button>
         </div>
