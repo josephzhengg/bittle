@@ -213,12 +213,6 @@ export default function FormCard({ form }: FormCardProps) {
     return 'Deadline';
   };
 
-  const getCardGlow = () => {
-    if (isDeadlinePassed()) return 'shadow-red-200/30';
-    if (isDeadlineApproaching()) return 'shadow-amber-200/30';
-    return 'shadow-purple-200/30';
-  };
-
   const getStatusBarColor = () => {
     if (isDeadlinePassed()) return 'bg-gradient-to-r from-red-400 to-pink-400';
     if (isDeadlineApproaching())
@@ -227,13 +221,9 @@ export default function FormCard({ form }: FormCardProps) {
   };
 
   return (
-    <div className="relative group">
-      {/* Card glow effect */}
-      <div
-        className={`absolute -inset-0.5 bg-gradient-to-r from-purple-200/20 via-pink-200/20 to-blue-200/20 rounded-2xl blur opacity-0 group-hover:opacity-100 transition-all duration-500 ${getCardGlow()}`}></div>
-
+    <div className="w-full my-3">
       <Card
-        className={`relative bg-white/80 backdrop-blur-sm border border-slate-200 rounded-xl overflow-hidden w-full my-3 hover:bg-white/90 transition-all duration-300 hover:scale-[1.01] hover:shadow-lg shadow-sm ${
+        className={`relative bg-white/80 border border-slate-200 rounded-xl overflow-hidden w-full hover:bg-white/90 transition-all duration-300 hover:scale-[1.01] hover:shadow-lg shadow-sm ${
           !isEditModalOpen && !isDeleteModalOpen && !preventNavigation
             ? 'cursor-pointer'
             : ''

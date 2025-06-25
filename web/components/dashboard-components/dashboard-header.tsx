@@ -31,7 +31,7 @@ import {
 import { Calendar as CalendarIcon } from 'lucide-react';
 import { createForm, getCodes } from '@/utils/supabase/queries/form';
 import { createTemplateQuestions } from '@/utils/supabase/queries/question';
-import { MobileNav } from './mobile-nav';
+import { MobileNav } from '@/components/dashboard-components/mobile-nav';
 
 export type DashboardHeaderProps = {
   user: User;
@@ -438,7 +438,7 @@ export default function DashboardHeader({ user }: DashboardHeaderProps) {
             variant="destructive"
             onClick={handleLogout}
             className="whitespace-nowrap bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 border-0">
-            <LogOut className="w-4 w-4 mr-2" />
+            <LogOut className="w-4 mr-2" />
             Logout
           </Button>
         </div>
