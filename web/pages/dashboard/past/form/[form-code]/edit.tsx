@@ -525,7 +525,7 @@ export default function EditPage({ user }: EditPageProps) {
   }, [reorderTimeout]);
 
   const exitEdit = () => {
-    router.push(`/dashboard/current/form/${formCode}`);
+    router.push(`/dashboard/past/form/${formCode}`);
   };
 
   if (isLoading) {

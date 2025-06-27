@@ -1,27 +1,22 @@
 import DashBoardLayout from '@/components/layouts/dashboard-layout';
-import { useSupabase } from '@/lib/supabase';
 import type { User } from '@supabase/supabase-js';
 import { createSupabaseServerClient } from '@/utils/supabase/clients/server-props';
 import { GetServerSidePropsContext } from 'next';
 import { getForms } from '@/utils/supabase/queries/form';
-import { useQuery } from '@tanstack/react-query';
 import FormCard from '@/components/dashboard-components/form-card';
 import { FileText } from 'lucide-react';
 
+type Form = Awaited<ReturnType<typeof getForms>>[0];
+
 export type PastFormsPageProps = {
   user: User;
+  formsData: Form[];
 };
 
-export default function PastFormsPage({ user }: PastFormsPageProps) {
-  const supabase = useSupabase();
-
-  const { data: formData, isLoading } = useQuery({
-    queryKey: ['form'],
-    queryFn: async () => getForms(supabase, user.id)
-  });
-
-  const activeFormsData = formData
-    ?.filter((form) => !form.deadline || new Date(form.deadline) < new Date())
+export default function PastFormsPage({ user, formsData }: PastFormsPageProps) {
+  // Filter for expired/past forms and sort by newest first
+  const pastFormsData = formsData
+    ?.filter((form) => form.deadline && new Date(form.deadline) < new Date())
     .sort((a, b) => {
       const dateA = new Date(a.created_at);
       const dateB = new Date(b.created_at);
@@ -37,39 +32,14 @@ export default function PastFormsPage({ user }: PastFormsPageProps) {
             Your Past Forms
           </h1>
           <p className="text-slate-600">
-            Manage and view all your active forms in one place
+            Review and manage all your expired forms
           </p>
         </div>
 
         {/* Forms Grid */}
-        {isLoading ? (
+        {pastFormsData && pastFormsData.length > 0 ? (
           <div className="space-y-4">
-            {/* Loading skeleton */}
-            {[...Array(3)].map((_, i) => (
-              <div key={i} className="animate-pulse">
-                <div className="bg-white/60 rounded-xl border border-slate-200 p-6">
-                  <div className="flex items-center gap-6">
-                    <div className="flex-1">
-                      <div className="w-16 h-1 bg-slate-300 rounded-full mb-3"></div>
-                      <div className="h-6 bg-slate-300 rounded mb-2 w-2/3"></div>
-                      <div className="h-4 bg-slate-200 rounded mb-4 w-full"></div>
-                      <div className="flex gap-4">
-                        <div className="h-3 bg-slate-200 rounded w-32"></div>
-                        <div className="h-3 bg-slate-200 rounded w-28"></div>
-                      </div>
-                    </div>
-                    <div className="flex flex-col gap-3">
-                      <div className="w-8 h-8 bg-slate-200 rounded-lg"></div>
-                      <div className="w-24 h-9 bg-slate-200 rounded"></div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : activeFormsData && activeFormsData.length > 0 ? (
-          <div className="space-y-4">
-            {activeFormsData.map((form) => (
+            {pastFormsData.map((form) => (
               <FormCard key={form.id} form={form} />
             ))}
           </div>
@@ -79,16 +49,16 @@ export default function PastFormsPage({ user }: PastFormsPageProps) {
               <FileText className="w-10 h-10 text-purple-600" />
             </div>
             <h3 className="text-xl font-semibold text-slate-800 mb-2">
-              No active forms
+              No past forms
             </h3>
             <p className="text-slate-600 mb-6 max-w-md mx-auto">
-              You don&#39;t have any active forms at the moment.
+              You don&#39;t have any expired forms at the moment.
             </p>
           </div>
         )}
 
         {/* Statistics Section */}
-        {formData && formData.length > 0 && (
+        {formsData && formsData.length > 0 && (
           <div className="mt-8 p-6 bg-white/60 backdrop-blur-sm rounded-xl border border-slate-200">
             <h2 className="text-lg font-semibold text-slate-800 mb-4">
               Quick Stats
@@ -96,14 +66,14 @@ export default function PastFormsPage({ user }: PastFormsPageProps) {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="text-center p-4 bg-white/50 rounded-lg border border-slate-100">
                 <div className="text-2xl font-bold text-purple-600">
-                  {formData.length}
+                  {formsData.length}
                 </div>
                 <div className="text-sm text-slate-600">Total Forms</div>
               </div>
               <div className="text-center p-4 bg-white/50 rounded-lg border border-slate-100">
                 <div className="text-2xl font-bold text-green-600">
                   {
-                    formData.filter(
+                    formsData.filter(
                       (form) =>
                         !form.deadline || new Date(form.deadline) > new Date()
                     ).length
@@ -114,7 +84,7 @@ export default function PastFormsPage({ user }: PastFormsPageProps) {
               <div className="text-center p-4 bg-white/50 rounded-lg border border-slate-100">
                 <div className="text-2xl font-bold text-red-600">
                   {
-                    formData.filter(
+                    formsData.filter(
                       (form) =>
                         form.deadline && new Date(form.deadline) < new Date()
                     ).length
@@ -132,6 +102,8 @@ export default function PastFormsPage({ user }: PastFormsPageProps) {
 
 export async function getServerSideProps(context: GetServerSidePropsContext) {
   const supabase = createSupabaseServerClient(context);
+
+  // Get user
   const { data: userData, error } = await supabase.auth.getUser();
 
   if (!userData || error) {
@@ -143,9 +115,18 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
     };
   }
 
+  let formsData: Form[] = [];
+  try {
+    formsData = await getForms(supabase, userData.user.id);
+  } catch (error) {
+    console.error('Error fetching forms:', error);
+    formsData = [];
+  }
+
   return {
     props: {
-      user: userData.user
+      user: userData.user,
+      formsData: formsData || []
     }
   };
 }

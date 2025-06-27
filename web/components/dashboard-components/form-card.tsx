@@ -46,10 +46,10 @@ export default function FormCard({ form }: FormCardProps) {
   const router = useRouter();
   const supabase = useSupabase();
   const queryUtils = useQueryClient();
+
   // Edit modal state
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-
   // Add a small delay to prevent immediate navigation after dialog closes
   const [preventNavigation, setPreventNavigation] = useState(false);
 
@@ -117,10 +117,8 @@ export default function FormCard({ form }: FormCardProps) {
       // Update all fields
       await updateTitle(supabase, form.id, editTitle.trim());
       await updateDescription(supabase, form.id, editDescription.trim());
-
       const deadline = getDeadlineWithTime();
       await updateDeadline(supabase, form.id, deadline);
-
       toast('Form updated successfully!');
       setIsEditModalOpen(false);
       queryUtils.refetchQueries({ queryKey: ['form'] });
@@ -148,10 +146,24 @@ export default function FormCard({ form }: FormCardProps) {
     setIsEditModalOpen(false);
   };
 
+  // Helper function to check if form is still active (not expired)
+  const isFormActive = () => {
+    if (!form.deadline) return true; // No deadline means always active
+    const now = new Date();
+    const deadline = new Date(form.deadline);
+    return deadline.getTime() >= now.getTime(); // Active if deadline hasn't passed
+  };
+
   const handleCardClick = () => {
     // Only navigate if no modals are open, no prevention flag, and click is on the card itself
     if (!isEditModalOpen && !isDeleteModalOpen && !preventNavigation) {
-      router.push(`/dashboard/current/form/${form.code}`);
+      if (isFormActive()) {
+        // Form is still active - go to current forms view
+        router.push(`/dashboard/current/form/${form.code}`);
+      } else {
+        // Form has expired - go to past forms view
+        router.push(`/dashboard/past/form/${form.code}`);
+      }
     }
   };
 
@@ -314,7 +326,6 @@ export default function FormCard({ form }: FormCardProps) {
                     Update the form details below.
                   </DialogDescription>
                 </DialogHeader>
-
                 <div className="space-y-4 py-4">
                   {/* Title Field */}
                   <div className="space-y-2">
@@ -404,7 +415,6 @@ export default function FormCard({ form }: FormCardProps) {
                     </div>
                   </div>
                 </div>
-
                 <DialogFooter className="gap-2">
                   <Button
                     variant="outline"
@@ -414,6 +424,7 @@ export default function FormCard({ form }: FormCardProps) {
                   </Button>
                   <Button
                     onClick={handleSaveForm}
+                    disabled={!editTitle.trim()}
                     className="bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
                     Save Changes
                   </Button>

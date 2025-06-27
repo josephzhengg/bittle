@@ -8,23 +8,32 @@ import { useQuery } from '@tanstack/react-query';
 import FormCard from '@/components/dashboard-components/form-card';
 import { FileText } from 'lucide-react';
 
+type Form = Awaited<ReturnType<typeof getForms>>[0];
+
 export type CurrentFormsPageProps = {
   user: User;
+  initialFormsData: Form[];
 };
 
-export default function CurrentFormsPage({ user }: CurrentFormsPageProps) {
+export default function CurrentFormsPage({
+  user,
+  initialFormsData
+}: CurrentFormsPageProps) {
   const supabase = useSupabase();
 
-  const { data: formData, isLoading } = useQuery({
+  // Use server data as initial data, but enable real-time updates
+  const { data: formsData = initialFormsData } = useQuery({
     queryKey: ['form'],
-    queryFn: async () => getForms(supabase, user.id)
+    queryFn: async () => getForms(supabase, user.id),
+    initialData: initialFormsData, // Start with server data
+    staleTime: 30 * 1000, // Consider fresh for 30 seconds
+    refetchOnWindowFocus: true // Refetch when user returns to tab
   });
 
-  // Filter out expired forms and sort by newest first
-  const activeFormsData = formData
+  // Filter and sort logic
+  const activeFormsData = formsData
     ?.filter((form) => !form.deadline || new Date(form.deadline) > new Date())
     .sort((a, b) => {
-      // Sort by created_at in descending order (newest first)
       const dateA = new Date(a.created_at);
       const dateB = new Date(b.created_at);
       return dateB.getTime() - dateA.getTime();
@@ -43,33 +52,8 @@ export default function CurrentFormsPage({ user }: CurrentFormsPageProps) {
           </p>
         </div>
 
-        {/* Forms Grid */}
-        {isLoading ? (
-          <div className="space-y-4">
-            {/* Loading skeleton */}
-            {[...Array(3)].map((_, i) => (
-              <div key={i} className="animate-pulse">
-                <div className="bg-white/60 rounded-xl border border-slate-200 p-6">
-                  <div className="flex items-center gap-6">
-                    <div className="flex-1">
-                      <div className="w-16 h-1 bg-slate-300 rounded-full mb-3"></div>
-                      <div className="h-6 bg-slate-300 rounded mb-2 w-2/3"></div>
-                      <div className="h-4 bg-slate-200 rounded mb-4 w-full"></div>
-                      <div className="flex gap-4">
-                        <div className="h-3 bg-slate-200 rounded w-32"></div>
-                        <div className="h-3 bg-slate-200 rounded w-28"></div>
-                      </div>
-                    </div>
-                    <div className="flex flex-col gap-3">
-                      <div className="w-8 h-8 bg-slate-200 rounded-lg"></div>
-                      <div className="w-24 h-9 bg-slate-200 rounded"></div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : activeFormsData && activeFormsData.length > 0 ? (
+        {/* Forms Grid - Renders instantly with server data */}
+        {activeFormsData && activeFormsData.length > 0 ? (
           <div className="space-y-4">
             {activeFormsData.map((form) => (
               <FormCard key={form.id} form={form} />
@@ -90,7 +74,7 @@ export default function CurrentFormsPage({ user }: CurrentFormsPageProps) {
         )}
 
         {/* Statistics Section */}
-        {formData && formData.length > 0 && (
+        {formsData && formsData.length > 0 && (
           <div className="mt-8 p-6 bg-white/60 backdrop-blur-sm rounded-xl border border-slate-200">
             <h2 className="text-lg font-semibold text-slate-800 mb-4">
               Quick Stats
@@ -98,14 +82,14 @@ export default function CurrentFormsPage({ user }: CurrentFormsPageProps) {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="text-center p-4 bg-white/50 rounded-lg border border-slate-100">
                 <div className="text-2xl font-bold text-purple-600">
-                  {formData.length}
+                  {formsData.length}
                 </div>
                 <div className="text-sm text-slate-600">Total Forms</div>
               </div>
               <div className="text-center p-4 bg-white/50 rounded-lg border border-slate-100">
                 <div className="text-2xl font-bold text-green-600">
                   {
-                    formData.filter(
+                    formsData.filter(
                       (form) =>
                         !form.deadline || new Date(form.deadline) > new Date()
                     ).length
@@ -116,7 +100,7 @@ export default function CurrentFormsPage({ user }: CurrentFormsPageProps) {
               <div className="text-center p-4 bg-white/50 rounded-lg border border-slate-100">
                 <div className="text-2xl font-bold text-red-600">
                   {
-                    formData.filter(
+                    formsData.filter(
                       (form) =>
                         form.deadline && new Date(form.deadline) < new Date()
                     ).length
@@ -134,6 +118,7 @@ export default function CurrentFormsPage({ user }: CurrentFormsPageProps) {
 
 export async function getServerSideProps(context: GetServerSidePropsContext) {
   const supabase = createSupabaseServerClient(context);
+
   const { data: userData, error } = await supabase.auth.getUser();
 
   if (!userData || error) {
@@ -145,9 +130,18 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
     };
   }
 
+  let initialFormsData: Form[] = [];
+  try {
+    initialFormsData = await getForms(supabase, userData.user.id);
+  } catch (error) {
+    console.error('Error fetching forms:', error);
+    initialFormsData = [];
+  }
+
   return {
     props: {
-      user: userData.user
+      user: userData.user,
+      initialFormsData: initialFormsData || []
     }
   };
 }
