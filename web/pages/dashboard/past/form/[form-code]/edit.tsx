@@ -10,7 +10,10 @@ import {
   reorderQuestions
 } from '@/utils/supabase/queries/question';
 import { useEffect } from 'react';
-import { getFormIdByCode } from '@/utils/supabase/queries/form';
+import {
+  getFormIdByCode,
+  getFormDeadline
+} from '@/utils/supabase/queries/form';
 import { useSupabase } from '@/lib/supabase';
 import { useRouter } from 'next/router';
 import { z } from 'zod';
@@ -655,6 +658,46 @@ export default function EditPage({ user }: EditPageProps) {
 export async function getServerSideProps(context: GetServerSidePropsContext) {
   const supabase = createSupabaseServerClient(context);
   const { data: userData, error } = await supabase.auth.getUser();
+
+  const { 'form-code': formCode } = context.query;
+  const currentPath = context.resolvedUrl;
+
+  // Validate form code first
+  if (!formCode || typeof formCode !== 'string') {
+    return {
+      props: {
+        user: userData.user,
+        initialFormData: null,
+        error: 'Invalid form code'
+      }
+    };
+  }
+
+  try {
+    const deadline = await getFormDeadline(supabase, formCode);
+    const now = new Date();
+    const isDeadlinePassed = deadline ? new Date(deadline) < now : false;
+
+    if (currentPath.includes('/dashboard/past/form/') && !isDeadlinePassed) {
+      return {
+        redirect: {
+          destination: `/dashboard/current/form/${formCode}/edit`,
+          permanent: false
+        }
+      };
+    }
+
+    if (currentPath.includes('/dashboard/current/form/') && isDeadlinePassed) {
+      return {
+        redirect: {
+          destination: `/dashboard/past/form/${formCode}/edit`,
+          permanent: false
+        }
+      };
+    }
+  } catch (error) {
+    console.error('Error checking form deadline:', error);
+  }
 
   if (!userData || error) {
     return {

@@ -11,7 +11,7 @@ import {
 import Link from 'next/link';
 import { MoveRight } from 'lucide-react';
 import { useState } from 'react';
-import { getFormIdByCode } from '@/utils/supabase/queries/form';
+import { getFormByCode } from '@/utils/supabase/queries/form';
 import { useSupabase } from '@/lib/supabase';
 import { toast } from 'sonner';
 import { useRouter } from 'next/router';
@@ -23,8 +23,15 @@ export default function InputCodePage() {
 
   const handleFetchForm = async () => {
     try {
-      await getFormIdByCode(supabase, inputCode);
-      router.push(`/input-code/${inputCode}`);
+      const formData = await getFormByCode(supabase, inputCode);
+      if (formData.deadline && new Date(formData.deadline) < new Date()) {
+        toast(
+          'This form has expired. If you think this is a mistake, please contact your organization.'
+        );
+        return;
+      } else {
+        router.push(`/input-code/${inputCode}`);
+      }
     } catch {
       toast('Invalid code, please try again.');
     }
@@ -66,7 +73,14 @@ export default function InputCodePage() {
             </CardHeader>
 
             <CardContent className="space-y-6 px-6">
-              <div className="flex flex-col gap-4">
+              <form
+                className="flex flex-col gap-4"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (inputCode.length > 0) {
+                    handleFetchForm();
+                  }
+                }}>
                 <div className="w-full">
                   <Input
                     type="text"
@@ -74,24 +88,19 @@ export default function InputCodePage() {
                     className="w-full px-4 sm:px-6 py-4 text-lg bg-white/90 border-2 border-white/40 text-gray-900 placeholder:text-gray-500 rounded-xl backdrop-blur-lg focus:bg-white focus:border-pink-400 focus:ring-2 focus:ring-pink-400/20 transition-all duration-300 font-medium"
                     value={inputCode}
                     onChange={(e) => setInputCode(e.target.value.toUpperCase())}
-                    onKeyPress={(e) => {
-                      if (e.key === 'Enter' && inputCode.length > 0) {
-                        handleFetchForm();
-                      }
-                    }}
                   />
                 </div>
                 <Button
-                  onClick={handleFetchForm}
+                  type="submit"
                   disabled={inputCode.length < 1}
                   className="w-full sm:w-auto px-8 py-4 text-lg bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 disabled:from-gray-500 disabled:to-gray-600 border-0 rounded-xl shadow-lg hover:shadow-xl transform transition-all duration-300 hover:scale-105 disabled:scale-100 disabled:cursor-not-allowed disabled:opacity-50 font-semibold">
                   <MoveRight className="w-5 h-5 mr-2" />
                   Continue
                 </Button>
-              </div>
+              </form>
 
               <div className="text-center">
-                <Label className="text-blue-100 font-medium text-base">
+                <Label className="text-blue-100 font-medium text-base justify-center">
                   Fun awaits in your family! 🎉
                 </Label>
               </div>

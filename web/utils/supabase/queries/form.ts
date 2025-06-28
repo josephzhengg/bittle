@@ -250,3 +250,19 @@ export const updateDescription = async (
     throw new Error(`Error updating form description: ${updateError.message}`);
   }
 };
+
+export const getFormDeadline = async (
+  supabase: SupabaseClient,
+  form_code: string
+): Promise<Date | null> => {
+  const { data: deadlineData, error: deadlineError } = await supabase
+    .from('form')
+    .select('deadline')
+    .eq('code', form_code)
+    .single();
+
+  if (deadlineError || !deadlineData) {
+    throw new Error(`Error fetching form deadline: ${deadlineError?.message}`);
+  }
+  return deadlineData.deadline ? new Date(deadlineData.deadline) : null;
+};

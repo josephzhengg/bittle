@@ -11,10 +11,14 @@ import {
   CardTitle
 } from '@/components/ui/card';
 import { useSupabase } from '@/lib/supabase';
-import { Edit, Users, FileText, Eye, RefreshCw } from 'lucide-react';
+import { Users, FileText, Eye, RefreshCw } from 'lucide-react';
 import ReadOnlyQuestionCard from '@/components/question-components/read-only-question-card';
 import { createSupabaseServerClient } from '@/utils/supabase/clients/server-props';
-import { getFormTitle, getFormIdByCode } from '@/utils/supabase/queries/form';
+import {
+  getFormTitle,
+  getFormIdByCode,
+  getFormDeadline
+} from '@/utils/supabase/queries/form';
 import { getQuestions } from '@/utils/supabase/queries/question';
 import type { User } from '@supabase/supabase-js';
 import { useQuery } from '@tanstack/react-query';
@@ -24,7 +28,7 @@ import { z } from 'zod';
 import { useMemo, useState } from 'react';
 import { Question } from '@/utils/supabase/models/question';
 
-export type CurrentFormsPageProps = {
+export type PastFormsPageProps = {
   user: User;
   initialFormData: {
     title: string;
@@ -35,11 +39,11 @@ export type CurrentFormsPageProps = {
   error?: string;
 };
 
-export default function FormPage({
+export default function PastFormPage({
   user,
   initialFormData,
   error
-}: CurrentFormsPageProps) {
+}: PastFormsPageProps) {
   const router = useRouter();
   const supabase = useSupabase();
   const { 'form-code': formCode } = router.query;
@@ -133,7 +137,7 @@ export default function FormPage({
                     <FileText className="w-8 h-8 text-destructive" />
                   </div>
                   <h3 className="text-lg font-semibold mb-2">
-                    Error Loading Form
+                    Error Loading Past Form
                   </h3>
                   <p className="text-muted-foreground text-sm mb-4">{error}</p>
                   <Button onClick={() => router.reload()}>
@@ -181,14 +185,6 @@ export default function FormPage({
                 className={`w-4 h-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`}
               />
               {isRefreshing ? 'Refreshing...' : 'Refresh'}
-            </Button>
-            <Button
-              onClick={() => {
-                router.push(`/dashboard/past/form/${formCode}/edit`);
-              }}
-              className="w-full sm:w-auto">
-              <Edit className="w-4 h-4 mr-2" />
-              Edit Questions
             </Button>
           </div>
         </div>
@@ -286,10 +282,10 @@ export default function FormPage({
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Eye className="w-5 h-5" />
-              Form Preview
+              Past Form Preview
             </CardTitle>
             <CardDescription>
-              This is how your form will appear to respondents
+              This form is now closed. This is how it appeared to respondents.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -320,18 +316,11 @@ export default function FormPage({
                     <FileText className="w-8 h-8 text-muted-foreground" />
                   </div>
                   <h3 className="text-lg font-semibold mb-2">
-                    No questions yet
+                    No questions found
                   </h3>
-                  <p className="text-muted-foreground text-sm mb-4">
-                    Get started by adding questions to your form.
+                  <p className="text-muted-foreground text-sm">
+                    This past form doesn&#39;t contain any questions.
                   </p>
-                  <Button
-                    onClick={() => {
-                      router.push(`/dashboard/past/form/${formCode}/edit`);
-                    }}>
-                    <Edit className="w-4 h-4 mr-2" />
-                    Add Questions
-                  </Button>
                 </div>
               </div>
             )}
@@ -356,8 +345,9 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
   }
 
   const { 'form-code': formCode } = context.query;
+  const currentPath = context.resolvedUrl;
 
-  // Validate form code
+  // Validate form code first
   if (!formCode || typeof formCode !== 'string') {
     return {
       props: {
@@ -366,6 +356,36 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
         error: 'Invalid form code'
       }
     };
+  }
+
+  // Check deadline to determine if we should redirect between past/current routes
+  try {
+    const deadline = await getFormDeadline(supabase, formCode);
+    const now = new Date();
+    const isDeadlinePassed = deadline ? new Date(deadline) < now : false;
+
+    // If accessing past route but deadline hasn't passed, redirect to current
+    if (currentPath.includes('/dashboard/past/form/') && !isDeadlinePassed) {
+      return {
+        redirect: {
+          destination: `/dashboard/current/form/${formCode}`,
+          permanent: false
+        }
+      };
+    }
+
+    // If accessing current route but deadline has passed, redirect to past
+    if (currentPath.includes('/dashboard/current/form/') && isDeadlinePassed) {
+      return {
+        redirect: {
+          destination: `/dashboard/past/form/${formCode}`,
+          permanent: false
+        }
+      };
+    }
+  } catch (error) {
+    console.error('Error checking form deadline:', error);
+    // Continue without redirect if deadline check fails
   }
 
   try {

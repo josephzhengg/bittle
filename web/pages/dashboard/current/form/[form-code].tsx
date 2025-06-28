@@ -14,7 +14,11 @@ import { useSupabase } from '@/lib/supabase';
 import { Edit, Users, FileText, Eye, RefreshCw } from 'lucide-react';
 import ReadOnlyQuestionCard from '@/components/question-components/read-only-question-card';
 import { createSupabaseServerClient } from '@/utils/supabase/clients/server-props';
-import { getFormTitle, getFormIdByCode } from '@/utils/supabase/queries/form';
+import {
+  getFormTitle,
+  getFormIdByCode,
+  getFormDeadline
+} from '@/utils/supabase/queries/form';
 import { getQuestions } from '@/utils/supabase/queries/question';
 import type { User } from '@supabase/supabase-js';
 import { useQuery } from '@tanstack/react-query';
@@ -356,8 +360,9 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
   }
 
   const { 'form-code': formCode } = context.query;
+  const currentPath = context.resolvedUrl;
 
-  // Validate form code
+  // Validate form code first
   if (!formCode || typeof formCode !== 'string') {
     return {
       props: {
@@ -366,6 +371,36 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
         error: 'Invalid form code'
       }
     };
+  }
+
+  // Check deadline to determine if we should redirect between past/current routes
+  try {
+    const deadline = await getFormDeadline(supabase, formCode);
+    const now = new Date();
+    const isDeadlinePassed = deadline ? new Date(deadline) < now : false;
+
+    // If accessing past route but deadline hasn't passed, redirect to current
+    if (currentPath.includes('/dashboard/past/form/') && !isDeadlinePassed) {
+      return {
+        redirect: {
+          destination: `/dashboard/current/form/${formCode}`,
+          permanent: false
+        }
+      };
+    }
+
+    // If accessing current route but deadline has passed, redirect to past
+    if (currentPath.includes('/dashboard/current/form/') && isDeadlinePassed) {
+      return {
+        redirect: {
+          destination: `/dashboard/past/form/${formCode}`,
+          permanent: false
+        }
+      };
+    }
+  } catch (error) {
+    console.error('Error checking form deadline:', error);
+    // Continue without redirect if deadline check fails
   }
 
   try {

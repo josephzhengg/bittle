@@ -34,9 +34,15 @@ export default function LoginCard({ supabase, router }: LoginCardProps) {
     });
     setIsLoading(false);
     if (error) {
-      toast(error.message);
+      toast('Invalid email or password. Please try again.');
     } else {
       router.push('/');
+    }
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !isLoading) {
+      logIn();
     }
   };
 
@@ -68,6 +74,7 @@ export default function LoginCard({ supabase, router }: LoginCardProps) {
                 placeholder="johndoe@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                onKeyPress={handleKeyPress}
                 className="h-14 text-lg bg-gray-50 border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:bg-white transition-all duration-200 px-4"
               />
             </div>
@@ -85,6 +92,7 @@ export default function LoginCard({ supabase, router }: LoginCardProps) {
                 placeholder="Your password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                onKeyPress={handleKeyPress}
                 className="h-14 pr-14 text-lg bg-gray-50 border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:bg-white transition-all duration-200 px-4"
               />
               <Button
