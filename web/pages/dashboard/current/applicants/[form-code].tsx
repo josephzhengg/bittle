@@ -355,7 +355,7 @@ export default function FormPage({
                 onClick={() =>
                   router.push(`/dashboard/current/form/${formCode}`)
                 }
-                className="flex items-center gap-2 h-10 px-3 sm:px-6 rounded-md font-medium transition-all data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-slate-800 text-slate-600 hover:text-slate-800">
+                className="flex items-center gap-2 h-10 px-3 sm:px-6 rounded-md font-medium transition-all data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-slate-800 text-slate-600 hover:text-slate-800">
                 <FileText className="w-4 h-4" />
                 <span className="hidden xs:inline">Forms</span>
               </TabsTrigger>
@@ -364,7 +364,7 @@ export default function FormPage({
                 onClick={() =>
                   router.push(`/dashboard/current/applicants/${formCode}`)
                 }
-                className="flex items-center gap-2 h-10 px-3 sm:px-6 rounded-md font-medium transition-all data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-slate-800 text-slate-600 hover:text-slate-800">
+                className="flex items-center gap-2 h-10 px-3 sm:px-6 rounded-md font-medium transition-all data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-slate-800 text-slate-600 hover:text-slate-800">
                 <Users className="w-4 h-4" />
                 <span className="hidden xs:inline">Applicants</span>
               </TabsTrigger>

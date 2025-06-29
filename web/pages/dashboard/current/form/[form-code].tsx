@@ -181,9 +181,7 @@ export default function FormPage({
               disabled={isPageLoading || isRefreshing}
               className="w-full sm:w-auto sm:min-w-[120px]">
               <RefreshCw
-                className={`w-4 h-4 mr-2 ${
-                  isRefreshing ? 'animate-spin' : ''
-                }`}
+                className={`w-4 h-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`}
               />
               {isRefreshing ? 'Refreshing...' : 'Refresh'}
             </Button>
@@ -207,7 +205,7 @@ export default function FormPage({
                 onClick={() =>
                   router.push(`/dashboard/current/form/${formCode}`)
                 }
-                className="flex items-center gap-2 h-10 px-3 sm:px-6 rounded-md font-medium transition-all data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-slate-800 text-slate-600 hover:text-slate-800">
+                className="flex items-center gap-2 h-10 px-3 sm:px-6 rounded-md font-medium transition-all data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-slate-800 text-slate-600 hover:text-slate-800">
                 <FileText className="w-4 h-4" />
                 <span className="hidden xs:inline">Forms</span>
               </TabsTrigger>
@@ -216,7 +214,7 @@ export default function FormPage({
                 onClick={() =>
                   router.push(`/dashboard/current/applicants/${formCode}`)
                 }
-                className="flex items-center gap-2 h-10 px-3 sm:px-6 rounded-md font-medium transition-all data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-slate-800 text-slate-600 hover:text-slate-800">
+                className="flex items-center gap-2 h-10 px-3 sm:px-6 rounded-md font-medium transition-all data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-slate-800 text-slate-600 hover:text-slate-800">
                 <Users className="w-4 h-4" />
                 <span className="hidden xs:inline">Applicants</span>
               </TabsTrigger>
@@ -314,7 +312,9 @@ export default function FormPage({
                   </div>
                 ))
               ) : (
-                <span className="text-sm text-muted-foreground">No questions</span>
+                <span className="text-sm text-muted-foreground">
+                  No questions
+                </span>
               )}
             </div>
           </CardContent>
@@ -461,7 +461,7 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
             formId,
             questions: questions || [],
             formCode,
-            deadline: deadline || null
+            deadline: null
           }
         }
       };
@@ -478,7 +478,7 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
   } catch (error) {
     console.error('Error checking form deadline:', error);
     // Continue without redirect if deadline check fails
-    
+
     try {
       // Fetch all required data server-side
       const [formTitle, formId] = await Promise.all([
@@ -506,7 +506,8 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
             title: formTitle,
             formId,
             questions: questions || [],
-            formCode
+            formCode,
+            deadline: null
           }
         }
       };

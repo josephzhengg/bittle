@@ -46,7 +46,7 @@ import { QuestionOption } from '@/utils/supabase/models/question-option';
 import { toast } from 'sonner';
 import { Question } from '@/utils/supabase/models/question';
 
-export type CurrentFormsPageProps = {
+export type PastFormsPageProps = {
   user: User;
   formTitle: string;
   formCode: string;
@@ -68,7 +68,7 @@ export default function FormPage({
   formCode,
   questions,
   initialSubmissions
-}: CurrentFormsPageProps) {
+}: PastFormsPageProps) {
   const router = useRouter();
 
   // State for client-side filtering and interactions
@@ -301,11 +301,13 @@ export default function FormPage({
         {/* Header Section */}
         <div className="flex flex-col space-y-4">
           <div className="space-y-2">
-            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
-              <h1 className="text-2xl sm:text-3xl font-bold text-foreground break-words">
+            <div className="flex flex-col sm:flex-row sm:items-start gap-2 sm:gap-3">
+              <h1 className="text-2xl sm:text-3xl font-bold text-foreground break-words min-w-0 flex-1">
                 {formTitle}
               </h1>
-              <Badge variant="outline" className="text-xs w-fit">
+              <Badge
+                variant="outline"
+                className="text-xs w-fit bg-purple-50 text-purple-700 border-purple-200">
                 {formCode}
               </Badge>
             </div>
@@ -317,10 +319,9 @@ export default function FormPage({
           <div className="flex flex-col sm:flex-row gap-2 sm:gap-2">
             <Button
               variant="outline"
-              size="sm"
               onClick={handleRefresh}
               disabled={isRefreshing}
-              className="w-full sm:w-auto">
+              className="w-full sm:w-auto sm:min-w-[120px]">
               <RefreshCw
                 className={`w-4 h-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`}
               />
@@ -330,15 +331,15 @@ export default function FormPage({
               variant="outline"
               onClick={handleExport}
               disabled={!filteredSubmissions?.length}
-              className="w-full sm:w-auto">
+              className="w-full sm:w-auto sm:min-w-[120px]">
               <Download className="w-4 h-4 mr-2" />
               Export CSV
             </Button>
             <Button
               onClick={() =>
-                router.push(`/dashboard/past/form/${formCode}/edit`)
+                router.push(`/dashboard/current/form/${formCode}/edit`)
               }
-              className="w-full sm:w-auto">
+              className="w-full sm:w-auto sm:min-w-[120px]">
               <Edit className="w-4 h-4 mr-2" />
               Edit Form
             </Button>
@@ -346,33 +347,37 @@ export default function FormPage({
         </div>
 
         {/* Navigation Tabs */}
-        <Tabs className="w-full" defaultValue="applicants">
-          <TabsList className="h-12 p-1 bg-muted/50 rounded-lg w-full">
-            <TabsTrigger
-              value="forms"
-              onClick={() => router.push(`/dashboard/past/form/${formCode}`)}
-              className="flex items-center gap-2 h-10 px-3 sm:px-6 rounded-md font-medium transition-all data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-foreground flex-1">
-              <FileText className="w-4 h-4" />
-              <span className="hidden xs:inline">Forms</span>
-            </TabsTrigger>
-            <TabsTrigger
-              value="applicants"
-              onClick={() =>
-                router.push(`/dashboard/past/applicants/${formCode}`)
-              }
-              className="flex items-center gap-2 h-10 px-3 sm:px-6 rounded-md font-medium transition-all data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-foreground flex-1">
-              <Users className="w-4 h-4" />
-              <span className="hidden xs:inline">Applicants</span>
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
+        <div className="bg-white/60 backdrop-blur-sm rounded-xl border border-slate-200 p-1">
+          <Tabs className="w-full" defaultValue="applicants">
+            <TabsList className="h-12 p-1 bg-transparent rounded-lg w-full grid grid-cols-2">
+              <TabsTrigger
+                value="forms"
+                onClick={() =>
+                  router.push(`/dashboard/current/form/${formCode}`)
+                }
+                className="flex items-center gap-2 h-10 px-3 sm:px-6 rounded-md font-medium transition-all data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-slate-800 text-slate-600 hover:text-slate-800">
+                <FileText className="w-4 h-4" />
+                <span className="hidden xs:inline">Forms</span>
+              </TabsTrigger>
+              <TabsTrigger
+                value="applicants"
+                onClick={() =>
+                  router.push(`/dashboard/current/applicants/${formCode}`)
+                }
+                className="flex items-center gap-2 h-10 px-3 sm:px-6 rounded-md font-medium transition-all data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-slate-800 text-slate-600 hover:text-slate-800">
+                <Users className="w-4 h-4" />
+                <span className="hidden xs:inline">Applicants</span>
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </div>
 
         {/* Statistics */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
-                <Users className="w-4 h-4" />
+                <Users className="w-5 h-5 text-purple-600" />
                 Total Responses
               </CardTitle>
             </CardHeader>
@@ -384,7 +389,7 @@ export default function FormPage({
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
-                <FileText className="w-4 h-4" />
+                <FileText className="w-5 h-5 text-blue-600" />
                 Questions
               </CardTitle>
             </CardHeader>
@@ -396,7 +401,7 @@ export default function FormPage({
           <Card className="sm:col-span-1 col-span-1">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
-                <Calendar className="w-4 h-4" />
+                <Calendar className="w-5 h-5 text-pink-600" />
                 Latest Response
               </CardTitle>
             </CardHeader>
