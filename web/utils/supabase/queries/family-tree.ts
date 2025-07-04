@@ -152,3 +152,36 @@ export const toggleBig = async (
     throw new Error(`Error toggling big status: ${updateError.message}`);
   }
 };
+
+export const getFamilyTreeByCode = async (
+  supabase: SupabaseClient,
+  code: string
+): Promise<z.infer<typeof FamilyTree>> => {
+  const { data: familyTreeData, error: familyTreeError } = await supabase
+    .from('family_tree')
+    .select('*')
+    .eq('code', code)
+    .single();
+
+  if (!familyTreeData || familyTreeError) {
+    throw new Error(
+      `Error fetching family tree by code: ${familyTreeError?.message}`
+    );
+  }
+
+  return familyTreeData;
+};
+
+export const deleteFamilyTree = async (
+  supabase: SupabaseClient,
+  family_tree_id: string
+): Promise<void> => {
+  const { error: deleteError } = await supabase
+    .from('family_tree')
+    .delete()
+    .eq('id', family_tree_id);
+
+  if (deleteError) {
+    throw new Error(`Error deleting family tree: ${deleteError.message}`);
+  }
+};
