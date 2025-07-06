@@ -3,6 +3,7 @@ import { TreeMember } from '@/utils/supabase/models/tree-member';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { Group } from '@/utils/supabase/models/group';
 import { FamilyTree } from '../models/family-tree';
+import { FormSubmission } from '../models/form-submission';
 
 export const getFamilyTreeById = async (
   supabase: SupabaseClient,
@@ -28,6 +29,26 @@ export const createFamilyTree = async (
   title: string,
   code: string
 ): Promise<z.infer<typeof FamilyTree>> => {
+  const existingTree = await checkExistingFamilyTree(supabase, form_id);
+
+  if (existingTree) {
+    throw new Error(`Family tree already exists for form ID: ${form_id}`);
+  }
+
+  try {
+    const existingTreeByCode = await getFamilyTreeByCode(supabase, code);
+    if (existingTreeByCode) {
+      throw new Error(`Family tree with code "${code}" already exists`);
+    }
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      !error.message.includes('Error fetching family tree by code')
+    ) {
+      throw error;
+    }
+  }
+
   const { data: familyTreeData, error: familyTreeError } = await supabase
     .from('family_tree')
     .insert({ form_id, question_id, title, code })
@@ -63,6 +84,29 @@ export const createFamilyTree = async (
   return familyTreeData;
 };
 
+export const checkExistingFamilyTree = async (
+  supabase: SupabaseClient,
+  form_id: string
+): Promise<z.infer<typeof FamilyTree> | null> => {
+  const { data: familyTreeData, error: familyTreeError } = await supabase
+    .from('family_tree')
+    .select('*')
+    .eq('form_id', form_id)
+    .single();
+
+  if (!familyTreeData) {
+    return null;
+  }
+
+  if (familyTreeError && familyTreeError.code !== 'PGRST116') {
+    throw new Error(
+      `Error checking existing family tree: ${familyTreeError.message}`
+    );
+  }
+
+  return familyTreeData;
+};
+
 export const getFamilyTreeMembers = async (
   supabase: SupabaseClient,
   family_tree_id: string
@@ -94,6 +138,34 @@ export const createGroup = async (
   }
 
   return groupData;
+};
+
+export const refetchSubmissions = async (
+  supabase: SupabaseClient,
+  family_tree_id: string
+): Promise<z.infer<typeof FormSubmission>[]> => {
+  const { data: familyTree, error: familyTreeError } = await supabase
+    .from('family_tree')
+    .select('form_id')
+    .eq('id', family_tree_id)
+    .single();
+
+  if (!familyTree || familyTreeError) {
+    throw new Error(`Error fetching family tree: ${familyTreeError?.message}`);
+  }
+
+  const { data: submissionData, error: submissionError } = await supabase
+    .from('form_submission')
+    .select()
+    .eq('form_id', familyTree.form_id);
+
+  if (!submissionData || submissionError) {
+    throw new Error(
+      `Error fetching form submissions: ${submissionError?.message}`
+    );
+  }
+
+  return submissionData;
 };
 
 export const createConnection = async (
