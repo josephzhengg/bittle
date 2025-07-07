@@ -11,13 +11,15 @@ import {
   CardTitle
 } from '@/components/ui/card';
 import { useSupabase } from '@/lib/supabase';
-import { Edit, Users, FileText, Eye, RefreshCw, Calendar } from 'lucide-react';
+import { Edit, Users, FileText, Eye, RefreshCw, Calendar, Clock, Settings } from 'lucide-react';
 import ReadOnlyQuestionCard from '@/components/question-components/read-only-question-card';
+import { FormEditDialog } from '@/components/dashboard-components/form-edit-dialog';
 import { createSupabaseServerClient } from '@/utils/supabase/clients/server-props';
 import {
   getFormTitle,
   getFormIdByCode,
-  getFormDeadline
+  getFormDeadline,
+  getFormData
 } from '@/utils/supabase/queries/form';
 import { getQuestions } from '@/utils/supabase/queries/question';
 import type { User } from '@supabase/supabase-js';
@@ -32,11 +34,13 @@ import { format } from 'date-fns';
 export type CurrentFormsPageProps = {
   user: User;
   initialFormData: {
+    id: string;
     title: string;
+    description?: string;
+    deadline?: string;
     formId: string;
     questions: Question[];
     formCode: string;
-    deadline?: string;
   } | null;
   error?: string;
 };
@@ -53,13 +57,18 @@ export default function FormPage({
 
   // Use server-side data as initial data, but allow client-side refetching
   const { data: formData, refetch: refetchForm } = useQuery({
-    queryKey: ['title', formCode],
+    queryKey: ['formData', formCode],
     queryFn: async () => {
       const code = z.string().parse(formCode);
-      return getFormTitle(supabase, code);
+      return getFormData(supabase, code); // This should return { id, title, description, deadline }
     },
     enabled: !!formCode,
-    initialData: initialFormData?.title,
+    initialData: initialFormData ? {
+      id: initialFormData.id,
+      title: initialFormData.title,
+      description: initialFormData.description,
+      deadline: initialFormData.deadline
+    } : undefined,
     staleTime: 5 * 60 * 1000 // Consider data fresh for 5 minutes
   });
 
@@ -116,6 +125,49 @@ export default function FormPage({
     return typeMap[type] || type;
   };
 
+  // Helper function to format date and time
+  const formatDateTime = (dateInput: string | Date) => {
+    const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
+    return date.toLocaleString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
+  };
+
+  // Helper function to check if deadline is approaching (within 24 hours)
+  const isDeadlineApproaching = () => {
+    if (!formData?.deadline) return false;
+    const now = new Date();
+    const deadline = new Date(formData.deadline);
+    const timeDiff = deadline.getTime() - now.getTime();
+    const hoursUntilDeadline = timeDiff / (1000 * 3600);
+    return hoursUntilDeadline > 0 && hoursUntilDeadline <= 24;
+  };
+
+  // Helper function to check if deadline has passed
+  const isDeadlinePassed = () => {
+    if (!formData?.deadline) return false;
+    const now = new Date();
+    const deadline = new Date(formData.deadline);
+    return deadline.getTime() < now.getTime();
+  };
+
+  const getDeadlineStatusColor = () => {
+    if (isDeadlinePassed()) return 'text-red-600';
+    if (isDeadlineApproaching()) return 'text-amber-600';
+    return 'text-slate-600';
+  };
+
+  const getDeadlineStatusText = () => {
+    if (isDeadlinePassed()) return 'Expired';
+    if (isDeadlineApproaching()) return 'Ending Soon';
+    return 'Active';
+  };
+
   // Handle refresh with loading state
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -161,18 +213,55 @@ export default function FormPage({
           <div className="space-y-2">
             <div className="flex flex-col sm:flex-row sm:items-start gap-2 sm:gap-3">
               <h1 className="text-2xl sm:text-3xl font-bold text-foreground break-words min-w-0 flex-1">
-                {formData || <Skeleton className="h-8 w-64" />}
+                {formData?.title || <Skeleton className="h-8 w-64" />}
               </h1>
-              <Badge
-                variant="outline"
-                className="text-xs w-fit bg-purple-50 text-purple-700 border-purple-200">
-                {formCode}
-              </Badge>
+              <div className="flex items-center gap-2">
+                <Badge
+                  variant="outline"
+                  className="text-xs w-fit bg-purple-50 text-purple-700 border-purple-200">
+                  {formCode}
+                </Badge>
+                {formData?.deadline && (
+                  <Badge
+                    variant="outline"
+                    className={`text-xs w-fit ${
+                      isDeadlinePassed() 
+                        ? 'bg-red-50 text-red-700 border-red-200'
+                        : isDeadlineApproaching()
+                        ? 'bg-amber-50 text-amber-700 border-amber-200'
+                        : 'bg-green-50 text-green-700 border-green-200'
+                    }`}>
+                    {getDeadlineStatusText()}
+                  </Badge>
+                )}
+              </div>
             </div>
             <p className="text-muted-foreground text-sm">
               Form preview and structure
             </p>
           </div>
+
+          {/* Description Section */}
+          {formData?.description && (
+            <div className="bg-slate-50/50 rounded-lg p-4 border border-slate-100">
+              <p className="text-sm text-slate-700 leading-relaxed">
+                {formData.description}
+              </p>
+            </div>
+          )}
+
+          {/* Deadline Section */}
+          {formData?.deadline && (
+            <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg p-4 border border-purple-100">
+              <div className="flex items-center gap-2 text-sm">
+                <Clock className={`w-4 h-4 ${getDeadlineStatusColor()}`} />
+                <span className="text-slate-600 font-medium">Deadline:</span>
+                <span className={`font-semibold ${getDeadlineStatusColor()}`}>
+                  {formatDateTime(formData.deadline)}
+                </span>
+              </div>
+            </div>
+          )}
 
           <div className="flex flex-col sm:flex-row gap-2">
             <Button
@@ -185,6 +274,28 @@ export default function FormPage({
               />
               {isRefreshing ? 'Refreshing...' : 'Refresh'}
             </Button>
+            
+            {/* Edit Form Info Button */}
+            {formData && (
+              <FormEditDialog
+                form={{
+                  id: formData.id,
+                  title: formData.title,
+                  description: formData.description,
+                  deadline: formData.deadline
+                }}
+                onSuccess={handleRefresh}
+                trigger={
+                  <Button
+                    variant="outline"
+                    className="w-full sm:w-auto sm:min-w-[140px]">
+                    <Settings className="w-4 h-4 mr-2" />
+                    Edit Form Info
+                  </Button>
+                }
+              />
+            )}
+            
             <Button
               onClick={() => {
                 router.push(`/dashboard/current/form/${formCode}/edit`);
@@ -222,7 +333,7 @@ export default function FormPage({
           </Tabs>
         </div>
 
-        {/* Statistics Cards - Updated to match applicants tab */}
+        {/* Statistics Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <Card>
             <CardHeader className="pb-3">
@@ -271,15 +382,15 @@ export default function FormPage({
               <div className="text-sm font-medium">
                 {isPageLoading ? (
                   <Skeleton className="h-5 w-24" />
-                ) : initialFormData?.deadline ? (
-                  format(new Date(initialFormData.deadline), 'MMM d, yyyy')
+                ) : formData?.deadline ? (
+                  format(new Date(formData.deadline), 'MMM d, yyyy')
                 ) : (
                   'No deadline'
                 )}
               </div>
-              {initialFormData?.deadline && (
+              {formData?.deadline && (
                 <div className="text-xs text-muted-foreground mt-1">
-                  {format(new Date(initialFormData.deadline), 'h:mm a')}
+                  {format(new Date(formData.deadline), 'h:mm a')}
                 </div>
               )}
             </CardContent>
@@ -435,12 +546,12 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
 
     try {
       // Fetch all required data server-side
-      const [formTitle, formId] = await Promise.all([
-        getFormTitle(supabase, formCode),
+      const [formData, formId] = await Promise.all([
+        getFormData(supabase, formCode), // This should return { id, title, description, deadline }
         getFormIdByCode(supabase, formCode)
       ]);
 
-      if (!formTitle || !formId) {
+      if (!formData || !formId) {
         return {
           props: {
             user: userData.user,
@@ -457,11 +568,13 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
         props: {
           user: userData.user,
           initialFormData: {
-            title: formTitle,
+            id: formData.id,
+            title: formData.title,
+            description: formData.description,
+            deadline: formData.deadline,
             formId,
             questions: questions || [],
-            formCode,
-            deadline: null
+            formCode
           }
         }
       };
@@ -481,12 +594,12 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
 
     try {
       // Fetch all required data server-side
-      const [formTitle, formId] = await Promise.all([
-        getFormTitle(supabase, formCode),
+      const [formData, formId] = await Promise.all([
+        getFormData(supabase, formCode), // This should return { id, title, description, deadline }
         getFormIdByCode(supabase, formCode)
       ]);
 
-      if (!formTitle || !formId) {
+      if (!formData || !formId) {
         return {
           props: {
             user: userData.user,
@@ -503,11 +616,13 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
         props: {
           user: userData.user,
           initialFormData: {
-            title: formTitle,
+            id: formData.id,
+            title: formData.title,
+            description: formData.description,
+            deadline: formData.deadline,
             formId,
             questions: questions || [],
-            formCode,
-            deadline: null
+            formCode
           }
         }
       };
