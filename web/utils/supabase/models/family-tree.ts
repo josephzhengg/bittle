@@ -6,7 +6,8 @@ export const FamilyTree = z.object({
   title: z.string(),
   description: z.string().optional(),
   form_id: z.string(),
-  code: z.string()
+  code: z.string(),
+  author_id: z.string()
 });
 
 export type FamilyTree = z.infer<typeof FamilyTree>;

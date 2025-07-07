@@ -1,6 +1,21 @@
 import { GetServerSidePropsContext } from 'next';
 import { createSupabaseServerClient } from '@/utils/supabase/clients/server-props';
 import { User } from '@supabase/supabase-js';
+import { Button } from '@/components/ui/button';
+import DashBoardLayout from '@/components/layouts/dashboard-layout';
+import { getFamilyTrees } from '@/utils/supabase/queries/family-tree';
+import { getForms } from '@/utils/supabase/queries/form';
+import { getQuestions } from '@/utils/supabase/queries/question';
+import { useQuery } from '@tanstack/react-query';
+import { useSupabase } from '@/lib/supabase';
+import { Form } from '@/utils/supabase/models/form';
+import { Question } from '@/utils/supabase/models/question';
+import { useState } from 'react';
+import { createFamilyTree } from '@/utils/supabase/queries/family-tree';
+import { Input } from '@/components/ui/input';
+import { useRouter } from 'next/router';
+import { toast } from 'sonner';
+import FamilyTreeCard from '@/components/family-tree-components/family-tree-card';
 import {
   Dialog,
   DialogContent,
@@ -9,39 +24,36 @@ import {
   DialogHeader,
   DialogTrigger
 } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import DashBoardLayout from '@/components/layouts/dashboard-layout';
 import {
   Popover,
   PopoverTrigger,
   PopoverContent
 } from '@/components/ui/popover';
-import { getForms } from '@/utils/supabase/queries/form';
-import { useQuery } from '@tanstack/react-query';
-import { useSupabase } from '@/lib/supabase';
-import { Form } from '@/utils/supabase/models/form';
-import { useState } from 'react';
-import { createFamilyTree } from '@/utils/supabase/queries/family-tree';
-import { Question } from '@/utils/supabase/models/question';
-import { getQuestions } from '@/utils/supabase/queries/question';
-import { Input } from '@/components/ui/input';
-import { useRouter } from 'next/router';
-import { toast } from 'sonner';
+import { TreePine, Plus, Search } from 'lucide-react';
 
-export type FamilyTreePageProps = {
+export type FamilyTreesPageProps = {
   user: User;
 };
 
-export default function FamilyTreePage({ user }: FamilyTreePageProps) {
+export default function FamilyTreesPage({ user }: FamilyTreesPageProps) {
   const supabase = useSupabase();
-  const [familyTitle, setFamilyTitle] = useState('');
+  const router = useRouter();
 
+  const [familyTitle, setFamilyTitle] = useState('');
   const [selectedForm, setSelectedForm] = useState<Form | null>(null);
   const [selectedQuestion, setSelectedQuestion] = useState<Question | null>(
     null
   );
-  const router = useRouter();
-  const [open, setOpen] = useState(false);
+  const [createModalOpen, setCreateModalOpen] = useState(false);
+
+  const [searchTerm, setSearchTerm] = useState('');
+
+  const familyTrees = useQuery({
+    queryKey: ['family-trees', user.id],
+    queryFn: async () => {
+      return await getFamilyTrees(supabase, user.id);
+    }
+  });
 
   const forms = useQuery({
     queryKey: ['forms'],
@@ -61,6 +73,29 @@ export default function FamilyTreePage({ user }: FamilyTreePageProps) {
     enabled: !!selectedForm
   });
 
+  const formsMap =
+    forms.data?.reduce((acc: Record<string, Form>, form: Form) => {
+      acc[form.id] = form;
+      return acc;
+    }, {} as Record<string, Form>) || {};
+
+  const questionsMap = useQuery({
+    queryKey: ['all-questions'],
+    queryFn: async () => {
+      if (!forms.data) return {};
+
+      const questionsMap: Record<string, Question> = {};
+      for (const form of forms.data) {
+        const formQuestions = await getQuestions(supabase, form.id);
+        formQuestions.forEach((question: Question) => {
+          questionsMap[question.id] = question;
+        });
+      }
+      return questionsMap;
+    },
+    enabled: !!forms.data
+  });
+
   const handleCreateFamilyTree = async () => {
     try {
       const familyTree = await createFamilyTree(
@@ -68,118 +103,264 @@ export default function FamilyTreePage({ user }: FamilyTreePageProps) {
         selectedForm?.id || '',
         selectedQuestion?.id || '',
         familyTitle,
-        selectedForm?.code || ''
+        selectedForm?.code || '',
+        user.id
       );
-      setOpen(false);
+
+      setCreateModalOpen(false);
       setFamilyTitle('');
       setSelectedForm(null);
       setSelectedQuestion(null);
       toast('Family tree created successfully!');
+
+      familyTrees.refetch();
+
       router.push(`/dashboard/family-tree/${familyTree.code}`);
-    } catch {
-      toast('Duplicate family tree found, please use the existing one!');
+    } catch (error) {
+      toast('Error creating family tree. Please try again.');
+      console.error('Creation error:', error);
     }
   };
+
+  const filteredAndSortedTrees =
+    familyTrees.data
+      ?.filter(
+        (tree) =>
+          tree.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          tree.code.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+      .sort((a, b) => {
+        return a.title.localeCompare(b.title);
+      }) || [];
+
   return (
     <DashBoardLayout user={user}>
-      <div className="flex items-center justify-center h-screen bg-gray-100">
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Button className="bg-blue-500 text-white hover:bg-blue-600">
-              Open Form Catalog
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl">
-            <DialogTitle>Create Family Tree</DialogTitle>
-            <DialogHeader>
-              <Input
-                placeholder="Enter Family Tree Title"
-                value={familyTitle}
-                onChange={(e) => setFamilyTitle(e.target.value)}
-                className="mb-4"
-              />
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button className="mt-4 bg-green-500 text-white hover:bg-green-600">
-                    {selectedForm
-                      ? `Selected Form: ${selectedForm.title}`
-                      : 'Select Form'}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent>
-                  {forms.data &&
-                    forms.data.map((form: Form) => (
-                      <div key={form.id} className="p-2 border-b">
-                        <h3 className="text-lg font-semibold">{form.title}</h3>
-                        <Button>
-                          <span
-                            onClick={() => setSelectedForm(form)}
-                            className={
-                              selectedForm?.id === form.id
-                                ? 'font-bold text-blue-600'
-                                : ''
-                            }>
-                            {selectedForm?.id === form.id
-                              ? 'Selected'
-                              : 'Select'}
-                          </span>
-                        </Button>
-                      </div>
-                    ))}
-                  {forms.isLoading && <div>Loading...</div>}
-                  {forms.error && <div>Error loading forms.</div>}
-                </PopoverContent>
-              </Popover>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50/30">
+        <div className="max-w-7xl mx-auto px-4 py-8">
+          <div className="mb-8">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-3 bg-green-100 rounded-xl">
+                <TreePine className="w-8 h-8 text-green-600" />
+              </div>
+              <div>
+                <h1 className="text-4xl font-bold text-slate-800">
+                  My Family Trees
+                </h1>
+                <p className="text-slate-600 mt-1">
+                  Manage and explore your family connections
+                </p>
+              </div>
+            </div>
 
-              {selectedForm && (
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button className="mt-4 bg-green-500 text-white hover:bg-green-600">
-                      {selectedQuestion
-                        ? `Selected Question: ${selectedQuestion.prompt}`
-                        : 'Select Question'}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent>
-                    <h3 className="text-lg font-semibold">
-                      {selectedForm.title}
-                    </h3>
-                    {questions.isLoading && <div>Loading questions...</div>}
-                    {questions.error && <div>Error loading questions.</div>}
-                    {questions.data &&
-                      questions.data.map((question: Question) => (
-                        <div
-                          key={question.id}
-                          className={`p-2 border-b cursor-pointer ${
-                            selectedQuestion?.id === question.id
-                              ? 'bg-blue-100'
-                              : ''
-                          }`}
-                          onClick={() => setSelectedQuestion(question)}>
-                          <span
-                            className={
-                              selectedQuestion?.id === question.id
-                                ? 'font-bold text-blue-600'
+            <div className="flex gap-4 mb-6">
+              <div className="bg-white/70 backdrop-blur-sm border border-slate-200 rounded-lg p-4">
+                <div className="text-2xl font-bold text-green-600">
+                  {familyTrees.data?.length || 0}
+                </div>
+                <div className="text-sm text-slate-600">Total Trees</div>
+              </div>
+              <div className="bg-white/70 backdrop-blur-sm border border-slate-200 rounded-lg p-4">
+                <div className="text-2xl font-bold text-blue-600">
+                  {forms.data?.length || 0}
+                </div>
+                <div className="text-sm text-slate-600">Available Forms</div>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+              <div className="flex gap-3 flex-1 max-w-lg">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
+                  <Input
+                    placeholder="Search family trees..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10 bg-white/70 backdrop-blur-sm border-slate-200"
+                  />
+                </div>
+              </div>
+
+              <Dialog open={createModalOpen} onOpenChange={setCreateModalOpen}>
+                <DialogTrigger asChild>
+                  <Button className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
+                    <Plus className="w-4 h-4 mr-2" />
+                    Create New Tree
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-2xl bg-gradient-to-br from-slate-900/95 to-green-900/95 backdrop-blur-xl border border-white/20 text-white">
+                  <DialogHeader>
+                    <DialogTitle className="text-3xl font-black bg-gradient-to-r from-green-400 to-emerald-400 bg-clip-text text-transparent">
+                      Create New Family Tree
+                    </DialogTitle>
+                  </DialogHeader>
+
+                  <div className="space-y-6 py-4">
+                    <Input
+                      placeholder="Enter Family Tree Title"
+                      value={familyTitle}
+                      onChange={(e) => setFamilyTitle(e.target.value)}
+                      className="bg-white/10 backdrop-blur-lg border border-white/20 text-white placeholder:text-white/50 focus:border-green-500/50 focus:ring-green-500/20"
+                    />
+
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button className="w-full bg-white/10 backdrop-blur-lg border border-white/20 text-white hover:bg-white/20">
+                          {selectedForm
+                            ? `Selected: ${selectedForm.title}`
+                            : 'Select Form'}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent
+                        className="w-full max-w-md max-h-72 overflow-y-auto bg-white rounded-md shadow-md border border-slate-200"
+                        align="start">
+                        {forms.data?.map((form: Form) => (
+                          <div
+                            key={form.id}
+                            className={`p-3 border-b cursor-pointer hover:bg-slate-50 ${
+                              selectedForm?.id === form.id
+                                ? 'bg-blue-50 border-blue-200'
                                 : ''
-                            }>
-                            {question.prompt}
-                          </span>
-                        </div>
-                      ))}
-                  </PopoverContent>
-                </Popover>
-              )}
-            </DialogHeader>
-            <DialogFooter>
-              <Button
-                disabled={!familyTitle || !selectedForm || !selectedQuestion}
-                className="bg-blue-500 text-white hover:bg-blue-600"
-                onClick={handleCreateFamilyTree}>
-                Submit
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+                            }`}
+                            onClick={() => setSelectedForm(form)}>
+                            <h3 className="font-semibold text-slate-800">
+                              {form.title}
+                            </h3>
+                            <p className="text-sm text-slate-600">
+                              {form.code}
+                            </p>
+                          </div>
+                        ))}
+                        {forms.isLoading && (
+                          <div className="p-4 text-center">
+                            Loading forms...
+                          </div>
+                        )}
+                        {forms.error && (
+                          <div className="p-4 text-center text-red-600">
+                            Error loading forms
+                          </div>
+                        )}
+                      </PopoverContent>
+                    </Popover>
+
+                    {selectedForm && (
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button className="w-full bg-white/10 backdrop-blur-lg border border-white/20 text-white hover:bg-white/20">
+                            {selectedQuestion
+                              ? `Selected: ${selectedQuestion.prompt}`
+                              : 'Select Question'}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent
+                          className="w-full max-w-md max-h-72 overflow-y-auto bg-white rounded-md shadow-md border border-slate-200"
+                          align="start">
+                          <h3 className="font-semibold text-slate-800 mb-2 px-3 pt-2">
+                            {selectedForm.title}
+                          </h3>
+                          {questions.data?.map((question: Question) => (
+                            <div
+                              key={question.id}
+                              className={`p-3 border-b cursor-pointer hover:bg-slate-50 ${
+                                selectedQuestion?.id === question.id
+                                  ? 'bg-blue-50 border-blue-200'
+                                  : ''
+                              }`}
+                              onClick={() => setSelectedQuestion(question)}>
+                              <span className="text-slate-800">
+                                {question.prompt}
+                              </span>
+                            </div>
+                          ))}
+                          {questions.isLoading && (
+                            <div className="p-4 text-center">
+                              Loading questions...
+                            </div>
+                          )}
+                          {questions.error && (
+                            <div className="p-4 text-center text-red-600">
+                              Error loading questions
+                            </div>
+                          )}
+                        </PopoverContent>
+                      </Popover>
+                    )}
+                  </div>
+
+                  <DialogFooter>
+                    <Button
+                      variant="outline"
+                      onClick={() => setCreateModalOpen(false)}
+                      className="bg-white/10 backdrop-blur-lg border border-white/20 text-white hover:bg-white/20">
+                      Cancel
+                    </Button>
+                    <Button
+                      disabled={
+                        !familyTitle || !selectedForm || !selectedQuestion
+                      }
+                      onClick={handleCreateFamilyTree}
+                      className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
+                      Create Tree
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            {familyTrees.isLoading && (
+              <div className="flex items-center justify-center py-12">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-500"></div>
+              </div>
+            )}
+
+            {familyTrees.error && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
+                <div className="text-red-600 font-semibold">
+                  Error loading family trees
+                </div>
+                <div className="text-red-500 text-sm mt-1">
+                  Please try refreshing the page
+                </div>
+              </div>
+            )}
+
+            {familyTrees.data && filteredAndSortedTrees.length === 0 && (
+              <div className="bg-white/70 backdrop-blur-sm border border-slate-200 rounded-lg p-12 text-center">
+                <TreePine className="w-16 h-16 text-slate-400 mx-auto mb-4" />
+                <h3 className="text-xl font-semibold text-slate-600 mb-2">
+                  {searchTerm ? 'No trees found' : 'No family trees yet'}
+                </h3>
+                <p className="text-slate-500 mb-4">
+                  {searchTerm
+                    ? 'Try adjusting your search terms'
+                    : 'Create your first family tree to get started'}
+                </p>
+                {!searchTerm && (
+                  <Button
+                    onClick={() => setCreateModalOpen(true)}
+                    className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-semibold">
+                    <Plus className="w-4 h-4 mr-2" />
+                    Create Your First Tree
+                  </Button>
+                )}
+              </div>
+            )}
+
+            {filteredAndSortedTrees.map((tree) => (
+              <FamilyTreeCard
+                key={tree.id}
+                familyTree={tree}
+                formTitle={formsMap[tree.form_id]?.title || 'Unknown Form'}
+                questionPrompt={
+                  questionsMap.data?.[tree.question_id]?.prompt ||
+                  'Unknown Question'
+                }
+              />
+            ))}
+          </div>
+        </div>
       </div>
     </DashBoardLayout>
   );
