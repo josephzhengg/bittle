@@ -30,6 +30,7 @@ import {
   PopoverContent
 } from '@/components/ui/popover';
 import { TreePine, Plus, Search } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
 
 export type FamilyTreesPageProps = {
   user: User;
@@ -40,10 +41,16 @@ export default function FamilyTreesPage({ user }: FamilyTreesPageProps) {
   const router = useRouter();
 
   const [familyTitle, setFamilyTitle] = useState('');
+  const [familyDesc, setFamilyDesc] = useState('');
   const [selectedForm, setSelectedForm] = useState<Form | null>(null);
   const [selectedQuestion, setSelectedQuestion] = useState<Question | null>(
     null
   );
+
+  const handleFormSelect = (form: Form) => {
+    setSelectedForm(form);
+    setSelectedQuestion(null);
+  };
   const [createModalOpen, setCreateModalOpen] = useState(false);
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -104,6 +111,7 @@ export default function FamilyTreesPage({ user }: FamilyTreesPageProps) {
         selectedQuestion?.id || '',
         familyTitle,
         selectedForm?.code || '',
+        familyDesc,
         user.id
       );
 
@@ -111,14 +119,16 @@ export default function FamilyTreesPage({ user }: FamilyTreesPageProps) {
       setFamilyTitle('');
       setSelectedForm(null);
       setSelectedQuestion(null);
+      setFamilyDesc('');
       toast('Family tree created successfully!');
 
       familyTrees.refetch();
 
       router.push(`/dashboard/family-tree/${familyTree.code}`);
-    } catch (error) {
-      toast('Error creating family tree. Please try again.');
-      console.error('Creation error:', error);
+    } catch {
+      toast(
+        'Duplicate family tree found, please use the existing tree, or delete it before proceeding!'
+      );
     }
   };
 
@@ -202,7 +212,14 @@ export default function FamilyTreesPage({ user }: FamilyTreesPageProps) {
                       className="bg-white/10 backdrop-blur-lg border border-white/20 text-white placeholder:text-white/50 focus:border-green-500/50 focus:ring-green-500/20"
                     />
 
-                    <Popover>
+                    <Textarea
+                      placeholder="Enter Family Tree Description (optional)"
+                      value={familyDesc}
+                      onChange={(e) => setFamilyDesc(e.target.value)}
+                      className="bg-white/10 backdrop-blur-lg border border-white/20 text-white placeholder:text-white/50 focus:border-green-500/50 focus:ring-green-500/20"
+                    />
+
+                    <Popover modal={true}>
                       <PopoverTrigger asChild>
                         <Button className="w-full bg-white/10 backdrop-blur-lg border border-white/20 text-white hover:bg-white/20">
                           {selectedForm
@@ -210,41 +227,41 @@ export default function FamilyTreesPage({ user }: FamilyTreesPageProps) {
                             : 'Select Form'}
                         </Button>
                       </PopoverTrigger>
-                      <PopoverContent
-                        className="w-full max-w-md max-h-72 overflow-y-auto bg-white rounded-md shadow-md border border-slate-200"
-                        align="start">
-                        {forms.data?.map((form: Form) => (
-                          <div
-                            key={form.id}
-                            className={`p-3 border-b cursor-pointer hover:bg-slate-50 ${
-                              selectedForm?.id === form.id
-                                ? 'bg-blue-50 border-blue-200'
-                                : ''
-                            }`}
-                            onClick={() => setSelectedForm(form)}>
-                            <h3 className="font-semibold text-slate-800">
-                              {form.title}
-                            </h3>
-                            <p className="text-sm text-slate-600">
-                              {form.code}
-                            </p>
-                          </div>
-                        ))}
-                        {forms.isLoading && (
-                          <div className="p-4 text-center">
-                            Loading forms...
-                          </div>
-                        )}
-                        {forms.error && (
-                          <div className="p-4 text-center text-red-600">
-                            Error loading forms
-                          </div>
-                        )}
+                      <PopoverContent className="w-full max-w-lg p-0 max-h-80 overflow-y-auto bg-gradient-to-br from-slate-900/95 to-green-900/95 backdrop-blur-xl border border-white/20 text-white rounded-lg shadow-lg">
+                        <div>
+                          {forms.data?.map((form: Form) => (
+                            <div
+                              key={form.id}
+                              className={`p-3 border-b border-white/20 cursor-pointer hover:bg-white/10 ${
+                                selectedForm?.id === form.id
+                                  ? 'bg-green-500/20 border-green-500/30'
+                                  : ''
+                              }`}
+                              onClick={() => handleFormSelect(form)}>
+                              <h3 className="font-semibold text-white">
+                                {form.title}
+                              </h3>
+                              <p className="text-sm text-white/70">
+                                {form.code}
+                              </p>
+                            </div>
+                          ))}
+                          {forms.isLoading && (
+                            <div className="p-4 text-center text-white/70">
+                              Loading forms...
+                            </div>
+                          )}
+                          {forms.error && (
+                            <div className="p-4 text-center text-red-400">
+                              Error loading forms
+                            </div>
+                          )}
+                        </div>
                       </PopoverContent>
                     </Popover>
 
                     {selectedForm && (
-                      <Popover>
+                      <Popover modal={true}>
                         <PopoverTrigger asChild>
                           <Button className="w-full bg-white/10 backdrop-blur-lg border border-white/20 text-white hover:bg-white/20">
                             {selectedQuestion
@@ -252,36 +269,38 @@ export default function FamilyTreesPage({ user }: FamilyTreesPageProps) {
                               : 'Select Question'}
                           </Button>
                         </PopoverTrigger>
-                        <PopoverContent
-                          className="w-full max-w-md max-h-72 overflow-y-auto bg-white rounded-md shadow-md border border-slate-200"
-                          align="start">
-                          <h3 className="font-semibold text-slate-800 mb-2 px-3 pt-2">
-                            {selectedForm.title}
-                          </h3>
-                          {questions.data?.map((question: Question) => (
-                            <div
-                              key={question.id}
-                              className={`p-3 border-b cursor-pointer hover:bg-slate-50 ${
-                                selectedQuestion?.id === question.id
-                                  ? 'bg-blue-50 border-blue-200'
-                                  : ''
-                              }`}
-                              onClick={() => setSelectedQuestion(question)}>
-                              <span className="text-slate-800">
-                                {question.prompt}
-                              </span>
+                        <PopoverContent className="w-full max-w-lg p-0 max-h-80 overflow-y-auto bg-gradient-to-br from-slate-900/95 to-green-900/95 backdrop-blur-xl border border-white/20 text-white rounded-lg shadow-lg">
+                          <div>
+                            <div className="p-3 border-b border-white/20 bg-slate-900/50 sticky top-0 z-10">
+                              <h3 className="font-semibold text-white">
+                                {selectedForm.title}
+                              </h3>
                             </div>
-                          ))}
-                          {questions.isLoading && (
-                            <div className="p-4 text-center">
-                              Loading questions...
-                            </div>
-                          )}
-                          {questions.error && (
-                            <div className="p-4 text-center text-red-600">
-                              Error loading questions
-                            </div>
-                          )}
+                            {questions.data?.map((question: Question) => (
+                              <div
+                                key={question.id}
+                                className={`p-3 border-b border-white/20 cursor-pointer hover:bg-white/10 ${
+                                  selectedQuestion?.id === question.id
+                                    ? 'bg-green-500/20 border-green-500/30'
+                                    : ''
+                                }`}
+                                onClick={() => setSelectedQuestion(question)}>
+                                <span className="text-white">
+                                  {question.prompt}
+                                </span>
+                              </div>
+                            ))}
+                            {questions.isLoading && (
+                              <div className="p-4 text-center text-white/70">
+                                Loading questions...
+                              </div>
+                            )}
+                            {questions.error && (
+                              <div className="p-4 text-center text-red-400">
+                                Error loading questions
+                              </div>
+                            )}
+                          </div>
                         </PopoverContent>
                       </Popover>
                     )}

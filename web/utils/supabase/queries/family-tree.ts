@@ -46,6 +46,7 @@ export const createFamilyTree = async (
   question_id: string,
   title: string,
   code: string,
+  description: string,
   author_id: string
 ): Promise<z.infer<typeof FamilyTree>> => {
   const existingTree = await checkExistingFamilyTree(supabase, form_id);
@@ -70,7 +71,7 @@ export const createFamilyTree = async (
 
   const { data: familyTreeData, error: familyTreeError } = await supabase
     .from('family_tree')
-    .insert({ form_id, question_id, title, code, author_id })
+    .insert({ form_id, question_id, title, code, author_id, description })
     .select()
     .single();
 
