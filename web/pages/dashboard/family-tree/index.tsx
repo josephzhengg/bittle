@@ -46,14 +46,13 @@ export default function FamilyTreesPage({ user }: FamilyTreesPageProps) {
   const [selectedQuestion, setSelectedQuestion] = useState<Question | null>(
     null
   );
+  const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
 
   const handleFormSelect = (form: Form) => {
     setSelectedForm(form);
     setSelectedQuestion(null);
   };
-  const [createModalOpen, setCreateModalOpen] = useState(false);
-
-  const [searchTerm, setSearchTerm] = useState('');
 
   const familyTrees = useQuery({
     queryKey: ['family-trees', user.id],
@@ -104,16 +103,20 @@ export default function FamilyTreesPage({ user }: FamilyTreesPageProps) {
   });
 
   const handleCreateFamilyTree = async () => {
+    if (!selectedForm || !selectedQuestion) {
+      toast.error('Please select a form and question');
+      return;
+    }
+
     try {
-      const familyTree = await createFamilyTree(
-        supabase,
-        selectedForm?.id || '',
-        selectedQuestion?.id || '',
-        familyTitle,
-        selectedForm?.code || '',
-        familyDesc,
-        user.id
-      );
+      const familyTree = await createFamilyTree(supabase, {
+        form_id: selectedForm.id,
+        question_id: selectedQuestion.id,
+        title: familyTitle,
+        code: selectedForm.code,
+        description: familyDesc,
+        author_id: user.id
+      });
 
       setCreateModalOpen(false);
       setFamilyTitle('');
@@ -125,10 +128,11 @@ export default function FamilyTreesPage({ user }: FamilyTreesPageProps) {
       familyTrees.refetch();
 
       router.push(`/dashboard/family-tree/${familyTree.code}`);
-    } catch {
-      toast(
+    } catch (error) {
+      toast.error(
         'Duplicate family tree found, please use the existing tree, or delete it before proceeding!'
       );
+      console.error('Error creating family tree:', error);
     }
   };
 

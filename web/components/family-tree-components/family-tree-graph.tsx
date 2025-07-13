@@ -20,7 +20,6 @@ import 'reactflow/dist/style.css';
 import { useSupabase } from '@/lib/supabase';
 import { TreeMember } from '@/utils/supabase/models/tree-member';
 import { Group } from '@/utils/supabase/models/group';
-import { FamilyTree } from '@/utils/supabase/models/family-tree';
 import {
   createGroup,
   createConnection,
@@ -29,6 +28,7 @@ import {
   getFamilyTreeById
 } from '@/utils/supabase/queries/family-tree';
 import { z } from 'zod';
+import { toast } from 'sonner';
 
 // Types
 interface ContextMenuData {
@@ -51,20 +51,24 @@ const GROUP_WIDTH = 300;
 const GROUP_HEIGHT = 200;
 const PADDING = 50;
 
+// Utility to get node position from database
 const getNodePosition = (
   member: z.infer<typeof TreeMember>,
   groups: z.infer<typeof Group>[]
 ): { x: number; y: number } => {
+  const defaultPos = { x: 100, y: 100 };
+  if (!member.position_x || !member.position_y) return defaultPos;
+
   if (!member.group_id) {
-    // Free nodes: use absolute position
-    return { x: member.position_x ?? 100, y: member.position_y ?? 100 };
+    return { x: member.position_x, y: member.position_y };
   }
 
-  // Grouped nodes: use relative position within group
-  // These positions should be relative to the group's (0,0) corner
+  const group = groups.find((g) => g.id === member.group_id);
+  if (!group) return defaultPos;
+
   return {
-    x: member.position_x ?? 50, // Default to center-ish of group
-    y: member.position_y ?? 50
+    x: member.position_x,
+    y: member.position_y
   };
 };
 
@@ -86,7 +90,75 @@ const getAbsolutePosition = (
   };
 };
 
-// Utility to center nodes and groups while preserving relative positions
+// Utility to find an empty space for a node
+const findEmptySpace = (
+  nodes: Node[],
+  targetNode: Node,
+  parentGroup: Node,
+  nodeWidth: number,
+  nodeHeight: number
+): { x: number; y: number } => {
+  const parentWidth =
+    parentGroup.style && typeof parentGroup.style.width === 'string'
+      ? parseFloat(parentGroup.style.width)
+      : GROUP_WIDTH;
+  const parentHeight =
+    parentGroup.style && typeof parentGroup.style.height === 'string'
+      ? parseFloat(parentGroup.style.height)
+      : GROUP_HEIGHT;
+  let x = parentGroup.position.x + parentWidth + PADDING;
+  let y = parentGroup.position.y;
+
+  const isOverlapping = (testX: number, testY: number): boolean => {
+    return nodes.some((n) => {
+      if (n.id === targetNode.id) return false;
+      const nWidth =
+        n.className === 'group-node' &&
+        n.style &&
+        typeof n.style.width === 'string'
+          ? parseFloat(n.style.width)
+          : NODE_WIDTH;
+      const nHeight =
+        n.className === 'group-node' &&
+        n.style &&
+        typeof n.style.height === 'string'
+          ? parseFloat(n.style.height)
+          : NODE_HEIGHT;
+      const nX = n.position.x;
+      const nY = n.position.y;
+
+      return (
+        testX < nX + nWidth + PADDING &&
+        testX + nodeWidth + PADDING > nX &&
+        testY < nY + nHeight + PADDING &&
+        testY + nodeHeight + PADDING > nY
+      );
+    });
+  };
+
+  const maxAttempts = 10;
+  let attempts = 0;
+  const stepSize = 50;
+  const directions = [
+    { dx: 1, dy: 0 }, // Right
+    { dx: 0, dy: 1 }, // Down
+    { dx: -1, dy: 0 }, // Left
+    { dx: 0, dy: -1 } // Up
+  ];
+  let directionIndex = 0;
+
+  while (isOverlapping(x, y) && attempts < maxAttempts) {
+    const { dx, dy } = directions[directionIndex % directions.length];
+    x += dx * stepSize;
+    y += dy * stepSize;
+    directionIndex++;
+    attempts++;
+  }
+
+  return { x, y };
+};
+
+// Utility to center nodes and groups (only for elements without positions)
 const centerElements = (
   nodes: Node[],
   groups: z.infer<typeof Group>[],
@@ -94,77 +166,188 @@ const centerElements = (
 ): Node[] => {
   const groupNodes = nodes.filter((node) => node.className === 'group-node');
   const regularNodes = nodes.filter((node) => node.className !== 'group-node');
-  const freeNodes = regularNodes.filter((node) => !node.parentNode);
-  const groupedNodes = regularNodes.filter((node) => node.parentNode);
+  const nodesWithoutPosition = regularNodes.filter(
+    (node) => !node.data.position_x || !node.data.position_y
+  );
+  const groupsWithoutPosition = groupNodes.filter(
+    (node) => !node.data.position_x || !node.data.position_y
+  );
 
-  // Calculate total width and height for free nodes and groups
   const totalWidth = Math.max(
-    (freeNodes.length + groupNodes.length) * (NODE_WIDTH + PADDING),
+    (nodesWithoutPosition.length + groupsWithoutPosition.length) *
+      (NODE_WIDTH + PADDING),
     viewport.width
   );
   const totalHeight = Math.max(
-    Math.ceil((freeNodes.length + groupNodes.length) / 5) *
+    Math.ceil(
+      (nodesWithoutPosition.length + groupsWithoutPosition.length) / 5
+    ) *
       (NODE_HEIGHT + PADDING),
     viewport.height
   );
 
-  // Center free nodes in a grid
-  const centeredFreeNodes = freeNodes.map((node, index) => ({
-    ...node,
-    position: {
-      x:
+  const centeredNodesWithoutPosition = nodesWithoutPosition.map(
+    (node, index) => {
+      const newX =
         (viewport.width - totalWidth) / 2 +
-        (index % 5) * (NODE_WIDTH + PADDING),
-      y:
+        (index % 5) * (NODE_WIDTH + PADDING);
+      const newY =
         (viewport.height - totalHeight) / 2 +
-        Math.floor(index / 5) * (NODE_HEIGHT + PADDING)
+        Math.floor(index / 5) * (NODE_HEIGHT + PADDING);
+      return {
+        ...node,
+        position: { x: newX, y: newY },
+        data: {
+          ...node.data,
+          position_x: newX,
+          position_y: newY
+        }
+      };
     }
-  }));
+  );
 
-  // Center group nodes
-  const centeredGroupNodes = groupNodes.map((node, index) => {
-    const newPosition = {
-      x:
+  const centeredGroupsWithoutPosition = groupsWithoutPosition.map(
+    (node, index) => {
+      const newX =
         (viewport.width - totalWidth) / 2 +
-        (index % 5) * (GROUP_WIDTH + PADDING),
-      y:
+        (index % 5) * (GROUP_WIDTH + PADDING);
+      const newY =
         (viewport.height - totalHeight) / 2 +
-        Math.floor(index / 5) * (GROUP_HEIGHT + PADDING)
-    };
-    return {
-      ...node,
-      position: newPosition
-    };
-  });
+        Math.floor(index / 5) * (GROUP_HEIGHT + PADDING);
+      return {
+        ...node,
+        position: { x: newX, y: newY },
+        data: {
+          ...node.data,
+          position_x: newX,
+          position_y: newY
+        }
+      };
+    }
+  );
 
-  // Maintain grouped nodes' relative positions
-  const updatedGroupedNodes = groupedNodes.map((node) => {
-    const parent = centeredGroupNodes.find((n) => n.id === node.parentNode);
-    if (!parent) return node;
-    const member = groups.find((g) => g.id === node.parentNode);
-    if (!member) return node;
+  const nodesWithPosition = regularNodes.filter(
+    (node) => node.data.position_x && node.data.position_y
+  );
+  const groupsWithPosition = groupNodes.filter(
+    (node) => node.data.position_x && node.data.position_y
+  );
 
-    // Create a proper TreeMember-like object with all required properties
-    const memberData = {
-      id: node.id,
-      family_tree_id: member.family_tree_id,
-      identifier: node.data.label,
-      form_submission_id: null, // Required property
-      group_id: node.parentNode ?? null, // Keep as null for TreeMember type
-      is_big: null, // Required property
-      position_x: node.data.position_x || 100,
-      position_y: node.data.position_y || 100
-    };
+  return [
+    ...nodesWithPosition,
+    ...centeredNodesWithoutPosition,
+    ...groupsWithPosition,
+    ...centeredGroupsWithoutPosition
+  ];
+};
 
-    const relativePos = getNodePosition(memberData, groups);
-    return {
-      ...node,
-      position: relativePos
-    };
-  });
+// Custom hook for loading family tree data
+const useFamilyTreeData = (
+  familyTreeId: string,
+  setNodes: (nodes: Node[]) => void,
+  setEdges: (edges: Edge[]) => void,
+  fitView: (options?: {
+    padding?: number;
+    includeHiddenNodes?: boolean;
+  }) => void
+) => {
+  const supabase = useSupabase();
+  const { getViewport } = useReactFlow();
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Combine all nodes
-  return [...centeredFreeNodes, ...updatedGroupedNodes, ...centeredGroupNodes];
+  const loadFamilyTree = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const familyTree = await getFamilyTreeById(supabase, familyTreeId);
+      const members = await getFamilyTreeMembers(supabase, familyTreeId);
+      const { data: groupsData, error: groupsError } = await supabase
+        .from('group')
+        .select('id, family_tree_id, position_x, position_y, width, height')
+        .eq('family_tree_id', familyTreeId);
+
+      if (groupsError)
+        throw new Error(`Error fetching groups: ${groupsError.message}`);
+
+      const groups = groupsData ? Group.array().parse(groupsData) : [];
+
+      const { data: connectionsData, error: connectionsError } = await supabase
+        .from('connections')
+        .select('id, big_id, little_id')
+        .eq('family_tree_id', familyTreeId);
+
+      if (connectionsError)
+        throw new Error(
+          `Error fetching connections: ${connectionsError.message}`
+        );
+
+      const initialNodes: Node[] = members.map((member) => ({
+        id: member.id,
+        type: 'default',
+        data: {
+          label: member.identifier,
+          position_x: member.position_x,
+          position_y: member.position_y
+        },
+        position: getNodePosition(member, groups),
+        draggable: true,
+        selectable: true,
+        parentNode: member.group_id ?? undefined,
+        extent: member.group_id ? ('parent' as const) : undefined,
+        style: { zIndex: 10 }
+      }));
+
+      const groupNodes: Node[] = groups.map((group) => ({
+        id: group.id,
+        type: 'group',
+        data: {
+          label: `Family Group ${group.id.slice(0, 4)}`,
+          position_x: group.position_x,
+          position_y: group.position_y
+        },
+        position: { x: group.position_x ?? 100, y: group.position_y ?? 100 },
+        style: {
+          width: group.width ?? '300px',
+          height: group.height ?? '200px',
+          backgroundColor: 'rgba(249, 245, 249, 0.8)',
+          border: '2px dashed #444',
+          zIndex: 1
+        },
+        className: 'group-node',
+        draggable: true,
+        selectable: true
+      }));
+
+      const initialEdges: Edge[] = connectionsData
+        ? connectionsData.map((conn) => ({
+            id: `e${conn.big_id}-${conn.little_id}`,
+            type: 'default',
+            source: conn.big_id,
+            target: conn.little_id,
+            style: { zIndex: 5 }
+          }))
+        : [];
+
+      const allNodes = [...initialNodes, ...groupNodes];
+      const viewport = getViewport();
+      const centeredNodes = centerElements(allNodes, groups, {
+        width: window.innerWidth,
+        height: window.innerHeight * 0.85
+      });
+
+      setNodes(centeredNodes);
+      setEdges(initialEdges);
+      window.requestAnimationFrame(() => fitView({ padding: 0.2 }));
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Unknown error');
+      toast.error('Failed to load family tree');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [familyTreeId, supabase, getViewport, setNodes, setEdges, fitView]);
+
+  return { loadFamilyTree, isLoading, error };
 };
 
 interface FamilyTreeFlowProps {
@@ -177,96 +360,18 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({ familyTreeId }) => {
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge[]>([]);
   const [contextMenu, setContextMenu] = useState<ContextMenuData | null>(null);
   const [resizing, setResizing] = useState<ResizeState | null>(null);
-  const { fitView, getViewport } = useReactFlow();
+  const { fitView } = useReactFlow();
+  const { loadFamilyTree, isLoading, error } = useFamilyTreeData(
+    familyTreeId,
+    setNodes,
+    setEdges,
+    fitView
+  );
 
-  // Load family tree data and center elements
+  // Load family tree data
   useEffect(() => {
-    const loadFamilyTree = async () => {
-      try {
-        const familyTree = await getFamilyTreeById(supabase, familyTreeId);
-        const members = await getFamilyTreeMembers(supabase, familyTreeId);
-        const { data: groupsData, error: groupsError } = await supabase
-          .from('group')
-          .select('id, family_tree_id, position_x, position_y, width, height')
-          .eq('family_tree_id', familyTreeId);
-
-        if (groupsError)
-          throw new Error(`Error fetching groups: ${groupsError.message}`);
-
-        const groups = groupsData ? Group.array().parse(groupsData) : [];
-
-        // Fetch connections
-        const { data: connectionsData, error: connectionsError } =
-          await supabase
-            .from('connections')
-            .select('id, big_id, little_id')
-            .eq('family_tree_id', familyTreeId);
-
-        if (connectionsError)
-          throw new Error(
-            `Error fetching connections: ${connectionsError.message}`
-          );
-
-        const initialNodes: Node[] = members.map((member) => ({
-          id: member.id,
-          type: 'default',
-          data: {
-            label: member.identifier,
-            position_x: member.position_x,
-            position_y: member.position_y
-          },
-          position: getNodePosition(member, groups),
-          draggable: true,
-          selectable: true,
-          parentNode: member.group_id ?? undefined,
-          extent: member.group_id ? ('parent' as const) : undefined,
-          style: { zIndex: 10 }
-        }));
-
-        const groupNodes: Node[] = groups.map((group) => ({
-          id: group.id,
-          type: 'group',
-          data: { label: `Family Group ${group.id.slice(0, 4)}` },
-          position: { x: group.position_x ?? 100, y: group.position_y ?? 100 },
-          style: {
-            width: group.width ?? '300px',
-            height: group.height ?? '200px',
-            backgroundColor: 'rgba(249, 245, 249, 0.8)',
-            border: '2px dashed #444',
-            zIndex: 1
-          },
-          className: 'group-node',
-          draggable: true,
-          selectable: true
-        }));
-
-        const initialEdges: Edge[] = connectionsData
-          ? connectionsData.map((conn) => ({
-              id: `e${conn.big_id}-${conn.little_id}`,
-              type: 'default',
-              source: conn.big_id,
-              target: conn.little_id,
-              style: { zIndex: 5 }
-            }))
-          : [];
-
-        const allNodes = [...initialNodes, ...groupNodes];
-        const viewport = getViewport();
-        const centeredNodes = centerElements(allNodes, groups, {
-          width: window.innerWidth,
-          height: window.innerHeight * 0.85
-        });
-
-        setNodes(centeredNodes);
-        setEdges(initialEdges);
-        window.requestAnimationFrame(() => fitView());
-      } catch (error) {
-        console.error('Error loading family tree:', error);
-      }
-    };
-
     void loadFamilyTree();
-  }, [familyTreeId, supabase, setNodes, setEdges, fitView, getViewport]);
+  }, [loadFamilyTree]);
 
   // Handle node context menu (right-click)
   const onNodeContextMenu: NodeMouseHandler = useCallback((event, node) => {
@@ -305,7 +410,9 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({ familyTreeId }) => {
             eds
           )
         );
+        toast.success('Connection created');
       } catch (error) {
+        toast.error('Failed to create connection');
         console.error('Error creating connection:', error);
       }
     },
@@ -327,33 +434,43 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({ familyTreeId }) => {
         setEdges((eds) =>
           eds.filter((e) => e.source !== nodeId && e.target !== nodeId)
         );
+        toast.success(`${isGroup ? 'Group' : 'Member'} deleted`);
       } else if (action === 'detach') {
         const node = nodes.find((n) => n.id === nodeId);
         if (!node || !node.parentNode) return;
-        const { x, y } = getAbsolutePosition(node, nodes);
+        const parentGroup = nodes.find((n) => n.id === node.parentNode);
+        if (!parentGroup) return;
 
-        // Update database with null for group_id
+        const { x, y } = findEmptySpace(
+          nodes,
+          node,
+          parentGroup,
+          NODE_WIDTH,
+          NODE_HEIGHT
+        );
+
         await supabase
           .from('tree_member')
           .update({ group_id: null, position_x: x, position_y: y })
           .eq('id', nodeId);
 
-        // Update nodes state with undefined for parentNode
         setNodes((nds) =>
           nds.map((n) =>
             n.id === nodeId
               ? {
                   ...n,
-                  parentNode: undefined, // Use undefined instead of null
+                  parentNode: undefined,
                   extent: undefined,
                   position: { x, y }
                 }
               : n
           )
         );
+        toast.success('Member detached from group');
       }
       setContextMenu(null);
     } catch (error) {
+      toast.error(`Failed to ${action === 'delete' ? 'delete' : 'detach'}`);
       console.error(`Error performing ${action} action:`, error);
     }
   };
@@ -367,7 +484,9 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({ familyTreeId }) => {
       await removeConnection(supabase, targetId);
       setEdges((eds) => eds.filter((e) => e.id !== edgeId));
       setContextMenu(null);
+      toast.success('Connection deleted');
     } catch (error) {
+      toast.error('Failed to delete connection');
       console.error('Error deleting edge:', error);
     }
   };
@@ -379,14 +498,18 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({ familyTreeId }) => {
       const group: Node = {
         id: newGroup.id,
         type: 'group',
-        data: { label: `Family Group ${newGroup.id.slice(0, 4)}` },
+        data: {
+          label: `Family Group ${newGroup.id.slice(0, 4)}`,
+          position_x: newGroup.position_x,
+          position_y: newGroup.position_y
+        },
         position: {
           x: newGroup.position_x ?? 100,
           y: newGroup.position_y ?? 100
         },
         style: {
           width: newGroup.width ?? '300px',
-          height: newGroup.height ?? '200px',
+          height: newGroup.width ?? '200px',
           backgroundColor: 'rgba(249, 245, 249, 0.8)',
           border: '2px dashed #444',
           zIndex: 1
@@ -396,77 +519,54 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({ familyTreeId }) => {
         selectable: true
       };
       setNodes((nds) => [...nds, group]);
-      window.requestAnimationFrame(() => fitView());
+      window.requestAnimationFrame(() => fitView({ padding: 0.2 }));
+      toast.success('Group added');
     } catch (error) {
+      toast.error('Failed to add group');
       console.error('Error adding group:', error);
     }
   };
 
-  // Handle node drag
-  const onNodeDrag = useCallback(
-    async (_: React.MouseEvent, node: Node) => {
-      if (node.className === 'group-node') return;
+  // Reset layout to centered
+  const resetLayout = () => {
+    const viewport = {
+      width: window.innerWidth,
+      height: window.innerHeight * 0.85
+    };
+    const groups = nodes
+      .filter((node) => node.className === 'group-node')
+      .map((node) => ({
+        id: node.id,
+        family_tree_id: familyTreeId,
+        position_x: node.data.position_x,
+        position_y: node.data.position_y,
+        width: node.style?.width as string,
+        height: node.style?.height as string
+      }));
+    const centeredNodes = centerElements(nodes, groups, viewport);
+    setNodes(centeredNodes);
+    window.requestAnimationFrame(() => fitView({ padding: 0.2 }));
+    toast.success('Layout reset');
+  };
 
-      // Only check for group collision if node is not already grouped
-      if (!node.parentNode) {
-        const group = nodes.find(
-          (n) =>
-            n.id !== node.id &&
-            n.className === 'group-node' &&
-            n.style &&
-            typeof n.style.width === 'string' &&
-            typeof n.style.height === 'string' &&
-            node.position.x > n.position.x &&
-            node.position.x < n.position.x + parseFloat(n.style.width) &&
-            node.position.y > n.position.y &&
-            node.position.y < n.position.y + parseFloat(n.style.height)
-        );
+  // Recenter viewport to include all nodes and groups
+  const recenterView = () => {
+    window.requestAnimationFrame(() => fitView({ padding: 0.2 }));
+    toast.success('View recentered');
+  };
 
-        if (group) {
-          try {
-            const relativeX = node.position.x - group.position.x;
-            const relativeY = node.position.y - group.position.y;
+  // Handle node drag (no group reassignment during drag)
+  const onNodeDrag = useCallback(() => {
+    // Intentionally empty to prevent group reassignment during drag
+  }, []);
 
-            // Update database with relative position
-            await supabase
-              .from('tree_member')
-              .update({
-                group_id: group.id,
-                position_x: relativeX,
-                position_y: relativeY
-              })
-              .eq('id', node.id);
-
-            // Update node state
-            setNodes((nds) =>
-              nds.map((n) =>
-                n.id === node.id
-                  ? {
-                      ...n,
-                      parentNode: group.id,
-                      extent: 'parent' as const,
-                      position: { x: relativeX, y: relativeY }
-                    }
-                  : n
-              )
-            );
-          } catch (error) {
-            console.error('Error updating group membership:', error);
-          }
-        }
-      }
-    },
-    [nodes, setNodes, supabase]
-  );
-
-  // Persist node position after drag
+  // Persist node position and handle group reassignment after drag
   const onNodeDragStop = useCallback(
     async (_: React.MouseEvent, node: Node) => {
       if (resizing) return;
 
       try {
         if (node.className === 'group-node') {
-          // Save group position
           await supabase
             .from('group')
             .update({
@@ -475,9 +575,8 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({ familyTreeId }) => {
             })
             .eq('id', node.id);
         } else {
-          // For regular nodes, save the appropriate position
           if (node.parentNode) {
-            // Grouped node: save relative position
+            // Node is in a group, update its relative position
             await supabase
               .from('tree_member')
               .update({
@@ -486,26 +585,70 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({ familyTreeId }) => {
               })
               .eq('id', node.id);
           } else {
-            // Free node: save absolute position
-            await supabase
-              .from('tree_member')
-              .update({
-                position_x: node.position.x,
-                position_y: node.position.y
-              })
-              .eq('id', node.id);
+            // Node is not in a group, check for new group assignment
+            const absolutePos = { x: node.position.x, y: node.position.y };
+            const group = nodes.find(
+              (n) =>
+                n.id !== node.id &&
+                n.className === 'group-node' &&
+                n.style &&
+                typeof n.style.width === 'string' &&
+                typeof n.style.height === 'string' &&
+                absolutePos.x >= n.position.x &&
+                absolutePos.x <= n.position.x + parseFloat(n.style.width) &&
+                absolutePos.y >= n.position.y &&
+                absolutePos.y <= n.position.y + parseFloat(n.style.height)
+            );
+
+            if (group) {
+              const relativeX = absolutePos.x - group.position.x;
+              const relativeY = absolutePos.y - group.position.y;
+
+              await supabase
+                .from('tree_member')
+                .update({
+                  group_id: group.id,
+                  position_x: relativeX,
+                  position_y: relativeY
+                })
+                .eq('id', node.id);
+
+              setNodes((nds) =>
+                nds.map((n) =>
+                  n.id === node.id
+                    ? {
+                        ...n,
+                        parentNode: group.id,
+                        extent: 'parent' as const,
+                        position: { x: relativeX, y: relativeY }
+                      }
+                    : n
+                )
+              );
+              toast.success('Member added to group');
+            } else {
+              // Node remains outside any group, update absolute position
+              await supabase
+                .from('tree_member')
+                .update({
+                  position_x: absolutePos.x,
+                  position_y: absolutePos.y
+                })
+                .eq('id', node.id);
+            }
           }
         }
 
-        // Clear selection
         setNodes((nds) =>
           nds.map((n) => (n.id === node.id ? { ...n, selected: false } : n))
         );
+        toast.success('Position updated');
       } catch (error) {
+        toast.error('Failed to update position');
         console.error('Error persisting node position:', error);
       }
     },
-    [nodes, resizing, setNodes, supabase]
+    [resizing, setNodes, supabase, nodes]
   );
 
   const handleClickAway = () => setContextMenu(null);
@@ -605,7 +748,9 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({ familyTreeId }) => {
         setNodes((nds) =>
           nds.map((n) => (n.id === nodeId ? { ...n, selected: false } : n))
         );
+        toast.success('Group resized');
       } catch (error) {
+        toast.error('Failed to resize group');
         console.error('Error persisting group dimensions:', error);
       }
     }
@@ -623,105 +768,25 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({ familyTreeId }) => {
     };
   }, [resizing, handleMouseMove, handleMouseUp]);
 
-  // Styles
-  const styles = `
-    .group-node {
-      pointer-events: all;
-    }
-    .group-node .react-flow__node-default {
-      pointer-events: all;
-      background: transparent;
-      border: none;
-      font-size: 12px;
-      color: #666;
-    }
-    .react-flow__node:not(.group-node) {
-      pointer-events: all;
-      cursor: grab;
-    }
-    .react-flow__node:not(.group-node).selected {
-      box-shadow: 0 0 0 2px #1976d2;
-    }
-    .group-node.selected {
-      border: 2px solid #1976d2 !important;
-      background-color: rgba(25, 118, 210, 0.1) !important;
-    }
-    .resize-edge {
-      position: absolute;
-      background: transparent;
-      opacity: 0;
-      transition: opacity 0.2s;
-      pointer-events: all;
-      z-index: 100;
-    }
-    .resize-edge:hover,
-    .group-node:hover .resize-edge,
-    .group-node.selected .resize-edge {
-      background: rgba(25, 118, 210, 0.3);
-      opacity: 1;
-    }
-    .resize-edge.top,
-    .resize-edge.bottom {
-      left: 0;
-      right: 0;
-      height: 8px;
-      cursor: ns-resize;
-    }
-    .resize-edge.top {
-      top: -4px;
-    }
-    .resize-edge.bottom {
-      bottom: -4px;
-    }
-    .resize-edge.left,
-    .resize-edge.right {
-      top: 0;
-      bottom: 0;
-      width: 8px;
-      cursor: ew-resize;
-    }
-    .resize-edge.left {
-      left: -4px;
-    }
-    .resize-edge.right {
-      right: -4px;
-    }
-    .layout-controls {
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
-      align-items: center;
-      padding: 10px;
-    }
-    .layout-controls button {
-      padding: 8px 12px;
-      border: 1px solid #ddd;
-      background: white;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 14px;
-    }
-    .layout-controls button:hover {
-      background: #f5f5f5;
-    }
-    .layout-controls span {
-      font-weight: bold;
-      color: #666;
-    }
-    .layout-controls .divider {
-      width: 1px;
-      height: 30px;
-      background: #ddd;
-      margin: 0 5px;
-    }
-  `;
+  if (isLoading) {
+    return <div className="p-4 text-center">Loading family tree...</div>;
+  }
+
+  if (error) {
+    return <div className="p-4 text-center text-red-600">Error: {error}</div>;
+  }
 
   return (
     <>
-      <style>{styles}</style>
       <div className="layout-controls">
         <button type="button" onClick={addGroup}>
           Add Family Group
+        </button>
+        <button type="button" onClick={resetLayout}>
+          Reset Layout
+        </button>
+        <button type="button" onClick={recenterView}>
+          Recenter View
         </button>
         <div className="divider" />
       </div>
@@ -738,7 +803,8 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({ familyTreeId }) => {
           onConnect={onConnect}
           onNodeContextMenu={onNodeContextMenu}
           onEdgeContextMenu={onEdgeContextMenu}
-          fitView>
+          fitView
+          fitViewOptions={{ padding: 0.2 }}>
           <MiniMap />
           <Controls />
           <Background variant={BackgroundVariant.Dots} />
@@ -776,22 +842,16 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({ familyTreeId }) => {
           ))}
         {contextMenu && (
           <div
+            className="context-menu"
             style={
               {
                 position: 'fixed',
                 top: contextMenu.position.y,
                 left: contextMenu.position.x,
-                background: 'white',
-                border: '1px solid #ccc',
-                padding: '6px 10px',
-                zIndex: 1000,
-                boxShadow: '0 2px 5px rgba(0,0,0,0.15)'
+                zIndex: 1000
               } as React.CSSProperties
             }>
-            <div
-              style={
-                { marginBottom: 5, fontWeight: 'bold' } as React.CSSProperties
-              }>
+            <div className="title">
               {contextMenu.type === 'node'
                 ? 'Member/Group Options'
                 : 'Connection Options'}
@@ -803,7 +863,13 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({ familyTreeId }) => {
                   ? handleNodeAction('delete', contextMenu.id)
                   : handleEdgeAction(contextMenu.id)
               }>
-              Delete
+              Delete{' '}
+              {contextMenu.type === 'node'
+                ? nodes.find((n) => n.id === contextMenu.id)?.className ===
+                  'group-node'
+                  ? 'Group'
+                  : 'Member'
+                : 'Connection'}
             </button>
             {contextMenu.type === 'node' &&
               nodes.find((n) => n.id === contextMenu.id)?.parentNode && (
