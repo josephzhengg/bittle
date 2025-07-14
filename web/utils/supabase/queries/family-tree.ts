@@ -12,6 +12,10 @@ const GROUP_WIDTH = 300;
 const GROUP_HEIGHT = 200;
 const PADDING = 50;
 
+// Estimated viewport size for centering (adjustable)
+const VIEWPORT_WIDTH = 1280; // Typical default viewport width
+const VIEWPORT_HEIGHT = 720 * 0.85; // 85% of 720px, matching FamilyTreeFlow.tsx's height: 85vh
+
 // Utility to calculate centered positions for members within a group
 const calculateMemberPositions = (
   members: { identifier: string; form_submission_id?: string | null }[],
@@ -86,6 +90,7 @@ export async function createFamilyTree(
   }
 
   try {
+    // Start a transaction to ensure atomicity
     const { data: familyTreeData, error: familyTreeError } = await supabase
       .from('family_tree')
       .insert({
@@ -103,12 +108,15 @@ export async function createFamilyTree(
     }
     const familyTree = FamilyTree.parse(familyTreeData);
 
+    // Create a default group at the estimated viewport center
+    const groupX = (VIEWPORT_WIDTH - GROUP_WIDTH) / 2; // Center horizontally
+    const groupY = (VIEWPORT_HEIGHT - GROUP_HEIGHT) / 2; // Center vertically
     const { data: groupData, error: groupError } = await supabase
       .from('group')
       .insert({
         family_tree_id: familyTree.id,
-        position_x: 100,
-        position_y: 100,
+        position_x: groupX,
+        position_y: groupY,
         width: `${GROUP_WIDTH}px`,
         height: `${GROUP_HEIGHT}px`
       })
@@ -119,6 +127,7 @@ export async function createFamilyTree(
     }
     const defaultGroup = Group.parse(groupData);
 
+    // Fetch question responses if no members provided
     let members = input.members || [];
     if (!members.length) {
       const { data: responseData, error: responseError } = await supabase
@@ -137,18 +146,23 @@ export async function createFamilyTree(
       }));
     }
 
+    // Calculate positions for members within the default group
     const memberPositions = calculateMemberPositions(
       members,
-      { x: defaultGroup.position_x ?? 100, y: defaultGroup.position_y ?? 100 },
+      {
+        x: defaultGroup.position_x ?? groupX,
+        y: defaultGroup.position_y ?? groupY
+      },
       GROUP_WIDTH,
       GROUP_HEIGHT
     );
 
+    // Insert tree members with relative positions in the default group
     const treeMembers = members.map((member, index) => ({
       family_tree_id: familyTree.id,
       identifier: member.identifier,
       form_submission_id: member.form_submission_id ?? null,
-      group_id: member.group_id ?? defaultGroup.id,
+      group_id: member.group_id ?? defaultGroup.id, // Use provided group_id or default group
       is_big: member.is_big ?? false,
       position_x: memberPositions[index].position_x,
       position_y: memberPositions[index].position_y
@@ -163,6 +177,7 @@ export async function createFamilyTree(
     }
     const parsedMembers = TreeMember.array().parse(membersData);
 
+    // Create connections for big-little relationships
     const connections = members
       .flatMap((member, index) =>
         (member.littles || []).map((littleIdentifier) => ({

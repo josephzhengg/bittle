@@ -1,3 +1,5 @@
+'use client';
+
 import { useRouter } from 'next/router';
 import { useSupabase } from '@/lib/supabase';
 import { useQuery } from '@tanstack/react-query';
@@ -9,7 +11,8 @@ import { createSupabaseServerClient } from '@/utils/supabase/clients/server-prop
 import { GetServerSidePropsContext } from 'next';
 import type { User } from '@supabase/supabase-js';
 import DashboardLayout from '@/components/layouts/dashboard-layout';
-import FamilyTreeFlowWrapper from '@/components/family-tree-components/family-tree-graph';
+import FamilyTreeFlow from '@/components/family-tree-components/family-tree-graph';
+import { ReactFlowProvider } from 'reactflow';
 
 export type FamilyTreePageProps = {
   user: User;
@@ -87,9 +90,17 @@ export default function FamilyTreePage({ user }: FamilyTreePageProps) {
 
   return (
     <DashboardLayout user={user}>
-      <div>
+      <div
+        style={{
+          width: '100%',
+          height: '100vh', // Full viewport height
+          position: 'relative',
+          overflow: 'hidden' // No scrolling
+        }}>
         {membersQuery.data ? (
-          <FamilyTreeFlowWrapper familyTreeId={familyTreeQuery.data.id} />
+          <ReactFlowProvider>
+            <FamilyTreeFlow familyTreeId={familyTreeQuery.data.id} />
+          </ReactFlowProvider>
         ) : (
           <div>No family tree data available</div>
         )}
