@@ -1,4 +1,10 @@
-import React, { useCallback, useState, useEffect, useRef } from 'react';
+import React, {
+  useCallback,
+  useState,
+  useEffect,
+  useRef,
+  useMemo
+} from 'react';
 import ReactFlow, {
   useNodesState,
   useEdgesState,
@@ -14,7 +20,8 @@ import ReactFlow, {
   useReactFlow,
   NodeMouseHandler,
   EdgeMouseHandler,
-  NodeResizeParams
+  NodeChange,
+  NodeTypes
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { useSupabase } from '@/lib/supabase';
@@ -29,6 +36,8 @@ import {
 } from '@/utils/supabase/queries/family-tree';
 import { z } from 'zod';
 import { toast } from 'sonner';
+import { debounce } from 'lodash';
+import ResizableNode from './resizable-node';
 
 // Types
 interface ContextMenuData {
@@ -45,6 +54,11 @@ const NODE_HEIGHT = 36;
 const GROUP_WIDTH = 300;
 const GROUP_HEIGHT = 200;
 const PADDING = 50;
+
+// Node Types
+const nodeTypes: NodeTypes = {
+  group: ResizableNode
+};
 
 // Utility to get node position from database
 const getNodePosition = (
@@ -66,8 +80,10 @@ const getNodePosition = (
   const group = groups.find((g) => g.id === member.group_id);
   if (!group) return defaultPos;
 
-  const groupWidth = parseFloat(group.width || '300px');
-  const groupHeight = parseFloat(group.height || '200px');
+  const groupWidth =
+    parseFloat(group.width || `${GROUP_WIDTH}px`) || GROUP_WIDTH;
+  const groupHeight =
+    parseFloat(group.height || `${GROUP_HEIGHT}px`) || GROUP_HEIGHT;
   return {
     x: Math.max(0, Math.min(member.position_x, groupWidth - NODE_WIDTH)),
     y: Math.max(0, Math.min(member.position_y, groupHeight - NODE_HEIGHT))
@@ -85,8 +101,8 @@ const findEmptySpace = (
   containerHeight: number
 ): { x: number; y: number } => {
   const parentWidth =
-    parentGroup.style && typeof parentGroup.style.width === 'string'
-      ? parseFloat(parentGroup.style.width)
+    parentGroup.style && typeof parentGroup.style.width === 'number'
+      ? parentGroup.style.width
       : GROUP_WIDTH;
   let x = parentGroup.position.x + parentWidth + PADDING;
   let y = parentGroup.position.y;
@@ -95,16 +111,12 @@ const findEmptySpace = (
     return nodes.some((n) => {
       if (n.id === targetNode.id) return false;
       const nWidth =
-        n.className === 'group-node' &&
-        n.style &&
-        typeof n.style.width === 'string'
-          ? parseFloat(n.style.width)
+        n.type === 'group' && n.style && typeof n.style.width === 'number'
+          ? n.style.width
           : NODE_WIDTH;
       const nHeight =
-        n.className === 'group-node' &&
-        n.style &&
-        typeof n.style.height === 'string'
-          ? parseFloat(n.style.height)
+        n.type === 'group' && n.style && typeof n.style.height === 'number'
+          ? n.style.height
           : NODE_HEIGHT;
       const nX = n.position.x;
       const nY = n.position.y;
@@ -148,8 +160,8 @@ const centerElements = (
   containerWidth: number,
   containerHeight: number
 ): Node[] => {
-  const groupNodes = nodes.filter((node) => node.className === 'group-node');
-  const regularNodes = nodes.filter((node) => node.className !== 'group-node');
+  const groupNodes = nodes.filter((node) => node.type === 'group');
+  const regularNodes = nodes.filter((node) => node.type !== 'group');
   const nodesWithoutPosition = regularNodes.filter(
     (node) => !node.data.position_x || !node.data.position_y
   );
@@ -310,12 +322,15 @@ const useFamilyTreeData = (
         selectable: true,
         parentNode: member.group_id ?? undefined,
         extent: member.group_id ? ('parent' as const) : undefined,
-        style: { zIndex: 20 }
+        style: { zIndex: 20, width: NODE_WIDTH, height: NODE_HEIGHT },
+        resizable: false
       }));
 
       const groupNodes: Node[] = groups.map((group) => {
-        const width = parseFloat(group.width || '300px');
-        const height = parseFloat(group.height || '200px');
+        const width =
+          parseFloat(group.width || `${GROUP_WIDTH}px`) || GROUP_WIDTH;
+        const height =
+          parseFloat(group.height || `${GROUP_HEIGHT}px`) || GROUP_HEIGHT;
         const posX = group.position_x ?? 0;
         const posY = group.position_y ?? 0;
         const constrainedY = Math.min(posY, containerHeight - height - 100);
@@ -329,16 +344,16 @@ const useFamilyTreeData = (
           },
           position: { x: posX, y: constrainedY },
           style: {
-            width: `${width}px`,
-            height: `${height}px`,
+            width,
+            height,
             backgroundColor: 'rgba(249, 245, 249, 0.8)',
             border: '2px dashed #444',
-            zIndex: 1
+            zIndex: 1,
+            boxSizing: 'border-box'
           },
-          className: 'group-node',
           draggable: true,
-          resizable: true,
-          selectable: true
+          selectable: true,
+          resizable: true
         };
       });
 
@@ -362,7 +377,7 @@ const useFamilyTreeData = (
 
       setNodes(centeredNodes);
       setEdges(initialEdges);
-      window.requestAnimationFrame(() => fitView({ padding: 0.4, maxZoom: 1 }));
+      window.requestAnimationFrame(() => fitView({ padding: 0.4 }));
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Unknown error');
       toast.error('Failed to load family tree');
@@ -386,6 +401,56 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({ familyTreeId }) => {
   const { fitView } = useReactFlow();
   const containerRef = useRef<HTMLDivElement>(null);
 
+  // Memoize nodeTypes
+  const memoizedNodeTypes = useMemo(() => nodeTypes, []);
+
+  // Debug node properties
+  useEffect(() => {
+    console.log(
+      'Nodes:',
+      nodes.map((n) => ({
+        id: n.id,
+        type: n.type,
+        resizable: n.resizable,
+        style: n.style
+      }))
+    );
+  }, [nodes]);
+
+  // Global click listener for debugging
+  useEffect(() => {
+    const handleClick = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      const classes = target.classList ? Array.from(target.classList) : [];
+      let isResizeHandle = false;
+      let parentNodeId: string | null = null;
+      let closestNode: HTMLElement | null = target;
+      while (closestNode) {
+        if (closestNode.classList?.contains('react-flow__resize-control')) {
+          isResizeHandle = true;
+          const parentNode = closestNode.closest('.react-flow__node-group');
+          parentNodeId = parentNode?.getAttribute('data-id') || null;
+          break;
+        }
+        closestNode = closestNode.parentElement;
+      }
+      console.log('Click detected:', {
+        isResizeHandle,
+        parentNodeId,
+        targetClasses: classes,
+        targetTag: target.tagName,
+        clientX: event.clientX,
+        clientY: event.clientY,
+        closestNodeClasses: closestNode?.classList
+          ? Array.from(closestNode.classList)
+          : []
+      });
+    };
+
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
+
   const getContainerSize = useCallback(() => {
     if (containerRef.current) {
       const rect = containerRef.current.getBoundingClientRect();
@@ -408,6 +473,29 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({ familyTreeId }) => {
 
   const onNodeClick: NodeMouseHandler = useCallback(
     (event, node) => {
+      const target = event.target as HTMLElement;
+      let isResizeHandle = false;
+      const classes = target.classList ? Array.from(target.classList) : [];
+      let closestNode: HTMLElement | null = target;
+      while (closestNode) {
+        if (closestNode.classList?.contains('react-flow__resize-control')) {
+          isResizeHandle = true;
+          break;
+        }
+        closestNode = closestNode.parentElement;
+      }
+      console.log(`Node click on ${node.id}:`, {
+        isResizeHandle,
+        targetClasses: classes,
+        targetTag: target.tagName,
+        nodeType: node.type,
+        resizable: node.resizable
+      });
+      if (isResizeHandle) {
+        event.stopPropagation();
+        return;
+      }
+
       event.stopPropagation();
       setNodes((nds) =>
         nds.map((n) => ({
@@ -427,6 +515,30 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({ familyTreeId }) => {
 
   const onNodeContextMenu: NodeMouseHandler = useCallback(
     (event, node) => {
+      const target = event.target as HTMLElement;
+      let isResizeHandle = false;
+      const classes = target.classList ? Array.from(target.classList) : [];
+      let closestNode: HTMLElement | null = target;
+      while (closestNode) {
+        if (closestNode.classList?.contains('react-flow__resize-control')) {
+          isResizeHandle = true;
+          break;
+        }
+        closestNode = closestNode.parentElement;
+      }
+      console.log(`Context menu on node ${node.id}:`, {
+        isResizeHandle,
+        targetClasses: classes,
+        targetTag: target.tagName,
+        nodeType: node.type,
+        resizable: node.resizable
+      });
+      if (isResizeHandle) {
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
+
       event.preventDefault();
       event.stopPropagation();
       setNodes((nds) =>
@@ -483,7 +595,7 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({ familyTreeId }) => {
       if (action === 'delete') {
         const node = nodes.find((n) => n.id === nodeId);
         if (!node) return;
-        const isGroup = node.className === 'group-node';
+        const isGroup = node.type === 'group';
         await supabase
           .from(isGroup ? 'group' : 'tree_member')
           .delete()
@@ -515,7 +627,6 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({ familyTreeId }) => {
           .from('tree_member')
           .update({ group_id: null, position_x: x, position_y: y })
           .eq('id', nodeId);
-
         setNodes((nds) =>
           nds.map((n) =>
             n.id === nodeId
@@ -557,8 +668,10 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({ familyTreeId }) => {
       const [newGroup] = await createGroup(supabase, familyTreeId);
       const { width: containerWidth, height: containerHeight } =
         getContainerSize();
-      const width = parseFloat(newGroup.width || '300px');
-      const height = parseFloat(newGroup.height || '200px');
+      const width =
+        parseFloat(newGroup.width || `${GROUP_WIDTH}px`) || GROUP_WIDTH;
+      const height =
+        parseFloat(newGroup.height || `${GROUP_HEIGHT}px`) || GROUP_HEIGHT;
       const newX = 0;
       const newY = Math.min(0, containerHeight - height - 100);
       const group: Node = {
@@ -571,16 +684,16 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({ familyTreeId }) => {
         },
         position: { x: newX, y: newY },
         style: {
-          width: `${width}px`,
-          height: `${height}px`,
+          width,
+          height,
           backgroundColor: 'rgba(249, 245, 249, 0.8)',
           border: '2px dashed #444',
-          zIndex: 1
+          zIndex: 1,
+          boxSizing: 'border-box'
         },
-        className: 'group-node',
         draggable: true,
-        resizable: true,
-        selectable: true
+        selectable: true,
+        resizable: true
       };
       setNodes((nds) => [...nds, group]);
       window.requestAnimationFrame(() => fitView({ padding: 0.4, maxZoom: 1 }));
@@ -595,7 +708,7 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({ familyTreeId }) => {
     const { width: containerWidth, height: containerHeight } =
       getContainerSize();
     const groups = nodes
-      .filter((node) => node.className === 'group-node')
+      .filter((node) => node.type === 'group')
       .map((node) => ({
         id: node.id,
         family_tree_id: familyTreeId,
@@ -638,9 +751,8 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({ familyTreeId }) => {
       const { width: containerWidth, height: containerHeight } =
         getContainerSize();
       try {
-        if (node.className === 'group-node') {
-          const height =
-            parseFloat(node.style?.height as string) || GROUP_HEIGHT;
+        if (node.type === 'group') {
+          const height = (node.style?.height as number) || GROUP_HEIGHT;
           const constrainedY = Math.min(
             node.position.y,
             containerHeight - height - 100
@@ -663,27 +775,26 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({ familyTreeId }) => {
           const group = nodes.find(
             (n) =>
               n.id !== node.id &&
-              n.className === 'group-node' &&
+              n.type === 'group' &&
               n.style &&
-              typeof n.style.width === 'string' &&
-              typeof n.style.height === 'string' &&
+              typeof n.style.width === 'number' &&
+              typeof n.style.height === 'number' &&
               node.positionAbsolute &&
               node.positionAbsolute.x >= n.position.x &&
               node.positionAbsolute.x <=
-                n.position.x + parseFloat(n.style.width) &&
+                n.position.x + (n.style.width as number) &&
               node.positionAbsolute.y >= n.position.y &&
               node.positionAbsolute.y <=
-                n.position.y + parseFloat(n.style.height)
+                n.position.y + (n.style.height as number)
           );
 
           if (group && !node.parentNode) {
             // Outside to Inside Group
             const relativeX = node.positionAbsolute!.x - group.position.x;
             const relativeY = node.positionAbsolute!.y - group.position.y;
-            const parentWidth =
-              parseFloat(group.style!.width as string) || GROUP_WIDTH;
+            const parentWidth = (group.style!.width as number) || GROUP_WIDTH;
             const parentHeight =
-              parseFloat(group.style!.height as string) || GROUP_HEIGHT;
+              (group.style!.height as number) || GROUP_HEIGHT;
             const constrainedX = Math.max(
               0,
               Math.min(relativeX, parentWidth - NODE_WIDTH)
@@ -750,9 +861,9 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({ familyTreeId }) => {
             const parentGroup = nodes.find((n) => n.id === node.parentNode);
             if (parentGroup) {
               const parentWidth =
-                parseFloat(parentGroup.style?.width as string) || GROUP_WIDTH;
+                (parentGroup.style?.width as number) || GROUP_WIDTH;
               const parentHeight =
-                parseFloat(parentGroup.style?.height as string) || GROUP_HEIGHT;
+                (parentGroup.style?.height as number) || GROUP_HEIGHT;
               const relativeX = Math.max(
                 0,
                 Math.min(node.position.x, parentWidth - NODE_WIDTH)
@@ -810,51 +921,104 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({ familyTreeId }) => {
     [setNodes, supabase, nodes, getContainerSize]
   );
 
-  const onNodeResize = useCallback(
-    (event: React.MouseEvent, params: NodeResizeParams) => {
-      const { node } = params;
-      console.log(
-        `Resizing group ${node.id}: width=${node.width}, height=${node.height}`
-      );
-      setNodes((nds) =>
-        nds.map((n) =>
-          n.id === node.id
-            ? {
-                ...n,
-                style: {
-                  ...n.style,
-                  width: `${node.width}px`,
-                  height: `${node.height}px`
-                }
-              }
-            : n
-        )
-      );
-    },
-    [setNodes]
+  const debouncedUpdateDimensions = useMemo(
+    () =>
+      debounce(async (nodeId: string, width: number, height: number) => {
+        console.log(
+          `Persisting dimensions for node ${nodeId}: ${width}x${height}`
+        );
+        try {
+          await supabase
+            .from('group')
+            .update({
+              width: `${width}px`,
+              height: `${height}px`
+            })
+            .eq('id', nodeId);
+          toast.success('Group resized');
+        } catch (error) {
+          toast.error('Failed to resize group');
+          console.error('Error persisting group dimensions:', error);
+        }
+      }, 500),
+    [supabase]
   );
 
-  const onNodeResizeEnd = useCallback(
-    async (event: React.MouseEvent, params: NodeResizeParams) => {
-      const { node } = params;
-      console.log(
-        `Resize ended for group ${node.id}: width=${node.width}, height=${node.height}`
-      );
-      try {
-        await supabase
-          .from('group')
-          .update({
-            width: `${node.width}px`,
-            height: `${node.height}px`
-          })
-          .eq('id', node.id);
-        toast.success('Group resized');
-      } catch (error) {
-        toast.error('Failed to resize group');
-        console.error('Error persisting group dimensions:', error);
+  const lastDimensions = useRef<Map<string, { width: number; height: number }>>(
+    new Map()
+  );
+
+  const onNodesChangeCustom = useCallback(
+    async (changes: NodeChange[]) => {
+      console.log('Node changes:', changes);
+      const validChanges = changes.filter((change) => {
+        if (change.type !== 'dimensions' || !change.id || !change.dimensions) {
+          return true; // Allow non-dimension changes
+        }
+        const node = nodes.find((n) => n.id === change.id);
+        if (!node || node.type !== 'group' || !node.resizable) {
+          console.log(`Filtered out dimensions change for node ${change.id}:`, {
+            nodeExists: !!node,
+            isGroup: node?.type === 'group',
+            isResizable: node?.resizable,
+            dimensions: change.dimensions
+          });
+          return false;
+        }
+        const lastDims = lastDimensions.current.get(change.id);
+        const isChanged =
+          !lastDims ||
+          Math.abs(lastDims.width - change.dimensions.width) > 0.1 ||
+          Math.abs(lastDims.height - change.dimensions.height) > 0.1;
+        if (isChanged) {
+          lastDimensions.current.set(change.id, {
+            width: change.dimensions.width,
+            height: change.dimensions.height
+          });
+        } else {
+          console.log(`Skipped redundant dimensions for node ${change.id}:`, {
+            last: lastDims,
+            current: change.dimensions
+          });
+        }
+        return isChanged;
+      });
+
+      if (validChanges.length === 0) {
+        console.log('No valid changes to process');
+        return;
+      }
+
+      onNodesChange(validChanges);
+
+      for (const change of validChanges) {
+        if (change.type === 'dimensions' && change.id && change.dimensions) {
+          const { width, height } = change.dimensions;
+          console.log(
+            `Updating node ${change.id} dimensions: ${width}x${height}`
+          );
+          setNodes((nds) =>
+            nds.map((n) =>
+              n.id === change.id
+                ? {
+                    ...n,
+                    style: {
+                      ...n.style,
+                      width,
+                      height,
+                      boxSizing: 'border-box'
+                    },
+                    width,
+                    height
+                  }
+                : n
+            )
+          );
+          debouncedUpdateDimensions(change.id, width, height);
+        }
       }
     },
-    [supabase]
+    [onNodesChange, nodes, debouncedUpdateDimensions, setNodes]
   );
 
   const handleClickAway = useCallback(() => {
@@ -878,159 +1042,133 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({ familyTreeId }) => {
   }
 
   const styles = `
-    .group-node {
-      z-index: 1;
-    }
-    .group-node .react-flow__node-default {
-      pointer-events: auto;
-      background: #fff;
-      border: 1px solid #ddd;
-      border-radius: 4px;
-      font-size: 12px;
-      color: #333;
-      padding: 8px;
-      z-index: 20;
-    }
-    .react-flow__node:not(.group-node) {
-      pointer-events: auto;
-      cursor: grab;
-      z-index: 20;
-    }
-    .react-flow__node:not(.group-node).selected {
-      box-shadow: 0 0 0 2px #1976d2 !important;
-      border: 1px solid #1976d2 !important;
-    }
-    .group-node.selected {
-      border: 2px solid #1976d2 !important;
-      background-color: rgba(25, 118, 210, 0.1) !important;
-    }
-    .react-flow__resize-control {
-      background: rgba(25, 118, 210, 0.5);
-      border: 2px solid #1976d2;
-      opacity: 0;
-      transition: opacity 0.2s;
-      pointer-events: auto;
-    }
-    .group-node.selected .react-flow__resize-control {
-      opacity: 1;
-    }
-    .react-flow__resize-control.top,
-    .react-flow__resize-control.bottom {
-      left: 0;
-      right: 0;
-      height: 12px;
-      cursor: ns-resize;
-    }
-    .react-flow__resize-control.top {
-      top: -6px;
-    }
-    .react-flow__resize-control.bottom {
-      bottom: -6px;
-    }
-    .react-flow__resize-control.left,
-    .react-flow__resize-control.right {
-      top: 0;
-      bottom: 0;
-      width: 12px;
-      cursor: ew-resize;
-    }
-    .react-flow__resize-control.left {
-      left: -6px;
-    }
-    .react-flow__resize-control.right {
-      right: -6px;
-    }
-    .layout-controls {
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
-      align-items: center;
-      padding: 10px;
-      position: absolute;
-      top: 0;
-      left: 0;
-      z-index: 1000;
-    }
-    .layout-controls button {
-      padding: 8px 12px;
-      border: 1px solid #ddd;
-      background: white;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 14px;
-    }
-    .layout-controls button:hover {
-      background: #f5f5f5;
-    }
-    .layout-controls .divider {
-      width: 1px;
-      height: 30px;
-      background: #ddd;
-      margin: 0 5px;
-    }
-    .context-menu {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      padding: 8px;
-      background: white;
-      border: 1px solid #ccc;
-      border-radius: 4px;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.15);
-      position: fixed;
-      z-index: 1000;
-    }
-    .context-menu button {
-      padding: 6px 12px;
-      border: none;
-      background: white;
-      text-align: left;
-      cursor: pointer;
-      font-size: 14px;
-      color: #333;
-      border-radius: 2px;
-    }
-    .context-menu button:hover,
-    .context-menu button:focus {
-      background: #f5f5f5;
-      outline: none;
-    }
-    .context-menu .title {
-      font-weight: bold;
-      color: #666;
-      padding-bottom: 4px;
-      border-bottom: 1px solid #eee;
-    }
-    .react-flow-container {
-      width: 100%;
-      height: 100%;
-      overflow: hidden;
-      position: relative;
-    }
-    .react-flow__pane {
-      overflow: visible !important;
-    }
-    .react-flow__controls {
-      position: fixed;
-      bottom: 20px;
-      left: 20px;
-      z-index: 2000;
-      background: white;
-      border-radius: 4px;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-      padding: 5px;
-    }
-    .react-flow__minimap {
-      position: fixed;
-      bottom: 20px;
-      right: 20px;
-      z-index: 2000;
-      background: white;
-      border-radius: 4px;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-      padding: 5px;
-    }
-  `;
+  .react-flow__node-group {
+    z-index: 1;
+    background: rgba(249, 245, 249, 0.8);
+    border: 2px dashed #444;
+    border-radius: 4px;
+    pointer-events: auto;
+    min-width: 100px;
+    min-height: 100px;
+    box-sizing: border-box;
+  }
+  .react-flow__node-default {
+    pointer-events: auto;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 12px;
+    color: #333;
+    padding: 8px;
+    z-index: 20;
+    width: ${NODE_WIDTH}px;
+    height: ${NODE_HEIGHT}px;
+  }
+  .react-flow__node:not(.react-flow__node-group) {
+    cursor: grab;
+    z-index: 20;
+  }
+  .react-flow__node:not(.react-flow__node-group).selected {
+    box-shadow: 0 0 0 2px #1976d2 !important;
+    border: 1px solid #1976d2 !important;
+  }
+  .react-flow__node-group.selected {
+    border: 2px solid #1976d2 !important;
+    background-color: rgba(25, 118, 210, 0.1) !important;
+  }
+  .layout-controls {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+    padding: 10px;
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 1000;
+  }
+  .layout-controls button {
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    background: white;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+  }
+  .layout-controls button:hover {
+    background: #f5f5f5;
+  }
+  .layout-controls .divider {
+    width: 1px;
+    height: 30px;
+    background: #ddd;
+    margin: 0 5px;
+  }
+  .context-menu {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 8px;
+    background: white;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.15);
+    position: fixed;
+    z-index: 1000;
+  }
+  .context-menu button {
+    padding: 6px 12px;
+    border: none;
+    background: white;
+    text-align: left;
+    cursor: pointer;
+    font-size: 14px;
+    color: #333;
+    border-radius: 2px;
+  }
+  .context-menu button:hover,
+  .context-menu button:focus {
+    background: #f5f5f5;
+    outline: none;
+  }
+  .context-menu .title {
+    font-weight: bold;
+    color: #666;
+    padding-bottom: 4px;
+    border-bottom: 1px solid #eee;
+  }
+  .react-flow-container {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    position: relative;
+    z-index: 0 !important;
+  }
+  .react-flow__pane {
+    overflow: visible !important;
+    z-index: 0 !important;
+  }
+  .react-flow__controls {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    z-index: 2000;
+    background: white;
+    border-radius: 4px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    padding: 5px;
+  }
+  .react-flow__minimap {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 2000;
+    background: white;
+    border-radius: 4px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    padding: 5px;
+  }
+`;
 
   return (
     <>
@@ -1054,12 +1192,10 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({ familyTreeId }) => {
         <ReactFlow
           nodes={nodes}
           edges={edges}
-          onNodesChange={onNodesChange}
+          onNodesChange={onNodesChangeCustom}
           onEdgesChange={onEdgesChange}
           onNodeDrag={onNodeDrag}
           onNodeDragStop={onNodeDragStop}
-          onNodeResize={onNodeResize}
-          onNodeResizeEnd={onNodeResizeEnd}
           onConnect={onConnect}
           onNodeContextMenu={onNodeContextMenu}
           onEdgeContextMenu={onEdgeContextMenu}
@@ -1072,7 +1208,8 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({ familyTreeId }) => {
           translateExtent={[
             [-Infinity, -Infinity],
             [Infinity, Infinity]
-          ]}>
+          ]}
+          nodeTypes={memoizedNodeTypes}>
           <MiniMap />
           <Controls />
           <Background variant={BackgroundVariant.Dots} />
@@ -1100,8 +1237,7 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({ familyTreeId }) => {
               }>
               Delete{' '}
               {contextMenu.type === 'node'
-                ? nodes.find((n) => n.id === contextMenu.id)?.className ===
-                  'group-node'
+                ? nodes.find((n) => n.id === contextMenu.id)?.type === 'group'
                   ? 'Group'
                   : 'Member'
                 : 'Connection'}
