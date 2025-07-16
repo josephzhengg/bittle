@@ -1,32 +1,24 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 import { FamilyTree } from '@/utils/supabase/models/family-tree';
-import { Group } from '@/utils/supabase/models/group';
 import { TreeMember } from '@/utils/supabase/models/tree-member';
 import { FormSubmission } from '@/utils/supabase/models/form-submission';
 
-// Constants for grid-based positioning (aligned with FamilyTreeFlow.tsx)
 const NODE_WIDTH = 172;
 const NODE_HEIGHT = 36;
-const GROUP_WIDTH = 300;
-const GROUP_HEIGHT = 200;
 const PADDING = 50;
+const VIEWPORT_WIDTH = 1280;
+const VIEWPORT_HEIGHT = 720 * 0.85;
 
-// Estimated viewport size for centering (adjustable)
-const VIEWPORT_WIDTH = 1280; // Typical default viewport width
-const VIEWPORT_HEIGHT = 720 * 0.85; // 85% of 720px, matching FamilyTreeFlow.tsx's height: 85vh
-
-// Utility to calculate centered positions for members within a group
 const calculateMemberPositions = (
   members: { identifier: string; form_submission_id?: string | null }[],
-  groupPosition: { x: number; y: number },
-  groupWidth: number,
-  groupHeight: number
+  containerWidth: number,
+  containerHeight: number
 ): { position_x: number; position_y: number }[] => {
   const positions: { position_x: number; position_y: number }[] = [];
-  const maxPerRow = Math.floor(groupWidth / (NODE_WIDTH + PADDING));
+  const maxPerRow = Math.floor(containerWidth / (NODE_WIDTH + PADDING));
   const offsetX =
-    (groupWidth - maxPerRow * (NODE_WIDTH + PADDING) + PADDING) / 2;
+    (containerWidth - maxPerRow * (NODE_WIDTH + PADDING) + PADDING) / 2;
   const offsetY = PADDING;
 
   members.forEach((_, index) => {
@@ -34,16 +26,9 @@ const calculateMemberPositions = (
     const col = index % maxPerRow;
     const position_x = offsetX + col * (NODE_WIDTH + PADDING);
     const position_y = offsetY + row * (NODE_HEIGHT + PADDING);
-    // Ensure positions are within group boundaries
     positions.push({
-      position_x: Math.min(
-        Math.max(position_x, PADDING),
-        groupWidth - NODE_WIDTH - PADDING
-      ),
-      position_y: Math.min(
-        Math.max(position_y, PADDING),
-        groupHeight - NODE_HEIGHT - PADDING
-      )
+      position_x: Math.min(position_x, containerWidth - NODE_WIDTH - PADDING),
+      position_y: Math.min(position_y, containerHeight - NODE_HEIGHT - PADDING)
     });
   });
 
@@ -63,18 +48,15 @@ export async function createFamilyTree(
       identifier: string;
       is_big?: boolean;
       littles?: string[];
-      group_id?: string;
       form_submission_id?: string | null;
     }[];
   }
 ): Promise<z.infer<typeof FamilyTree>> {
-  // Check for existing family tree by form_id
   const existingTree = await checkExistingFamilyTree(supabase, input.form_id);
   if (existingTree) {
     throw new Error(`Family tree already exists for form ID: ${input.form_id}`);
   }
 
-  // Check for existing family tree by code
   try {
     const existingTreeByCode = await getFamilyTreeByCode(supabase, input.code);
     if (existingTreeByCode) {
@@ -90,7 +72,6 @@ export async function createFamilyTree(
   }
 
   try {
-    // Start a transaction to ensure atomicity
     const { data: familyTreeData, error: familyTreeError } = await supabase
       .from('family_tree')
       .insert({
@@ -108,26 +89,6 @@ export async function createFamilyTree(
     }
     const familyTree = FamilyTree.parse(familyTreeData);
 
-    // Create a default group at the estimated viewport center
-    const groupX = (VIEWPORT_WIDTH - GROUP_WIDTH) / 2; // Center horizontally
-    const groupY = (VIEWPORT_HEIGHT - GROUP_HEIGHT) / 2; // Center vertically
-    const { data: groupData, error: groupError } = await supabase
-      .from('group')
-      .insert({
-        family_tree_id: familyTree.id,
-        position_x: groupX,
-        position_y: groupY,
-        width: `${GROUP_WIDTH}px`,
-        height: `${GROUP_HEIGHT}px`
-      })
-      .select()
-      .single();
-    if (groupError) {
-      throw new Error(`Error creating default group: ${groupError.message}`);
-    }
-    const defaultGroup = Group.parse(groupData);
-
-    // Fetch question responses if no members provided
     let members = input.members || [];
     if (!members.length) {
       const { data: responseData, error: responseError } = await supabase
@@ -146,23 +107,16 @@ export async function createFamilyTree(
       }));
     }
 
-    // Calculate positions for members within the default group
     const memberPositions = calculateMemberPositions(
       members,
-      {
-        x: defaultGroup.position_x ?? groupX,
-        y: defaultGroup.position_y ?? groupY
-      },
-      GROUP_WIDTH,
-      GROUP_HEIGHT
+      VIEWPORT_WIDTH,
+      VIEWPORT_HEIGHT
     );
 
-    // Insert tree members with relative positions in the default group
     const treeMembers = members.map((member, index) => ({
       family_tree_id: familyTree.id,
       identifier: member.identifier,
       form_submission_id: member.form_submission_id ?? null,
-      group_id: member.group_id ?? defaultGroup.id, // Use provided group_id or default group
       is_big: member.is_big ?? false,
       position_x: memberPositions[index].position_x,
       position_y: memberPositions[index].position_y
@@ -177,7 +131,6 @@ export async function createFamilyTree(
     }
     const parsedMembers = TreeMember.array().parse(membersData);
 
-    // Create connections for big-little relationships
     const connections = members
       .flatMap((member, index) =>
         (member.littles || []).map((littleIdentifier) => ({
@@ -208,7 +161,6 @@ export async function createFamilyTree(
   }
 }
 
-// Get family tree by ID
 export async function getFamilyTreeById(
   supabase: SupabaseClient,
   familyTreeId: string
@@ -222,43 +174,18 @@ export async function getFamilyTreeById(
   return data;
 }
 
-// Get family tree members
 export async function getFamilyTreeMembers(
   supabase: SupabaseClient,
   familyTreeId: string
 ): Promise<z.infer<typeof TreeMember>[]> {
   const { data, error } = await supabase
     .from('tree_member')
-    .select(
-      'id, family_tree_id, identifier, form_submission_id, group_id, is_big, position_x, position_y'
-    )
+    .select()
     .eq('family_tree_id', familyTreeId);
   if (error) throw new Error(`Error fetching members: ${error.message}`);
   return data;
 }
 
-// Create a new group
-export async function createGroup(
-  supabase: SupabaseClient,
-  familyTreeId: string
-): Promise<z.infer<typeof Group>[]> {
-  const { data, error } = await supabase
-    .from('group')
-    .insert([
-      {
-        family_tree_id: familyTreeId,
-        position_x: 100,
-        position_y: 100,
-        width: '300px',
-        height: '200px'
-      }
-    ])
-    .select();
-  if (error) throw new Error(`Error creating group: ${error.message}`);
-  return data;
-}
-
-// Create a big-little connection
 export async function createConnection(
   supabase: SupabaseClient,
   bigId: string,
@@ -283,22 +210,52 @@ export async function createConnection(
     ])
     .select();
   if (error) throw new Error(`Error creating connection: ${error.message}`);
+
+  const { error: updateError } = await supabase
+    .from('tree_member')
+    .update({ is_big: true })
+    .eq('id', bigId);
+  if (updateError) {
+    throw new Error(`Error updating member to big: ${updateError.message}`);
+  }
   return data;
 }
 
-// Remove a big-little connection
 export async function removeConnection(
   supabase: SupabaseClient,
-  littleId: string
+  littleId: string,
+  bigId: string
 ): Promise<void> {
   const { error } = await supabase
     .from('connections')
     .delete()
-    .eq('little_id', littleId);
+    .eq('little_id', littleId)
+    .eq('big_id', bigId);
   if (error) throw new Error(`Error removing connection: ${error.message}`);
+
+  const { data: littleData, error: littleError } = await supabase
+    .from('connections')
+    .select('id')
+    .eq('big_id', bigId);
+
+  if (littleError) {
+    throw new Error(
+      `Error fetching little connections: ${littleError.message}`
+    );
+  }
+  if (littleData.length === 0) {
+    const { error: updateError } = await supabase
+      .from('tree_member')
+      .update({ is_big: false })
+      .eq('id', bigId);
+    if (updateError) {
+      throw new Error(
+        `Error updating member to not big: ${updateError.message}`
+      );
+    }
+  }
 }
 
-// Delete a family tree
 export async function deleteFamilyTree(
   supabase: SupabaseClient,
   family_tree_id: string
@@ -311,7 +268,6 @@ export async function deleteFamilyTree(
     throw new Error(`Error deleting family tree: ${deleteError.message}`);
 }
 
-// Get family trees by author
 export async function getFamilyTrees(
   supabase: SupabaseClient,
   author_id: string
@@ -326,7 +282,6 @@ export async function getFamilyTrees(
   return familyTrees || [];
 }
 
-// Update family tree title and description
 export async function updateFamilyTree(
   supabase: SupabaseClient,
   family_tree_id: string,
@@ -341,7 +296,6 @@ export async function updateFamilyTree(
     throw new Error(`Error updating family tree: ${updateError.message}`);
 }
 
-// Check for existing family tree by form_id
 export async function checkExistingFamilyTree(
   supabase: SupabaseClient,
   form_id: string
@@ -362,7 +316,6 @@ export async function checkExistingFamilyTree(
   return familyTreeData;
 }
 
-// Refetch form submissions for a family tree
 export async function refetchSubmissions(
   supabase: SupabaseClient,
   family_tree_id: string

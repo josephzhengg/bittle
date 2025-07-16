@@ -1,10 +1,4 @@
-import React, {
-  useCallback,
-  useState,
-  useEffect,
-  useRef,
-  useMemo
-} from 'react';
+import React, { useCallback, useState, useRef, useEffect } from 'react';
 import ReactFlow, {
   useNodesState,
   useEdgesState,
@@ -16,412 +10,345 @@ import ReactFlow, {
   Edge,
   Connection,
   BackgroundVariant,
-  OnConnect,
   useReactFlow,
-  NodeMouseHandler,
-  EdgeMouseHandler,
-  NodeChange,
-  NodeTypes
+  Handle,
+  Position,
+  MarkerType
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { useSupabase } from '@/lib/supabase';
 import { TreeMember } from '@/utils/supabase/models/tree-member';
-import { Group } from '@/utils/supabase/models/group';
 import {
-  createGroup,
   createConnection,
   removeConnection,
   getFamilyTreeMembers,
-  getFamilyTreeById,
-  refetchSubmissions
+  refetchSubmissions,
+  toggleBig
 } from '@/utils/supabase/queries/family-tree';
 import { z } from 'zod';
 import { toast } from 'sonner';
-import { debounce } from 'lodash';
-import ResizableNode from './resizable-node';
 
-// Types
+const NODE_WIDTH = 172;
+const NODE_HEIGHT = 36;
+const PADDING = 50;
+const VERTICAL_SPACING = 100;
+
+interface NodeData {
+  label: string;
+  position_x: number | null;
+  position_y: number | null;
+  is_big: boolean;
+  hasLittles: boolean;
+  hasBig: boolean;
+}
+
 interface ContextMenuData {
   id: string;
   type: 'node' | 'edge';
   position: { x: number; y: number };
 }
 
-type NodeAction = 'delete' | 'detach';
+// Node styling based on role
+const getNodeStyle = (data: NodeData) => {
+  const base = {
+    width: NODE_WIDTH,
+    height: NODE_HEIGHT,
+    borderRadius: '6px',
+    padding: '8px',
+    fontSize: '12px',
+    fontWeight: '500',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    textAlign: 'center' as const,
+    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+    transition: 'all 0.2s ease'
+  };
 
-// Constants
-const NODE_WIDTH = 172;
-const NODE_HEIGHT = 36;
-const GROUP_WIDTH = 300;
-const GROUP_HEIGHT = 200;
-const PADDING = 50;
-
-// Node Types
-const nodeTypes: NodeTypes = {
-  group: ResizableNode
+  if (data.is_big && data.hasLittles && data.hasBig) {
+    return {
+      ...base,
+      background: 'linear-gradient(135deg, #8b5cf6, #6d28d9)',
+      color: '#fff',
+      border: '2px solid #5b21b6'
+    };
+  } else if (data.is_big && data.hasLittles) {
+    return {
+      ...base,
+      background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)',
+      color: '#fff',
+      border: '2px solid #1e40af'
+    };
+  } else if (data.is_big) {
+    return {
+      ...base,
+      background: 'linear-gradient(135deg, #6366f1, #4f46e5)',
+      color: '#fff',
+      border: '2px solid #4338ca'
+    };
+  } else if (data.hasBig) {
+    return {
+      ...base,
+      background: 'linear-gradient(135deg, #10b981, #047857)',
+      color: '#fff',
+      border: '2px solid #065f46'
+    };
+  } else {
+    return {
+      ...base,
+      background: 'linear-gradient(135deg, #f3f4f6, #e5e7eb)',
+      color: '#374151',
+      border: '2px solid #d1d5db'
+    };
+  }
 };
 
-// Utility to get node position from database
+const getRoleIcon = (data: NodeData) => {
+  if (data.is_big && data.hasLittles && data.hasBig) return '👑🌱';
+  if (data.is_big && data.hasLittles) return '👑';
+  if (data.is_big) return '⭐';
+  if (data.hasBig) return '🌱';
+  return '⚪';
+};
+
+const CustomNode: React.FC<{ data: NodeData; selected: boolean }> = ({
+  data,
+  selected
+}) => (
+  <div style={getNodeStyle(data)} className={selected ? 'selected' : ''}>
+    <Handle
+      type="target"
+      position={Position.Top}
+      style={{
+        background: '#374151',
+        width: 8,
+        height: 8,
+        border: '2px solid #fff',
+        top: -4
+      }}
+    />
+    <div>{data.label}</div>
+    <Handle
+      type="source"
+      position={Position.Bottom}
+      style={{
+        background: '#374151',
+        width: 8,
+        height: 8,
+        border: '2px solid #fff',
+        bottom: -4
+      }}
+    />
+  </div>
+);
+
+const nodeTypes = { custom: CustomNode };
+
+// Position utilities
 const getNodePosition = (
   member: z.infer<typeof TreeMember>,
-  groups: z.infer<typeof Group>[],
-  containerWidth: number,
   containerHeight: number
-): { x: number; y: number } => {
-  const defaultPos = { x: 0, y: 0 };
-  if (!member.position_x || !member.position_y) return defaultPos;
+) => ({
+  x: member.position_x ?? 0,
+  y: Math.min(member.position_y ?? 0, containerHeight - NODE_HEIGHT - PADDING)
+});
 
-  if (!member.group_id) {
-    return {
-      x: member.position_x,
-      y: Math.min(member.position_y, containerHeight - NODE_HEIGHT - 100)
-    };
-  }
-
-  const group = groups.find((g) => g.id === member.group_id);
-  if (!group) return defaultPos;
-
-  const groupWidth =
-    parseFloat(group.width || `${GROUP_WIDTH}px`) || GROUP_WIDTH;
-  const groupHeight =
-    parseFloat(group.height || `${GROUP_HEIGHT}px`) || GROUP_HEIGHT;
-  return {
-    x: Math.max(0, Math.min(member.position_x, groupWidth - NODE_WIDTH)),
-    y: Math.max(0, Math.min(member.position_y, groupHeight - NODE_HEIGHT))
-  };
-};
-
-// Utility to find an empty space for a node
 const findEmptySpace = (
   nodes: Node[],
-  targetNode: Node,
-  parentGroup: Node,
-  nodeWidth: number,
-  nodeHeight: number,
+  targetId: string,
   containerWidth: number,
   containerHeight: number
-): { x: number; y: number } => {
-  const parentWidth =
-    parentGroup.style && typeof parentGroup.style.width === 'number'
-      ? parentGroup.style.width
-      : GROUP_WIDTH;
-  let x = parentGroup.position.x + parentWidth + PADDING;
-  let y = parentGroup.position.y;
+) => {
+  let x = 0,
+    y = 0;
+  const isOverlapping = (testX: number, testY: number) =>
+    nodes.some(
+      (n) =>
+        n.id !== targetId &&
+        testX < n.position.x + NODE_WIDTH + PADDING &&
+        testX + NODE_WIDTH > n.position.x &&
+        testY < n.position.y + NODE_HEIGHT + PADDING &&
+        testY + NODE_HEIGHT > n.position.y
+    );
 
-  const isOverlapping = (testX: number, testY: number): boolean => {
-    return nodes.some((n) => {
-      if (n.id === targetNode.id) return false;
-      const nWidth =
-        n.type === 'group' && n.style && typeof n.style.width === 'number'
-          ? n.style.width
-          : NODE_WIDTH;
-      const nHeight =
-        n.type === 'group' && n.style && typeof n.style.height === 'number'
-          ? n.style.height
-          : NODE_HEIGHT;
-      const nX = n.position.x;
-      const nY = n.position.y;
-
-      return (
-        testX < nX + nWidth + PADDING &&
-        testX + nodeWidth + PADDING > nX &&
-        testY < nY + nHeight + PADDING &&
-        testY + nodeHeight + PADDING > nY
-      );
-    });
-  };
-
-  const maxAttempts = 10;
-  let attempts = 0;
-  const stepSize = 50;
   const directions = [
-    { dx: 1, dy: 0 }, // Right
-    { dx: 0, dy: 1 }, // Down
-    { dx: -1, dy: 0 }, // Left
-    { dx: 0, dy: -1 } // Up
+    { dx: 1, dy: 0 },
+    { dx: 0, dy: 1 },
+    { dx: -1, dy: 0 },
+    { dx: 0, dy: -1 }
   ];
-  let directionIndex = 0;
+  let attempt = 0,
+    directionIndex = 0;
 
-  while (isOverlapping(x, y) && attempts < maxAttempts) {
+  while (isOverlapping(x, y) && attempt < 100) {
     const { dx, dy } = directions[directionIndex % directions.length];
-    x += dx * stepSize;
-    y += dy * stepSize;
+    x += dx * 50;
+    y += dy * 50;
     directionIndex++;
-    attempts++;
+    attempt++;
+    x = Math.max(0, Math.min(x, containerWidth - NODE_WIDTH - PADDING));
+    y = Math.max(0, Math.min(y, containerHeight - NODE_HEIGHT - PADDING));
   }
 
-  y = Math.min(y, containerHeight - nodeHeight - 100);
-  return { x, y };
+  return { x, y: Math.min(y, containerHeight - NODE_HEIGHT - PADDING) };
 };
 
-// Utility to center nodes and groups
-const centerElements = (
-  nodes: Node[],
-  groups: z.infer<typeof Group>[],
+const autoLayout = (
+  nodes: Node<NodeData>[],
+  edges: Edge[],
   containerWidth: number,
   containerHeight: number
-): Node[] => {
-  const groupNodes = nodes.filter((node) => node.type === 'group');
-  const regularNodes = nodes.filter((node) => node.type !== 'group');
-  const nodesWithoutPosition = regularNodes.filter(
-    (node) => !node.data.position_x || !node.data.position_y
+) => {
+  // Build adjacency lists
+  const bigToLittles = new Map<string, string[]>();
+  const littleToBig = new Map<string, string>();
+  edges.forEach((edge) => {
+    if (!bigToLittles.has(edge.source)) bigToLittles.set(edge.source, []);
+    bigToLittles.get(edge.source)?.push(edge.target);
+    littleToBig.set(edge.target, edge.source);
+  });
+
+  // Find root nodes (bigs with no big or unconnected nodes)
+  const roots = nodes.filter(
+    (node) => !littleToBig.has(node.id) || !node.data.hasBig
   );
-  const groupsWithoutPosition = groupNodes.filter(
-    (node) => !node.data.position_x || !node.data.position_y
+
+  // Assign levels based on hierarchy
+  const levels = new Map<string, number>();
+  const assignLevels = (nodeId: string, level: number) => {
+    if (!levels.has(nodeId)) {
+      levels.set(nodeId, level);
+      const littles = bigToLittles.get(nodeId) || [];
+      littles.forEach((littleId) => assignLevels(littleId, level + 1));
+    }
+  };
+
+  roots.forEach((root) => assignLevels(root.id, 0));
+  nodes.forEach((node) => {
+    if (!levels.has(node.id)) {
+      levels.set(node.id, 0); // Unconnected nodes at top
+    }
+  });
+
+  // Group nodes by level
+  const levelGroups = new Map<number, Node<NodeData>[]>();
+  nodes.forEach((node) => {
+    const level = levels.get(node.id) || 0;
+    if (!levelGroups.has(level)) levelGroups.set(level, []);
+    levelGroups.get(level)?.push(node);
+  });
+
+  // Calculate max width needed
+  const maxLevelWidth = Math.max(
+    ...Array.from(levelGroups.values()).map((group) => group.length)
   );
+  const totalWidth = maxLevelWidth * (NODE_WIDTH + PADDING);
+  const offsetX = Math.max(0, (containerWidth - totalWidth) / 2);
 
-  const maxPerRow = 5;
-  const totalElements =
-    nodesWithoutPosition.length + groupsWithoutPosition.length;
-  const totalRows = Math.ceil(totalElements / maxPerRow);
+  // Assign positions
+  const updatedNodes = nodes.map((node) => {
+    const level = levels.get(node.id) || 0;
+    const levelNodes = levelGroups.get(level) || [];
+    const index = levelNodes.findIndex((n) => n.id === node.id);
+    const levelWidth = levelNodes.length * (NODE_WIDTH + PADDING) - PADDING;
+    const startX = offsetX + (containerWidth - levelWidth) / 2;
+    const x = startX + index * (NODE_WIDTH + PADDING);
+    const y = PADDING + level * (NODE_HEIGHT + VERTICAL_SPACING);
+    const constrainedY = Math.min(y, containerHeight - NODE_HEIGHT - PADDING);
 
-  let currentIndex = 0;
-
-  const centeredNodesWithoutPosition = nodesWithoutPosition.map((node) => {
-    const col = currentIndex % maxPerRow;
-    const row = Math.floor(currentIndex / maxPerRow);
-    const newX = col * (NODE_WIDTH + PADDING);
-    const newY = Math.min(
-      row * (NODE_HEIGHT + PADDING),
-      containerHeight - NODE_HEIGHT - 100
-    );
-    currentIndex++;
     return {
       ...node,
-      position: { x: newX, y: newY },
-      data: {
-        ...node.data,
-        position_x: newX,
-        position_y: newY
-      }
+      position: { x, y: constrainedY },
+      data: { ...node.data, position_x: x, position_y: constrainedY }
     };
   });
 
-  const centeredGroupsWithoutPosition = groupsWithoutPosition.map((node) => {
-    const col = currentIndex % maxPerRow;
-    const row = Math.floor(currentIndex / maxPerRow);
-    const newX = col * (GROUP_WIDTH + PADDING);
-    const newY = Math.min(
-      row * (GROUP_HEIGHT + PADDING),
-      containerHeight - GROUP_HEIGHT - 100
-    );
-    currentIndex++;
-    return {
-      ...node,
-      position: { x: newX, y: newY },
-      data: {
-        ...node.data,
-        position_x: newX,
-        position_y: newY
-      }
-    };
-  });
-
-  const nodesWithPosition = regularNodes
-    .filter((node) => node.data.position_x && node.data.position_y)
-    .map((node) => ({
-      ...node,
-      position: {
-        x: node.position.x,
-        y: Math.min(node.position.y, containerHeight - NODE_HEIGHT - 100)
-      },
-      data: {
-        ...node.data,
-        position_x: node.position.x,
-        position_y: Math.min(
-          node.position.y,
-          containerHeight - NODE_HEIGHT - 100
-        )
-      }
-    }));
-
-  const groupsWithPosition = groupNodes
-    .filter((node) => node.data.position_x && node.data.position_y)
-    .map((node) => ({
-      ...node,
-      position: {
-        x: node.position.x,
-        y: Math.min(node.position.y, containerHeight - GROUP_HEIGHT - 100)
-      },
-      data: {
-        ...node.data,
-        position_x: node.position.x,
-        position_y: Math.min(
-          node.position.y,
-          containerHeight - GROUP_HEIGHT - 100
-        )
-      }
-    }));
-
-  return [
-    ...nodesWithPosition,
-    ...centeredNodesWithoutPosition,
-    ...groupsWithPosition,
-    ...centeredGroupsWithoutPosition
-  ];
+  return updatedNodes;
 };
 
-// Utility to calculate member positions within a group
-const calculateMemberPositions = (
-  members: { identifier: string; form_submission_id?: string | null }[],
-  groupPosition: { x: number; y: number },
-  groupWidth: number,
-  groupHeight: number
-): { position_x: number; position_y: number }[] => {
-  const positions: { position_x: number; position_y: number }[] = [];
-  const maxPerRow = Math.floor(groupWidth / (NODE_WIDTH + PADDING));
-  const offsetX =
-    (groupWidth - maxPerRow * (NODE_WIDTH + PADDING) + PADDING) / 2;
-  const offsetY = PADDING;
-
-  members.forEach((_, index) => {
-    const row = Math.floor(index / maxPerRow);
-    const col = index % maxPerRow;
-    const position_x = offsetX + col * (NODE_WIDTH + PADDING);
-    const position_y = offsetY + row * (NODE_HEIGHT + PADDING);
-    positions.push({
-      position_x: Math.min(
-        Math.max(position_x, PADDING),
-        groupWidth - NODE_WIDTH - PADDING
-      ),
-      position_y: Math.min(
-        Math.max(position_y, PADDING),
-        groupHeight - NODE_HEIGHT - PADDING
-      )
-    });
-  });
-
-  return positions;
-};
-
-// Custom hook for loading family tree data
+// Data loading hook
 const useFamilyTreeData = (
   familyTreeId: string,
-  setNodes: (nodes: Node[]) => void,
-  setEdges: (edges: Edge[]) => void,
-  fitView: (options?: {
-    padding?: number;
-    includeHiddenNodes?: boolean;
-  }) => void,
+  setNodes: React.Dispatch<React.SetStateAction<Node<NodeData>[]>>,
+  setEdges: React.Dispatch<React.SetStateAction<Edge[]>>,
+  fitView: (options?: import('reactflow').FitViewOptions) => void,
   getContainerSize: () => { width: number; height: number }
 ) => {
   const supabase = useSupabase();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Validate familyTreeId
-  if (!familyTreeId || typeof familyTreeId !== 'string') {
-    console.error('Invalid familyTreeId:', familyTreeId);
-    setError('Invalid family tree ID');
-    setIsLoading(false);
-  }
-
   const loadFamilyTree = useCallback(async () => {
+    if (!familyTreeId) return;
     setIsLoading(true);
     setError(null);
+
     try {
-      const familyTree = await getFamilyTreeById(supabase, familyTreeId);
-      const members = await getFamilyTreeMembers(supabase, familyTreeId);
-      const { data: groupsData, error: groupsError } = await supabase
-        .from('group')
-        .select('id, family_tree_id, position_x, position_y, width, height')
-        .eq('family_tree_id', familyTreeId);
+      const [members, { data: connections }] = await Promise.all([
+        getFamilyTreeMembers(supabase, familyTreeId),
+        supabase
+          .from('connections')
+          .select('id, big_id, little_id')
+          .eq('family_tree_id', familyTreeId)
+      ]);
 
-      if (groupsError)
-        throw new Error(`Error fetching groups: ${groupsError.message}`);
+      const { height } = getContainerSize();
+      const bigToLittles = new Map<string, string[]>();
+      const littleToBig = new Map<string, string>();
 
-      const groups = groupsData ? Group.array().parse(groupsData) : [];
+      connections?.forEach((conn) => {
+        if (!bigToLittles.has(conn.big_id)) bigToLittles.set(conn.big_id, []);
+        bigToLittles.get(conn.big_id)?.push(conn.little_id);
+        littleToBig.set(conn.little_id, conn.big_id);
+      });
 
-      const { data: connectionsData, error: connectionsError } = await supabase
-        .from('connections')
-        .select('id, big_id, little_id')
-        .eq('family_tree_id', familyTreeId);
-
-      if (connectionsError)
-        throw new Error(
-          `Error fetching connections: ${connectionsError.message}`
-        );
-
-      const { width: containerWidth, height: containerHeight } =
-        getContainerSize();
-
-      const initialNodes: Node[] = members.map((member) => ({
-        id: member.id,
-        type: 'default',
-        data: {
+      const nodes: Node[] = members.map((member) => {
+        const hasLittles = bigToLittles.has(member.id);
+        const hasBig = littleToBig.has(member.id);
+        const data: NodeData = {
           label: member.identifier,
           position_x: member.position_x,
-          position_y: member.position_y
-        },
-        position: getNodePosition(
-          member,
-          groups,
-          containerWidth,
-          containerHeight
-        ),
-        draggable: true,
-        selectable: true,
-        parentNode: member.group_id ?? undefined,
-        extent: member.group_id ? ('parent' as const) : undefined,
-        style: { zIndex: 20, width: NODE_WIDTH, height: NODE_HEIGHT },
-        resizable: false
-      }));
+          position_y: member.position_y,
+          is_big: member.is_big ?? false,
+          hasLittles,
+          hasBig
+        };
 
-      const groupNodes: Node[] = groups.map((group) => {
-        const width =
-          parseFloat(group.width || `${GROUP_WIDTH}px`) || GROUP_WIDTH;
-        const height =
-          parseFloat(group.height || `${GROUP_HEIGHT}px`) || GROUP_HEIGHT;
-        const posX = group.position_x ?? 0;
-        const posY = group.position_y ?? 0;
-        const constrainedY = Math.min(posY, containerHeight - height - 100);
         return {
-          id: group.id,
-          type: 'group',
-          data: {
-            label: `Family Group ${group.id.slice(0, 4)}`,
-            position_x: posX,
-            position_y: constrainedY
-          },
-          position: { x: posX, y: constrainedY },
-          style: {
-            width,
-            height,
-            backgroundColor: 'rgba(243, 244, 246, 0.6)',
-            border: '1px solid #d1d5db',
-            borderRadius: '2px',
-            zIndex: 1,
-            boxSizing: 'border-box'
-          },
+          id: member.id,
+          type: 'custom',
+          data: { ...data, label: `${getRoleIcon(data)} ${member.identifier}` },
+          position: getNodePosition(member, height),
           draggable: true,
-          selectable: true,
-          resizable: true
+          selectable: true
         };
       });
 
-      const initialEdges: Edge[] = connectionsData
-        ? connectionsData.map((conn) => ({
-            id: `e${conn.big_id}-${conn.little_id}`,
-            type: 'default',
-            source: conn.big_id,
-            target: conn.little_id,
-            style: { zIndex: 5 }
-          }))
-        : [];
+      const edges: Edge[] =
+        connections?.map((conn) => ({
+          id: conn.id,
+          type: 'smoothstep',
+          source: conn.big_id,
+          target: conn.little_id,
+          style: {
+            strokeWidth: 4,
+            stroke: '#6b7280',
+            transition: 'all 0.2s ease'
+          },
+          animated: true,
+          markerEnd: {
+            type: MarkerType.ArrowClosed,
+            color: '#6b7280',
+            width: 20,
+            height: 20
+          }
+        })) ?? [];
 
-      const allNodes = [...initialNodes, ...groupNodes];
-      const centeredNodes = centerElements(
-        allNodes,
-        groups,
-        containerWidth,
-        containerHeight
-      );
-
-      setNodes(centeredNodes);
-      setEdges(initialEdges);
-      window.requestAnimationFrame(() => fitView({ padding: 0.4 }));
-    } catch (error) {
-      setError(error instanceof Error ? error.message : 'Unknown error');
+      setNodes(nodes); // Use stored positions instead of autoLayout
+      setEdges(edges);
+      setTimeout(() => fitView({ padding: 0.4 }), 100);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unknown error');
       toast.error('Failed to load family tree');
     } finally {
       setIsLoading(false);
@@ -429,52 +356,37 @@ const useFamilyTreeData = (
   }, [familyTreeId, supabase, setNodes, setEdges, fitView, getContainerSize]);
 
   const refetchNewSubmissions = useCallback(async () => {
-    if (!familyTreeId || typeof familyTreeId !== 'string') {
-      console.error(
-        'Invalid familyTreeId in refetchNewSubmissions:',
-        familyTreeId
-      );
-      toast.error('Invalid family tree ID');
-      setIsLoading(false);
-      return;
-    }
-
+    if (!familyTreeId) return;
     setIsLoading(true);
+
     try {
-      console.log('Refetching submissions for familyTreeId:', familyTreeId);
+      const [members, submissions] = await Promise.all([
+        getFamilyTreeMembers(supabase, familyTreeId),
+        refetchSubmissions(supabase, familyTreeId)
+      ]);
 
-      // Fetch current tree members
-      const members = await getFamilyTreeMembers(supabase, familyTreeId);
-      const existingSubmissionIds = new Set(
-        members
-          .map((m) => m.form_submission_id)
-          .filter((id): id is string => !!id)
+      const existingIds = new Set(
+        members.map((m) => m.form_submission_id).filter(Boolean)
       );
+      const newSubmissions = submissions.filter((s) => !existingIds.has(s.id));
 
-      // Fetch all form submissions
-      const submissions = await refetchSubmissions(supabase, familyTreeId);
-      const { data: familyTree, error: familyTreeError } = await supabase
+      if (!newSubmissions.length) {
+        toast.info('No new submissions found');
+        return;
+      }
+
+      const { data: familyTree } = await supabase
         .from('family_tree')
         .select('form_id, question_id')
         .eq('id', familyTreeId)
         .single();
-      if (familyTreeError) {
-        throw new Error(
-          `Error fetching family tree: ${familyTreeError.message}`
-        );
-      }
 
-      // Fetch question responses for new submissions
-      const newSubmissions = submissions.filter(
-        (s) => !existingSubmissionIds.has(s.id)
-      );
-      if (newSubmissions.length === 0) {
-        toast.info('No new submissions found');
-        setIsLoading(false);
+      if (!familyTree) {
+        toast.error('Family tree data not found');
         return;
       }
 
-      const { data: responseData, error: responseError } = await supabase
+      const { data: responses } = await supabase
         .from('question_response')
         .select('free_text, form_submission_id')
         .eq('form_id', familyTree.form_id)
@@ -483,133 +395,72 @@ const useFamilyTreeData = (
           'form_submission_id',
           newSubmissions.map((s) => s.id)
         );
-      if (responseError) {
-        throw new Error(`Error fetching responses: ${responseError.message}`);
-      }
 
-      // Fetch groups - FIXED: Include family_tree_id in select
-      const { data: groupsData, error: groupsError } = await supabase
-        .from('group')
-        .select('id, family_tree_id, position_x, position_y, width, height')
-        .eq('family_tree_id', familyTreeId);
-      if (groupsError) {
-        throw new Error(`Error fetching groups: ${groupsError.message}`);
-      }
-      let groups = groupsData ? Group.array().parse(groupsData) : [];
-
-      // Create a new group if none exist
-      let targetGroup = groups[0];
-      if (!targetGroup) {
-        const newGroups = await createGroup(supabase, familyTreeId);
-        targetGroup = newGroups[0];
-        groups = [targetGroup];
-      }
-
-      // Calculate positions for new members
-      const newMembers = responseData.map((response) => ({
-        identifier: response.free_text,
-        form_submission_id: response.form_submission_id
-      }));
-      const groupWidth =
-        parseFloat(targetGroup.width || `${GROUP_WIDTH}px`) || GROUP_WIDTH;
-      const groupHeight =
-        parseFloat(targetGroup.height || `${GROUP_HEIGHT}px`) || GROUP_HEIGHT;
-      const memberPositions = calculateMemberPositions(
-        newMembers,
-        { x: targetGroup.position_x ?? 0, y: targetGroup.position_y ?? 0 },
-        groupWidth,
-        groupHeight
-      );
-
-      // Insert new tree members
-      const treeMembers = newMembers.map((member, index) => {
-        const memberData = {
-          family_tree_id: familyTreeId,
-          identifier: member.identifier,
-          form_submission_id: member.form_submission_id,
-          group_id: targetGroup.id,
-          is_big: false,
-          position_x: memberPositions[index].position_x,
-          position_y: memberPositions[index].position_y
-        };
-        console.log('Creating tree member:', memberData);
-        return memberData;
+      const { width, height } = getContainerSize();
+      const currentNodes = await new Promise<Node[]>((resolve) => {
+        setNodes((nds: Node[]) => {
+          resolve(nds);
+          return nds;
+        });
       });
 
-      const { data: newMembersData, error: membersError } = await supabase
+      const newMembers =
+        responses?.map((response, index) => {
+          const position = findEmptySpace(
+            currentNodes,
+            `temp-${index}`,
+            width,
+            height
+          );
+          return {
+            family_tree_id: familyTreeId,
+            identifier: response.free_text,
+            form_submission_id: response.form_submission_id,
+            is_big: false,
+            position_x: position.x,
+            position_y: position.y
+          };
+        }) ?? [];
+
+      const { data: newMembersData } = await supabase
         .from('tree_member')
-        .insert(treeMembers)
+        .insert(newMembers)
         .select();
-      if (membersError) {
-        throw new Error(`Error inserting new members: ${membersError.message}`);
-      }
 
-      const parsedNewMembers = TreeMember.array().parse(newMembersData);
-      const { width: containerWidth, height: containerHeight } =
-        getContainerSize();
+      const newNodes = TreeMember.array()
+        .parse(newMembersData)
+        .map((member) => {
+          const data: NodeData = {
+            label: member.identifier,
+            position_x: member.position_x,
+            position_y: member.position_y,
+            is_big: false,
+            hasLittles: false,
+            hasBig: false
+          };
 
-      // Create new nodes
-      const newNodes: Node[] = parsedNewMembers.map((member) => ({
-        id: member.id,
-        type: 'default',
-        data: {
-          label: member.identifier,
-          position_x: member.position_x,
-          position_y: member.position_y
-        },
-        position: getNodePosition(
-          member,
-          groups,
-          containerWidth,
-          containerHeight
-        ),
-        draggable: true,
-        selectable: true,
-        parentNode: member.group_id,
-        extent: 'parent' as const,
-        style: { zIndex: 20, width: NODE_WIDTH, height: NODE_HEIGHT },
-        resizable: false
-      }));
+          return {
+            id: member.id,
+            type: 'custom',
+            data: {
+              ...data,
+              label: `${getRoleIcon(data)} ${member.identifier}`
+            },
+            position: getNodePosition(member, height),
+            draggable: true,
+            selectable: true
+          };
+        });
 
-      // If a new group was created, add it as a node
-      const newGroupNodes: Node[] =
-        targetGroup !== groups[0]
-          ? [
-              {
-                id: targetGroup.id,
-                type: 'group',
-                data: {
-                  label: `Family Group ${targetGroup.id.slice(0, 4)}`,
-                  position_x: targetGroup.position_x ?? 0,
-                  position_y: targetGroup.position_y ?? 0
-                },
-                position: {
-                  x: targetGroup.position_x ?? 0,
-                  y: targetGroup.position_y ?? 0
-                },
-                style: {
-                  width: groupWidth,
-                  height: groupHeight,
-                  backgroundColor: 'rgba(243, 244, 246, 0.6)',
-                  border: '1px solid #d1d5db',
-                  borderRadius: '2px',
-                  zIndex: 1,
-                  boxSizing: 'border-box'
-                },
-                draggable: true,
-                selectable: true,
-                resizable: true
-              }
-            ]
-          : [];
-
-      // Update nodes
-      setNodes((nds) => [...nds, ...newNodes, ...newGroupNodes]);
-      window.requestAnimationFrame(() => fitView({ padding: 0.4 }));
+      setNodes((nds: Node[]) => [...nds, ...newNodes]);
+      setTimeout(() => fitView({ padding: 0.4 }), 100);
       toast.success(`Added ${newMembers.length} new members`);
-    } catch (error) {
-      console.error('Error in refetchNewSubmissions:', error);
-      toast.error('Failed to refetch submissions');
+    } catch (err) {
+      toast.error(
+        `Failed to refetch submissions: ${
+          err instanceof Error ? err.message : 'Unknown error'
+        }`
+      );
     } finally {
       setIsLoading(false);
     }
@@ -624,71 +475,16 @@ interface FamilyTreeFlowProps {
 
 const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({ familyTreeId }) => {
   const supabase = useSupabase();
-  const [nodes, setNodes, onNodesChange] = useNodesState<Node[]>([]);
-  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge[]>([]);
+  const [nodes, setNodes, onNodesChange] = useNodesState<NodeData>([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [contextMenu, setContextMenu] = useState<ContextMenuData | null>(null);
   const { fitView } = useReactFlow();
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Debug familyTreeId
-  useEffect(() => {
-    console.log('FamilyTreeFlow mounted with familyTreeId:', familyTreeId);
-  }, [familyTreeId]);
-
-  // Memoize nodeTypes
-  const memoizedNodeTypes = useMemo(() => nodeTypes, []);
-
-  // Debug node properties
-  useEffect(() => {
-    console.log(
-      'Nodes:',
-      nodes.map((n) => ({
-        id: n.id,
-        type: n.type,
-        resizable: n.resizable,
-        style: n.style
-      }))
-    );
-  }, [nodes]);
-
-  // Global click listener for debugging
-  useEffect(() => {
-    const handleClick = (event: MouseEvent) => {
-      const target = event.target as HTMLElement;
-      const classes = target.classList ? Array.from(target.classList) : [];
-      let isResizeHandle = false;
-      let parentNodeId: string | null = null;
-      let closestNode: HTMLElement | null = target;
-      while (closestNode) {
-        if (closestNode.classList?.contains('react-flow__resize-control')) {
-          isResizeHandle = true;
-          const parentNode = closestNode.closest('.react-flow__node-group');
-          parentNodeId = parentNode?.getAttribute('data-id') || null;
-          break;
-        }
-        closestNode = closestNode.parentElement;
-      }
-      console.log('Click detected:', {
-        isResizeHandle,
-        parentNodeId,
-        targetClasses: classes,
-        targetTag: target.tagName,
-        clientX: event.clientX,
-        clientY: event.clientY,
-        closestNodeClasses: closestNode?.classList
-          ? Array.from(closestNode.classList)
-          : []
-      });
-    };
-
-    document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
-  }, []);
-
   const getContainerSize = useCallback(() => {
     if (containerRef.current) {
-      const rect = containerRef.current.getBoundingClientRect();
-      return { width: rect.width, height: rect.height };
+      const { width, height } = containerRef.current.getBoundingClientRect();
+      return { width, height };
     }
     return { width: window.innerWidth, height: window.innerHeight };
   }, []);
@@ -703,765 +499,537 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({ familyTreeId }) => {
     );
 
   useEffect(() => {
-    if (!familyTreeId || typeof familyTreeId !== 'string') {
-      console.error('Invalid familyTreeId on mount:', familyTreeId);
-      toast.error('Invalid family tree ID');
-      return;
-    }
-    void loadFamilyTree();
+    if (familyTreeId) loadFamilyTree();
   }, [loadFamilyTree, familyTreeId]);
 
-  const onNodeClick: NodeMouseHandler = useCallback(
-    (event, node) => {
-      const target = event.target as HTMLElement;
-      let isResizeHandle = false;
-      const classes = target.classList ? Array.from(target.classList) : [];
-      let closestNode: HTMLElement | null = target;
-      while (closestNode) {
-        if (closestNode.classList?.contains('react-flow__resize-control')) {
-          isResizeHandle = true;
-          break;
-        }
-        closestNode = closestNode.parentElement;
-      }
-      console.log(`Node click on ${node.id}:`, {
-        isResizeHandle,
-        targetClasses: classes,
-        targetTag: target.tagName,
-        nodeType: node.type,
-        resizable: node.resizable
-      });
-      if (isResizeHandle) {
-        event.stopPropagation();
-        return;
-      }
-
-      event.stopPropagation();
-      setNodes((nds) =>
-        nds.map((n) => ({
-          ...n,
-          selected: n.id === node.id
-        }))
-      );
-      setContextMenu(null);
-    },
-    [setNodes]
-  );
-
-  const onPaneClick = useCallback(() => {
-    setNodes((nds) => nds.map((n) => ({ ...n, selected: false })));
-    setContextMenu(null);
-  }, [setNodes]);
-
-  const onNodeContextMenu: NodeMouseHandler = useCallback(
-    (event, node) => {
-      const target = event.target as HTMLElement;
-      let isResizeHandle = false;
-      const classes = target.classList ? Array.from(target.classList) : [];
-      let closestNode: HTMLElement | null = target;
-      while (closestNode) {
-        if (closestNode.classList?.contains('react-flow__resize-control')) {
-          isResizeHandle = true;
-          break;
-        }
-        closestNode = closestNode.parentElement;
-      }
-      console.log(`Context menu on node ${node.id}:`, {
-        isResizeHandle,
-        targetClasses: classes,
-        targetTag: target.tagName,
-        nodeType: node.type,
-        resizable: node.resizable
-      });
-      if (isResizeHandle) {
-        event.preventDefault();
-        event.stopPropagation();
-        return;
-      }
-
-      event.preventDefault();
-      event.stopPropagation();
-      setNodes((nds) =>
-        nds.map((n) => ({
-          ...n,
-          selected: n.id === node.id
-        }))
-      );
-      setContextMenu({
-        id: node.id,
-        type: 'node',
-        position: { x: event.clientX, y: event.clientY }
-      });
-    },
-    [setNodes]
-  );
-
-  const onEdgeContextMenu: EdgeMouseHandler = useCallback((event, edge) => {
-    event.preventDefault();
-    setContextMenu({
-      id: edge.id,
-      type: 'edge',
-      position: { x: event.clientX, y: event.clientY }
-    });
-  }, []);
-
-  const onConnect: OnConnect = useCallback(
+  const onConnect = useCallback(
     async (connection: Connection) => {
       if (!connection.source || !connection.target) return;
+
       try {
-        await createConnection(supabase, connection.source, connection.target);
-        setEdges((eds) =>
-          addEdge(
-            {
-              ...connection,
-              id: `e${connection.source}-${connection.target}`,
-              type: 'default',
-              style: { zIndex: 5 }
-            },
-            eds
-          )
+        const result = await createConnection(
+          supabase,
+          connection.source,
+          connection.target
         );
+        const newEdge = {
+          id: result[0].id,
+          type: 'smoothstep',
+          source: connection.source,
+          target: connection.target,
+          style: {
+            strokeWidth: 4,
+            stroke: '#6b7280',
+            transition: 'all 0.2s ease'
+          },
+          animated: true,
+          markerEnd: {
+            type: MarkerType.ArrowClosed,
+            color: '#6b7280',
+            width: 20,
+            height: 20
+          }
+        };
+
+        setEdges((eds) => addEdge(newEdge, eds));
         toast.success('Connection created');
-      } catch (error) {
-        toast.error('Failed to create connection');
-        console.error('Error creating connection:', error);
+        loadFamilyTree();
+      } catch (err) {
+        toast.error(
+          `Failed to create connection: ${
+            err instanceof Error ? err.message : 'Unknown error'
+          }`
+        );
       }
     },
-    [setEdges, supabase]
+    [setEdges, supabase, loadFamilyTree]
   );
 
-  const handleNodeAction = async (action: NodeAction, nodeId: string) => {
-    try {
-      if (action === 'delete') {
+  const handleToggleBig = useCallback(
+    async (nodeId: string) => {
+      try {
         const node = nodes.find((n) => n.id === nodeId);
         if (!node) return;
-        const isGroup = node.type === 'group';
-        await supabase
-          .from(isGroup ? 'group' : 'tree_member')
-          .delete()
-          .eq('id', nodeId);
-        setNodes((nds) => nds.filter((n) => n.id !== nodeId));
-        setEdges((eds) =>
-          eds.filter((e) => e.source !== nodeId && e.target !== nodeId)
-        );
-        toast.success(`${isGroup ? 'Group' : 'Member'} deleted`);
-      } else if (action === 'detach') {
-        const node = nodes.find((n) => n.id === nodeId);
-        if (!node || !node.parentNode) return;
-        const parentGroup = nodes.find((n) => n.id === node.parentNode);
-        if (!parentGroup) return;
 
-        const { width: containerWidth, height: containerHeight } =
-          getContainerSize();
-        const { x, y } = findEmptySpace(
-          nodes,
-          node,
-          parentGroup,
-          NODE_WIDTH,
-          NODE_HEIGHT,
-          containerWidth,
-          containerHeight
+        const newIsBig = !node.data.is_big;
+        await toggleBig(supabase, nodeId, newIsBig);
+        toast.success(
+          `Member ${newIsBig ? 'promoted to big' : 'demoted from big'}`
         );
 
-        await supabase
-          .from('tree_member')
-          .update({ group_id: null, position_x: x, position_y: y })
-          .eq('id', nodeId);
         setNodes((nds) =>
           nds.map((n) =>
             n.id === nodeId
               ? {
                   ...n,
-                  parentNode: undefined,
-                  extent: undefined,
-                  position: { x, y }
+                  data: {
+                    ...n.data,
+                    is_big: newIsBig,
+                    label: `${getRoleIcon({
+                      ...n.data,
+                      is_big: newIsBig
+                    })} ${n.data.label.split(' ').slice(1).join(' ')}`
+                  }
                 }
               : n
           )
         );
-        toast.success('Member detached from group');
+      } catch (err) {
+        toast.error(
+          `Failed to toggle big status: ${
+            err instanceof Error ? err.message : 'Unknown error'
+          }`
+        );
+      } finally {
+        setContextMenu(null);
       }
-      setContextMenu(null);
-    } catch (error) {
-      toast.error(`Failed to ${action === 'delete' ? 'delete' : 'detach'}`);
-      console.error(`Error performing ${action} action:`, error);
-    }
-  };
+    },
+    [nodes, setNodes, supabase]
+  );
 
-  const handleEdgeAction = async (edgeId: string) => {
-    try {
-      const edgeMatch = edgeId.match(/e(.+)-(.+)/);
-      if (!edgeMatch) return;
-      const [, , targetId] = edgeMatch;
-      await removeConnection(supabase, targetId);
-      setEdges((eds) => eds.filter((e) => e.id !== edgeId));
-      setContextMenu(null);
-      toast.success('Connection deleted');
-    } catch (error) {
-      toast.error('Failed to delete connection');
-      console.error('Error deleting edge:', error);
-    }
-  };
-
-  const addGroup = async () => {
-    try {
-      const [newGroup] = await createGroup(supabase, familyTreeId);
-      const { width: containerWidth, height: containerHeight } =
-        getContainerSize();
-      const width =
-        parseFloat(newGroup.width || `${GROUP_WIDTH}px`) || GROUP_WIDTH;
-      const height =
-        parseFloat(newGroup.height || `${GROUP_HEIGHT}px`) || GROUP_HEIGHT;
-      const newX = 0;
-      const newY = Math.min(0, containerHeight - height - 100);
-      const group: Node = {
-        id: newGroup.id,
-        type: 'group',
-        data: {
-          label: `Family Group ${newGroup.id.slice(0, 4)}`,
-          position_x: newX,
-          position_y: newY
-        },
-        position: { x: newX, y: newY },
-        style: {
-          width,
-          height,
-          backgroundColor: 'rgba(243, 244, 246, 0.6)',
-          border: '1px solid #d1d5db',
-          borderRadius: '2px',
-          zIndex: 1,
-          boxSizing: 'border-box'
-        },
-        draggable: true,
-        selectable: true,
-        resizable: true
-      };
-      setNodes((nds) => [...nds, group]);
-      window.requestAnimationFrame(() => fitView({ padding: 0.4, maxZoom: 1 }));
-      toast.success('Group added');
-    } catch (error) {
-      toast.error('Failed to add group');
-      console.error('Error adding group:', error);
-    }
-  };
-
-  const resetLayout = () => {
-    const { width: containerWidth, height: containerHeight } =
-      getContainerSize();
-    const groups = nodes
-      .filter((node) => node.type === 'group')
-      .map((node) => ({
-        id: node.id,
-        family_tree_id: familyTreeId,
-        position_x: node.data.position_x,
-        position_y: node.data.position_y,
-        width: node.style?.width as string,
-        height: node.style?.height as string
-      }));
-    const centeredNodes = centerElements(
-      nodes,
-      groups,
-      containerWidth,
-      containerHeight
-    );
-    setNodes(centeredNodes);
-    window.requestAnimationFrame(() => fitView({ padding: 0.4, maxZoom: 1 }));
-    toast.success('Layout reset');
-  };
-
-  const recenterView = () => {
-    window.requestAnimationFrame(() => fitView({ padding: 0.4, maxZoom: 1 }));
-    toast.success('View recentered');
-  };
-
-  const onNodeDrag = useCallback((event: React.MouseEvent, node: Node) => {
-    console.log(
-      `Dragging node ${node.id}: positionAbsolute=${JSON.stringify(
-        node.positionAbsolute
-      )}`
-    );
-  }, []);
-
-  const onNodeDragStop = useCallback(
-    async (event: React.MouseEvent, node: Node) => {
-      console.log(
-        `Drag stopped for node ${node.id}: positionAbsolute=${JSON.stringify(
-          node.positionAbsolute
-        )}`
-      );
-      const { width: containerWidth, height: containerHeight } =
-        getContainerSize();
+  const handleDelete = useCallback(
+    async (id: string, type: 'node' | 'edge') => {
       try {
-        if (node.type === 'group') {
-          const height = (node.style?.height as number) || GROUP_HEIGHT;
-          const constrainedY = Math.min(
-            node.position.y,
-            containerHeight - height - 100
+        if (type === 'node') {
+          await supabase.from('tree_member').delete().eq('id', id);
+          setNodes((nds) => nds.filter((n) => n.id !== id));
+          setEdges((eds) =>
+            eds.filter((e) => e.source !== id && e.target !== id)
           );
-          await supabase
-            .from('group')
-            .update({
-              position_x: node.position.x,
-              position_y: constrainedY
-            })
-            .eq('id', node.id);
-          setNodes((nds) =>
-            nds.map((n) =>
-              n.id === node.id
-                ? { ...n, position: { x: node.position.x, y: constrainedY } }
-                : n
-            )
-          );
+          toast.success('Member deleted');
         } else {
-          const group = nodes.find(
-            (n) =>
-              n.id !== node.id &&
-              n.type === 'group' &&
-              n.style &&
-              typeof n.style.width === 'number' &&
-              typeof n.style.height === 'number' &&
-              node.positionAbsolute &&
-              node.positionAbsolute.x >= n.position.x &&
-              node.positionAbsolute.x <=
-                n.position.x + (n.style.width as number) &&
-              node.positionAbsolute.y >= n.position.y &&
-              node.positionAbsolute.y <=
-                n.position.y + (n.style.height as number)
-          );
-
-          if (group && !node.parentNode) {
-            // Outside to Inside Group
-            const relativeX = node.positionAbsolute!.x - group.position.x;
-            const relativeY = node.positionAbsolute!.y - group.position.y;
-            const parentWidth = (group.style!.width as number) || GROUP_WIDTH;
-            const parentHeight =
-              (group.style!.height as number) || GROUP_HEIGHT;
-            const constrainedX = Math.max(
-              0,
-              Math.min(relativeX, parentWidth - NODE_WIDTH)
-            );
-            const constrainedY = Math.max(
-              0,
-              Math.min(relativeY, parentHeight - NODE_HEIGHT)
-            );
-            await supabase
-              .from('tree_member')
-              .update({
-                group_id: group.id,
-                position_x: constrainedX,
-                position_y: constrainedY
-              })
-              .eq('id', node.id);
-            setNodes((nds) =>
-              nds.map((n) =>
-                n.id === node.id
-                  ? {
-                      ...n,
-                      parentNode: group.id,
-                      extent: 'parent' as const,
-                      position: { x: constrainedX, y: constrainedY }
-                    }
-                  : n
-              )
-            );
-            toast.success('Member added to group');
-          } else if (!group && node.parentNode) {
-            // Inside to Outside Group
-            await supabase
-              .from('tree_member')
-              .update({
-                group_id: null,
-                position_x: node.positionAbsolute!.x,
-                position_y: Math.min(
-                  node.positionAbsolute!.y,
-                  containerHeight - NODE_HEIGHT - 100
-                )
-              })
-              .eq('id', node.id);
-            setNodes((nds) =>
-              nds.map((n) =>
-                n.id === node.id
-                  ? {
-                      ...n,
-                      parentNode: undefined,
-                      extent: undefined,
-                      position: {
-                        x: node.positionAbsolute!.x,
-                        y: Math.min(
-                          node.positionAbsolute!.y,
-                          containerHeight - NODE_HEIGHT - 100
-                        )
-                      }
-                    }
-                  : n
-              )
-            );
-            toast.success('Member removed from group');
-          } else if (node.parentNode) {
-            // Inside Group (same group)
-            const parentGroup = nodes.find((n) => n.id === node.parentNode);
-            if (parentGroup) {
-              const parentWidth =
-                (parentGroup.style?.width as number) || GROUP_WIDTH;
-              const parentHeight =
-                (parentGroup.style?.height as number) || GROUP_HEIGHT;
-              const relativeX = Math.max(
-                0,
-                Math.min(node.position.x, parentWidth - NODE_WIDTH)
-              );
-              const relativeY = Math.max(
-                0,
-                Math.min(node.position.y, parentHeight - NODE_HEIGHT)
-              );
-              await supabase
-                .from('tree_member')
-                .update({
-                  position_x: relativeX,
-                  position_y: relativeY
-                })
-                .eq('id', node.id);
-              setNodes((nds) =>
-                nds.map((n) =>
-                  n.id === node.id
-                    ? { ...n, position: { x: relativeX, y: relativeY } }
-                    : n
-                )
-              );
-            }
-          } else {
-            // Outside Group (no change in group)
-            const constrainedY = Math.min(
-              node.positionAbsolute!.y,
-              containerHeight - NODE_HEIGHT - 100
-            );
-            await supabase
-              .from('tree_member')
-              .update({
-                position_x: node.positionAbsolute!.x,
-                position_y: constrainedY
-              })
-              .eq('id', node.id);
-            setNodes((nds) =>
-              nds.map((n) =>
-                n.id === node.id
-                  ? {
-                      ...n,
-                      position: { x: node.positionAbsolute!.x, y: constrainedY }
-                    }
-                  : n
-              )
-            );
+          const edge = edges.find((e) => e.id === id);
+          if (edge) {
+            await removeConnection(supabase, edge.target, edge.source);
+            setEdges((eds) => eds.filter((e) => e.id !== id));
+            toast.success('Connection deleted');
+            loadFamilyTree();
           }
         }
-        toast.success('Position updated');
-      } catch (error) {
-        toast.error('Failed to update position');
-        console.error('Error persisting node position:', error);
-      }
-    },
-    [setNodes, supabase, nodes, getContainerSize]
-  );
-
-  const debouncedUpdateDimensions = useMemo(
-    () =>
-      debounce(async (nodeId: string, width: number, height: number) => {
-        console.log(
-          `Persisting dimensions for node ${nodeId}: ${width}x${height}`
+      } catch (err) {
+        toast.error(
+          `Failed to delete: ${
+            err instanceof Error ? err.message : 'Unknown error'
+          }`
         );
-        try {
-          await supabase
-            .from('group')
-            .update({
-              width: `${width}px`,
-              height: `${height}px`
-            })
-            .eq('id', nodeId);
-          toast.success('Group resized');
-        } catch (error) {
-          toast.error('Failed to resize group');
-          console.error('Error persisting group dimensions:', error);
-        }
-      }, 500),
-    [supabase]
-  );
-
-  const lastDimensions = useRef<Map<string, { width: number; height: number }>>(
-    new Map()
-  );
-
-  const onNodesChangeCustom = useCallback(
-    async (changes: NodeChange[]) => {
-      console.log('Node changes:', changes);
-      const validChanges = changes.filter((change) => {
-        if (change.type !== 'dimensions' || !change.id || !change.dimensions) {
-          return true; // Allow non-dimension changes
-        }
-        const node = nodes.find((n) => n.id === change.id);
-        if (!node || node.type !== 'group' || !node.resizable) {
-          console.log(`Filtered out dimensions change for node ${change.id}:`, {
-            nodeExists: !!node,
-            isGroup: node?.type === 'group',
-            isResizable: node?.resizable,
-            dimensions: change.dimensions
-          });
-          return false;
-        }
-        const lastDims = lastDimensions.current.get(change.id);
-        const isChanged =
-          !lastDims ||
-          Math.abs(lastDims.width - change.dimensions.width) > 0.1 ||
-          Math.abs(lastDims.height - change.dimensions.height) > 0.1;
-        if (isChanged) {
-          lastDimensions.current.set(change.id, {
-            width: change.dimensions.width,
-            height: change.dimensions.height
-          });
-        } else {
-          console.log(`Skipped redundant dimensions for node ${change.id}:`, {
-            last: lastDims,
-            current: change.dimensions
-          });
-        }
-        return isChanged;
-      });
-
-      if (validChanges.length === 0) {
-        console.log('No valid changes to process');
-        return;
-      }
-
-      onNodesChange(validChanges);
-
-      for (const change of validChanges) {
-        if (change.type === 'dimensions' && change.id && change.dimensions) {
-          const { width, height } = change.dimensions;
-          console.log(
-            `Updating node ${change.id} dimensions: ${width}x${height}`
-          );
-          setNodes((nds) =>
-            nds.map((n) =>
-              n.id === change.id
-                ? {
-                    ...n,
-                    style: {
-                      ...n.style,
-                      width,
-                      height,
-                      boxSizing: 'border-box'
-                    },
-                    width,
-                    height
-                  }
-                : n
-            )
-          );
-          debouncedUpdateDimensions(change.id, width, height);
-        }
+      } finally {
+        setContextMenu(null);
       }
     },
-    [onNodesChange, nodes, debouncedUpdateDimensions, setNodes]
+    [edges, setNodes, setEdges, supabase, loadFamilyTree]
   );
 
-  const handleClickAway = useCallback(() => {
-    setContextMenu(null);
-  }, []);
+  const resetLayout = useCallback(async () => {
+    const { width, height } = getContainerSize();
+    const updatedNodes = autoLayout(nodes, edges, width, height);
 
-  if (isLoading) {
+    try {
+      // Update nodes one by one to avoid conflicts
+      for (const node of updatedNodes) {
+        const { error } = await supabase
+          .from('tree_member')
+          .update({
+            position_x: node.position.x,
+            position_y: node.position.y,
+            identifier: node.data.label.split(' ').slice(1).join(' ') // Extract identifier without the emoji
+          })
+          .eq('id', node.id);
+
+        if (error) throw error;
+      }
+
+      setNodes(updatedNodes);
+      setTimeout(() => fitView({ padding: 0.4 }), 100);
+      toast.success('Layout reset and positions saved');
+    } catch (err) {
+      console.error('Error resetting layout:', err);
+      toast.error(
+        `Failed to save node positions: ${
+          err instanceof Error ? err.message : JSON.stringify(err)
+        }`
+      );
+    }
+  }, [nodes, edges, setNodes, fitView, getContainerSize, supabase]);
+
+  const onNodeDragStop = useCallback(
+    async (_: React.MouseEvent, node: Node) => {
+      try {
+        const { x, y } = node.positionAbsolute ?? node.position;
+        const { height } = getContainerSize();
+        const constrainedY = Math.min(y, height - NODE_HEIGHT - PADDING);
+
+        await supabase
+          .from('tree_member')
+          .update({ position_x: x, position_y: constrainedY })
+          .eq('id', node.id);
+        setNodes((nds) =>
+          nds.map((n) =>
+            n.id === node.id ? { ...n, position: { x, y: constrainedY } } : n
+          )
+        );
+        toast.success('Position updated');
+      } catch (err) {
+        toast.error(
+          `Failed to update position: ${
+            err instanceof Error ? err.message : 'Unknown error'
+          }`
+        );
+      }
+    },
+    [setNodes, supabase, getContainerSize]
+  );
+
+  if (isLoading)
     return (
-      <div style={{ padding: '16px', textAlign: 'center' }}>
-        Loading family tree...
+      <div className="loading-container">
+        <div className="loading-spinner"></div>
+        <p>Loading family tree...</p>
       </div>
     );
-  }
-
-  if (error) {
+  if (error)
     return (
-      <div style={{ padding: '16px', textAlign: 'center', color: '#dc2626' }}>
-        Error: {error}
+      <div className="error-container">
+        <p>Error: {error}</p>
       </div>
     );
-  }
-
-  const styles = `
-  .react-flow__node-group {
-    z-index: 1;
-    background: rgba(243, 244, 246, 0.6);
-    border: 1px solid #d1d5db;
-    border-radius: 2px;
-    pointer-events: auto;
-    min-width: 100px;
-    min-height: 100px;
-    box-sizing: border-box;
-  }
-  .react-flow__node-default {
-    pointer-events: auto;
-    background: #ffffff;
-    border: 1px solid #e5e7eb;
-    border-radius: 4px;
-    font-size: 12px;
-    color: #374151;
-    padding: 8px;
-    z-index: 20;
-    width: ${NODE_WIDTH}px;
-    height: ${NODE_HEIGHT}px;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-  }
-  .react-flow__node:not(.react-flow__node-group) {
-    cursor: grab;
-    z-index: 20;
-  }
-  .react-flow__node:not(.react-flow__node-group).selected {
-    box-shadow: 0 0 0 2px #3b82f6 !important;
-    border: 1px solid #3b82f6 !important;
-  }
-  .react-flow__node-group.selected {
-    border: 1px solid #3b82f6 !important;
-    background-color: rgba(59, 130, 246, 0.1) !important;
-  }
-  .layout-controls {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-    align-items: center;
-    padding: 10px;
-    position: absolute;
-    top: 8px;
-    left: 8px;
-    z-index: 1000;
-    background: #ffffff;
-    border-radius: 4px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  }
-  .layout-controls button {
-    padding: 6px 10px;
-    border: 1px solid #e5e7eb;
-    background: #ffffff;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 12px;
-    color: #374151;
-    transition: background 0.2s;
-  }
-  .layout-controls button:hover {
-    background: #f3f4f6;
-  }
-  .layout-controls .divider {
-    width: 1px;
-    height: 24px;
-    background: #e5e7eb;
-    margin: 0 4px;
-  }
-  .context-menu {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    padding: 6px;
-    background: #ffffff;
-    border: 1px solid #e5e7eb;
-    border-radius: 4px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-    position: fixed;
-    z-index: 1000;
-  }
-  .context-menu button {
-    padding: 4px 10px;
-    border: none;
-    background: #ffffff;
-    text-align: left;
-    cursor: pointer;
-    font-size: 12px;
-    color: #374151;
-    border-radius: 2px;
-    transition: background 0.2s;
-  }
-  .context-menu button:hover,
-  .context-menu button:focus {
-    background: #f3f4f6;
-    outline: none;
-  }
-  .context-menu .title {
-    font-weight: 500;
-    color: #6b7280;
-    padding-bottom: 4px;
-    border-bottom: 1px solid #e5e7eb;
-    font-size: 12px;
-  }
-  .react-flow-container {
-    width: 100%;
-    height: 100%;
-    overflow: hidden;
-    position: relative;
-    z-index: 0 !important;
-  }
-  .react-flow__pane {
-    overflow: visible !important;
-    z-index: 0 !important;
-  }
-  .react-flow__controls {
-    position: fixed;
-    bottom: 16px;
-    left: 16px;
-    z-index: 2000;
-    background: #ffffff;
-    border-radius: 4px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-    padding: 4px;
-  }
-  .react-flow__minimap {
-    position: fixed;
-    bottom: 16px;
-    right: 16px;
-    z-index: 2000;
-    background: #ffffff;
-    border-radius: 4px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-    padding: 4px;
-  }
-`;
 
   return (
-    <>
-      <style>{styles}</style>
+    <div className="family-tree-container">
+      <style>{`
+        .family-tree-container {
+          position: relative;
+          width: 100%;
+          height: 100%;
+          overflow: hidden;
+          background: #f8fafc;
+        }
+      
+        .loading-container, .error-container {
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100vw;
+          height: 100vh;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          background: #f8fafc;
+        }
+        
+        .loading-spinner {
+          width: 40px;
+          height: 40px;
+          border: 3px solid #e5e7eb;
+          border-top: 3px solid #3b82f6;
+          border-radius: 50%;
+          animation: spin 1s linear infinite;
+          margin-bottom: 16px;
+        }
+        
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+        
+        .error-container p {
+          color: #dc2626;
+          font-size: 16px;
+          margin: 0;
+        }
+        
+        .loading-container p {
+          color: #6b7280;
+          font-size: 16px;
+          margin: 0;
+        }
+        
+        .react-flow__node-custom { 
+          background: transparent !important; 
+          border: none !important; 
+          padding: 0 !important; 
+          width: ${NODE_WIDTH}px !important; 
+          height: ${NODE_HEIGHT}px !important; 
+        }
+        
+        .react-flow__node-custom.selected { 
+          transform: scale(1.05); 
+        }
+        
+        .react-flow__node-custom:hover { 
+          transform: scale(1.02); 
+        }
+        
+        .react-flow__attribution {
+          display: none !important;
+        }
+        
+        .react-flow__renderer {
+          background: transparent;
+        }
+        
+        .react-flow__pane {
+          cursor: grab;
+        }
+        
+        .react-flow__pane.dragging {
+          cursor: grabbing;
+        }
+        
+        .react-flow__edge-path:hover {
+          stroke: #3b82f6 !important;
+          stroke-width: 6 !important;
+          cursor: pointer;
+        }
+        
+        .layout-controls { 
+          display: flex; 
+          gap: 8px; 
+          padding: 10px; 
+          position: absolute; 
+          top: 16px; 
+          left: 16px; 
+          z-index: 1000; 
+          background: rgba(255, 255, 255, 0.95); 
+          border-radius: 8px; 
+          box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+          backdrop-filter: blur(10px);
+        }
+        
+        .layout-controls button { 
+          padding: 8px 12px; 
+          border: 1px solid #e5e7eb; 
+          background: #fff; 
+          border-radius: 6px; 
+          cursor: pointer; 
+          font-size: 12px; 
+          color: #374151; 
+          transition: all 0.2s; 
+          font-weight: 500;
+          white-space: nowrap;
+        }
+        
+        .layout-controls button:hover { 
+          background: #f3f4f6; 
+          border-color: #d1d5db; 
+        }
+        
+        .layout-controls button:disabled { 
+          opacity: 0.5; 
+          cursor: not-allowed; 
+        }
+        
+        .context-menu { 
+          display: flex; 
+          flex-direction: column; 
+          gap: 4px; 
+          padding: 8px; 
+          background: rgba(255, 255, 255, 0.95); 
+          border: 1px solid #e5e7eb; 
+          border-radius: 8px; 
+          box-shadow: 0 4px 12px rgba(0,0,0,0.15); 
+          position: fixed; 
+          z-index: 1000; 
+          min-width: 140px;
+          backdrop-filter: blur(10px);
+        }
+        
+        .context-menu button { 
+          padding: 6px 10px; 
+          border: none; 
+          background: #fff; 
+          text-align: left; 
+          cursor: pointer; 
+          font-size: 12px; 
+          color: #374151; 
+          border-radius: 4px; 
+          transition: background 0.2s; 
+          font-weight: 500; 
+        }
+        
+        .context-menu button:hover { 
+          background: #f3f4f6; 
+        }
+        
+        .context-menu .title { 
+          font-weight: 600; 
+          color: #6b7280; 
+          padding: 4px 10px 6px; 
+          border-bottom: 1px solid #e5e7eb; 
+          font-size: 11px; 
+          text-transform: uppercase; 
+        }
+        
+        .legend { 
+          position: absolute; 
+          top: 16px; 
+          right: 16px; 
+          background: rgba(255, 255, 255, 0.95); 
+          border-radius: 8px; 
+          box-shadow: 0 2px 8px rgba(0,0,0,0.1); 
+          padding: 12px; 
+          z-index: 1000; 
+          font-size: 11px; 
+          color: #374151; 
+          min-width: 180px;
+          backdrop-filter: blur(10px);
+        }
+        
+        .legend-title { 
+          font-weight: 600; 
+          margin-bottom: 8px; 
+          color: #1f2937; 
+        }
+        
+        .legend-item { 
+          display: flex; 
+          align-items: center; 
+          gap: 8px; 
+          margin-bottom: 4px; 
+        }
+        
+        .legend-color { 
+          width: 16px; 
+          height: 16px; 
+          border-radius: 3px; 
+          flex-shrink: 0; 
+        }
+        
+        .react-flow-container {
+          width: 100%;
+          height: 100%;
+        }
+      `}</style>
+
+      <div className="layout-controls">
+        <button onClick={resetLayout} disabled={isLoading}>
+          Auto Layout
+        </button>
+        <button
+          onClick={() => {
+            setTimeout(() => fitView({ padding: 0.4 }), 100);
+            toast.success('View recentered');
+          }}
+          disabled={isLoading}>
+          Recenter
+        </button>
+        <button onClick={refetchNewSubmissions} disabled={isLoading}>
+          Refetch Submissions
+        </button>
+      </div>
+
+      <div className="legend">
+        <div className="legend-title">Legend</div>
+        <div className="legend-item">
+          <div
+            className="legend-color"
+            style={{
+              background: 'linear-gradient(135deg, #8b5cf6, #6d28d9)'
+            }}
+          />
+          <span>👑🌱 Big and Little</span>
+        </div>
+        <div className="legend-item">
+          <div
+            className="legend-color"
+            style={{
+              background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)'
+            }}
+          />
+          <span>👑 Big with Littles</span>
+        </div>
+        <div className="legend-item">
+          <div
+            className="legend-color"
+            style={{
+              background: 'linear-gradient(135deg, #6366f1, #4f46e5)'
+            }}
+          />
+          <span>⭐ Big without Littles</span>
+        </div>
+        <div className="legend-item">
+          <div
+            className="legend-color"
+            style={{
+              background: 'linear-gradient(135deg, #10b981, #047857)'
+            }}
+          />
+          <span>🌱 Little</span>
+        </div>
+        <div className="legend-item">
+          <div
+            className="legend-color"
+            style={{
+              background: 'linear-gradient(135deg, #f3f4f6, #e5e7eb)'
+            }}
+          />
+          <span>⚪ Unconnected</span>
+        </div>
+      </div>
+
       <div
         ref={containerRef}
         className="react-flow-container"
-        onClick={handleClickAway}>
-        <div className="layout-controls">
-          <button type="button" onClick={addGroup}>
-            Add Family Group
-          </button>
-          <button type="button" onClick={resetLayout}>
-            Reset Layout
-          </button>
-          <button type="button" onClick={recenterView}>
-            Recenter View
-          </button>
-          <button type="button" onClick={refetchNewSubmissions}>
-            Refetch Submissions
-          </button>
-          <div className="divider" />
-        </div>
+        onClick={() => setContextMenu(null)}>
         <ReactFlow
           nodes={nodes}
           edges={edges}
-          onNodesChange={onNodesChangeCustom}
+          onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
-          onNodeDrag={onNodeDrag}
           onNodeDragStop={onNodeDragStop}
           onConnect={onConnect}
-          onNodeContextMenu={onNodeContextMenu}
-          onEdgeContextMenu={onEdgeContextMenu}
-          onNodeClick={onNodeClick}
-          onPaneClick={onPaneClick}
+          onNodeContextMenu={(e, node) => {
+            e.preventDefault();
+            setNodes((nds) =>
+              nds.map((n) => ({ ...n, selected: n.id === node.id }))
+            );
+            setContextMenu({
+              id: node.id,
+              type: 'node',
+              position: { x: e.clientX, y: e.clientY }
+            });
+          }}
+          onEdgeContextMenu={(e, edge) => {
+            e.preventDefault();
+            setEdges((eds) =>
+              eds.map((e) => ({ ...e, selected: e.id === edge.id }))
+            );
+            setContextMenu({
+              id: edge.id,
+              type: 'edge',
+              position: { x: e.clientX, y: e.clientY }
+            });
+          }}
+          onEdgeClick={(e, edge) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setEdges((eds) =>
+              eds.map((e) => ({ ...e, selected: e.id === edge.id }))
+            );
+            setContextMenu({
+              id: edge.id,
+              type: 'edge',
+              position: { x: e.clientX, y: e.clientY }
+            });
+          }}
+          onNodeClick={(e, node) => {
+            e.stopPropagation();
+            setNodes((nds) =>
+              nds.map((n) => ({ ...n, selected: n.id === node.id }))
+            );
+            setEdges((eds) => eds.map((e) => ({ ...e, selected: false })));
+            setContextMenu(null);
+          }}
+          onPaneClick={() => {
+            setNodes((nds) => nds.map((n) => ({ ...n, selected: false })));
+            setEdges((eds) => eds.map((e) => ({ ...e, selected: false })));
+            setContextMenu(null);
+          }}
+          nodeTypes={nodeTypes}
           fitView
           fitViewOptions={{ padding: 0.4, maxZoom: 1 }}
           minZoom={0.2}
-          maxZoom={4}
-          translateExtent={[
-            [-Infinity, -Infinity],
-            [Infinity, Infinity]
-          ]}
-          nodeTypes={memoizedNodeTypes}>
+          maxZoom={4}>
           <MiniMap />
           <Controls />
           <Background variant={BackgroundVariant.Dots} />
@@ -1470,42 +1038,29 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({ familyTreeId }) => {
           <div
             className="context-menu"
             style={{
-              position: 'fixed',
               top: contextMenu.position.y,
-              left: contextMenu.position.x,
-              zIndex: 1000
+              left: contextMenu.position.x
             }}>
             <div className="title">
               {contextMenu.type === 'node'
-                ? 'Member/Group Options'
+                ? 'Member Options'
                 : 'Connection Options'}
             </div>
+            {contextMenu.type === 'node' && (
+              <button onClick={() => handleToggleBig(contextMenu.id)}>
+                {nodes.find((n) => n.id === contextMenu.id)?.data.is_big
+                  ? 'Demote from Big'
+                  : 'Promote to Big'}
+              </button>
+            )}
             <button
-              type="button"
-              onClick={() =>
-                contextMenu.type === 'node'
-                  ? handleNodeAction('delete', contextMenu.id)
-                  : handleEdgeAction(contextMenu.id)
-              }>
-              Delete{' '}
-              {contextMenu.type === 'node'
-                ? nodes.find((n) => n.id === contextMenu.id)?.type === 'group'
-                  ? 'Group'
-                  : 'Member'
-                : 'Connection'}
+              onClick={() => handleDelete(contextMenu.id, contextMenu.type)}>
+              Delete {contextMenu.type === 'node' ? 'Member' : 'Connection'}
             </button>
-            {contextMenu.type === 'node' &&
-              nodes.find((n) => n.id === contextMenu.id)?.parentNode && (
-                <button
-                  type="button"
-                  onClick={() => handleNodeAction('detach', contextMenu.id)}>
-                  Detach from Group
-                </button>
-              )}
           </div>
         )}
       </div>
-    </>
+    </div>
   );
 };
 

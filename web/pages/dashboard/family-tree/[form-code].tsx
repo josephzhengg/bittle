@@ -93,9 +93,9 @@ export default function FamilyTreePage({ user }: FamilyTreePageProps) {
       <div
         style={{
           width: '100%',
-          height: '100vh', // Full viewport height
+          height: '85vh',
           position: 'relative',
-          overflow: 'hidden' // No scrolling
+          overflow: 'hidden'
         }}>
         {membersQuery.data ? (
           <ReactFlowProvider>

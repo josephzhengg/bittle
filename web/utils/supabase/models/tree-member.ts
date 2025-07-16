@@ -5,7 +5,6 @@ export const TreeMember = z.object({
   family_tree_id: z.string(),
   identifier: z.string(),
   form_submission_id: z.string().nullable(),
-  group_id: z.string().nullable(),
   is_big: z.boolean().nullable(),
   position_x: z.number().nullable().default(100),
   position_y: z.number().nullable().default(100)
