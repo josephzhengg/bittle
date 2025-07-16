@@ -1,25 +1,24 @@
-// ResizableNode.tsx
 import { memo } from 'react';
 import { NodeResizer, NodeProps } from 'reactflow';
 
-const ResizableNode = ({ data, id }: NodeProps) => {
+const ResizableNode = ({ data }: NodeProps) => {
   return (
     <>
       <NodeResizer
         minWidth={100}
         minHeight={100}
         handleStyle={{
-          background: 'rgba(156, 163, 175, 0.8)', // Subtle gray with transparency
-          width: 8,
-          height: 8,
+          background: '#9ca3af',
+          width: 6,
+          height: 6,
           borderRadius: '50%',
-          border: '1px solid rgba(255, 255, 255, 0.8)',
-          boxShadow: '0 1px 2px rgba(0, 0, 0, 0.1)',
+          border: '1px solid rgba(255, 255, 255, 0.9)',
+          boxShadow: '0 1px 1px rgba(0, 0, 0, 0.1)',
           zIndex: 99999,
           pointerEvents: 'auto'
         }}
         lineStyle={{
-          display: 'none' // Hide edge lines to focus on corner handles
+          display: 'none'
         }}
         isVisible={true}
       />
@@ -27,14 +26,21 @@ const ResizableNode = ({ data, id }: NodeProps) => {
         style={{
           width: '100%',
           height: '100%',
-          backgroundColor: 'rgba(249, 245, 249, 0.8)',
-          border: '1px solid #9ca3af', // Single solid border instead of dashed
-          borderRadius: '4px',
-          padding: '8px',
+          backgroundColor: 'rgba(243, 244, 246, 0.6)',
+          border: '1px solid #d1d5db',
+          borderRadius: '2px',
+          padding: '6px',
           boxSizing: 'border-box',
-          pointerEvents: 'none' // Prevent div from intercepting clicks
+          pointerEvents: 'none'
         }}>
-        <div style={{ color: '#4b5563', fontSize: '12px' }}>{data.label}</div>
+        <div
+          style={{
+            color: '#6b7280',
+            fontSize: '10px',
+            fontWeight: 500
+          }}>
+          {data.label}
+        </div>
       </div>
     </>
   );

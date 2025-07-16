@@ -32,7 +32,8 @@ import {
   createConnection,
   removeConnection,
   getFamilyTreeMembers,
-  getFamilyTreeById
+  getFamilyTreeById,
+  refetchSubmissions
 } from '@/utils/supabase/queries/family-tree';
 import { z } from 'zod';
 import { toast } from 'sonner';
@@ -260,6 +261,39 @@ const centerElements = (
   ];
 };
 
+// Utility to calculate member positions within a group
+const calculateMemberPositions = (
+  members: { identifier: string; form_submission_id?: string | null }[],
+  groupPosition: { x: number; y: number },
+  groupWidth: number,
+  groupHeight: number
+): { position_x: number; position_y: number }[] => {
+  const positions: { position_x: number; position_y: number }[] = [];
+  const maxPerRow = Math.floor(groupWidth / (NODE_WIDTH + PADDING));
+  const offsetX =
+    (groupWidth - maxPerRow * (NODE_WIDTH + PADDING) + PADDING) / 2;
+  const offsetY = PADDING;
+
+  members.forEach((_, index) => {
+    const row = Math.floor(index / maxPerRow);
+    const col = index % maxPerRow;
+    const position_x = offsetX + col * (NODE_WIDTH + PADDING);
+    const position_y = offsetY + row * (NODE_HEIGHT + PADDING);
+    positions.push({
+      position_x: Math.min(
+        Math.max(position_x, PADDING),
+        groupWidth - NODE_WIDTH - PADDING
+      ),
+      position_y: Math.min(
+        Math.max(position_y, PADDING),
+        groupHeight - NODE_HEIGHT - PADDING
+      )
+    });
+  });
+
+  return positions;
+};
+
 // Custom hook for loading family tree data
 const useFamilyTreeData = (
   familyTreeId: string,
@@ -274,6 +308,13 @@ const useFamilyTreeData = (
   const supabase = useSupabase();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Validate familyTreeId
+  if (!familyTreeId || typeof familyTreeId !== 'string') {
+    console.error('Invalid familyTreeId:', familyTreeId);
+    setError('Invalid family tree ID');
+    setIsLoading(false);
+  }
 
   const loadFamilyTree = useCallback(async () => {
     setIsLoading(true);
@@ -346,8 +387,9 @@ const useFamilyTreeData = (
           style: {
             width,
             height,
-            backgroundColor: 'rgba(249, 245, 249, 0.8)',
-            border: '2px dashed #444',
+            backgroundColor: 'rgba(243, 244, 246, 0.6)',
+            border: '1px solid #d1d5db',
+            borderRadius: '2px',
             zIndex: 1,
             boxSizing: 'border-box'
           },
@@ -386,7 +428,194 @@ const useFamilyTreeData = (
     }
   }, [familyTreeId, supabase, setNodes, setEdges, fitView, getContainerSize]);
 
-  return { loadFamilyTree, isLoading, error };
+  const refetchNewSubmissions = useCallback(async () => {
+    if (!familyTreeId || typeof familyTreeId !== 'string') {
+      console.error(
+        'Invalid familyTreeId in refetchNewSubmissions:',
+        familyTreeId
+      );
+      toast.error('Invalid family tree ID');
+      setIsLoading(false);
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      console.log('Refetching submissions for familyTreeId:', familyTreeId);
+
+      // Fetch current tree members
+      const members = await getFamilyTreeMembers(supabase, familyTreeId);
+      const existingSubmissionIds = new Set(
+        members
+          .map((m) => m.form_submission_id)
+          .filter((id): id is string => !!id)
+      );
+
+      // Fetch all form submissions
+      const submissions = await refetchSubmissions(supabase, familyTreeId);
+      const { data: familyTree, error: familyTreeError } = await supabase
+        .from('family_tree')
+        .select('form_id, question_id')
+        .eq('id', familyTreeId)
+        .single();
+      if (familyTreeError) {
+        throw new Error(
+          `Error fetching family tree: ${familyTreeError.message}`
+        );
+      }
+
+      // Fetch question responses for new submissions
+      const newSubmissions = submissions.filter(
+        (s) => !existingSubmissionIds.has(s.id)
+      );
+      if (newSubmissions.length === 0) {
+        toast.info('No new submissions found');
+        setIsLoading(false);
+        return;
+      }
+
+      const { data: responseData, error: responseError } = await supabase
+        .from('question_response')
+        .select('free_text, form_submission_id')
+        .eq('form_id', familyTree.form_id)
+        .eq('question_id', familyTree.question_id)
+        .in(
+          'form_submission_id',
+          newSubmissions.map((s) => s.id)
+        );
+      if (responseError) {
+        throw new Error(`Error fetching responses: ${responseError.message}`);
+      }
+
+      // Fetch groups - FIXED: Include family_tree_id in select
+      const { data: groupsData, error: groupsError } = await supabase
+        .from('group')
+        .select('id, family_tree_id, position_x, position_y, width, height')
+        .eq('family_tree_id', familyTreeId);
+      if (groupsError) {
+        throw new Error(`Error fetching groups: ${groupsError.message}`);
+      }
+      let groups = groupsData ? Group.array().parse(groupsData) : [];
+
+      // Create a new group if none exist
+      let targetGroup = groups[0];
+      if (!targetGroup) {
+        const newGroups = await createGroup(supabase, familyTreeId);
+        targetGroup = newGroups[0];
+        groups = [targetGroup];
+      }
+
+      // Calculate positions for new members
+      const newMembers = responseData.map((response) => ({
+        identifier: response.free_text,
+        form_submission_id: response.form_submission_id
+      }));
+      const groupWidth =
+        parseFloat(targetGroup.width || `${GROUP_WIDTH}px`) || GROUP_WIDTH;
+      const groupHeight =
+        parseFloat(targetGroup.height || `${GROUP_HEIGHT}px`) || GROUP_HEIGHT;
+      const memberPositions = calculateMemberPositions(
+        newMembers,
+        { x: targetGroup.position_x ?? 0, y: targetGroup.position_y ?? 0 },
+        groupWidth,
+        groupHeight
+      );
+
+      // Insert new tree members
+      const treeMembers = newMembers.map((member, index) => {
+        const memberData = {
+          family_tree_id: familyTreeId,
+          identifier: member.identifier,
+          form_submission_id: member.form_submission_id,
+          group_id: targetGroup.id,
+          is_big: false,
+          position_x: memberPositions[index].position_x,
+          position_y: memberPositions[index].position_y
+        };
+        console.log('Creating tree member:', memberData);
+        return memberData;
+      });
+
+      const { data: newMembersData, error: membersError } = await supabase
+        .from('tree_member')
+        .insert(treeMembers)
+        .select();
+      if (membersError) {
+        throw new Error(`Error inserting new members: ${membersError.message}`);
+      }
+
+      const parsedNewMembers = TreeMember.array().parse(newMembersData);
+      const { width: containerWidth, height: containerHeight } =
+        getContainerSize();
+
+      // Create new nodes
+      const newNodes: Node[] = parsedNewMembers.map((member) => ({
+        id: member.id,
+        type: 'default',
+        data: {
+          label: member.identifier,
+          position_x: member.position_x,
+          position_y: member.position_y
+        },
+        position: getNodePosition(
+          member,
+          groups,
+          containerWidth,
+          containerHeight
+        ),
+        draggable: true,
+        selectable: true,
+        parentNode: member.group_id,
+        extent: 'parent' as const,
+        style: { zIndex: 20, width: NODE_WIDTH, height: NODE_HEIGHT },
+        resizable: false
+      }));
+
+      // If a new group was created, add it as a node
+      const newGroupNodes: Node[] =
+        targetGroup !== groups[0]
+          ? [
+              {
+                id: targetGroup.id,
+                type: 'group',
+                data: {
+                  label: `Family Group ${targetGroup.id.slice(0, 4)}`,
+                  position_x: targetGroup.position_x ?? 0,
+                  position_y: targetGroup.position_y ?? 0
+                },
+                position: {
+                  x: targetGroup.position_x ?? 0,
+                  y: targetGroup.position_y ?? 0
+                },
+                style: {
+                  width: groupWidth,
+                  height: groupHeight,
+                  backgroundColor: 'rgba(243, 244, 246, 0.6)',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '2px',
+                  zIndex: 1,
+                  boxSizing: 'border-box'
+                },
+                draggable: true,
+                selectable: true,
+                resizable: true
+              }
+            ]
+          : [];
+
+      // Update nodes
+      setNodes((nds) => [...nds, ...newNodes, ...newGroupNodes]);
+      window.requestAnimationFrame(() => fitView({ padding: 0.4 }));
+      toast.success(`Added ${newMembers.length} new members`);
+    } catch (error) {
+      console.error('Error in refetchNewSubmissions:', error);
+      toast.error('Failed to refetch submissions');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [familyTreeId, supabase, setNodes, fitView, getContainerSize]);
+
+  return { loadFamilyTree, refetchNewSubmissions, isLoading, error };
 };
 
 interface FamilyTreeFlowProps {
@@ -400,6 +629,11 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({ familyTreeId }) => {
   const [contextMenu, setContextMenu] = useState<ContextMenuData | null>(null);
   const { fitView } = useReactFlow();
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Debug familyTreeId
+  useEffect(() => {
+    console.log('FamilyTreeFlow mounted with familyTreeId:', familyTreeId);
+  }, [familyTreeId]);
 
   // Memoize nodeTypes
   const memoizedNodeTypes = useMemo(() => nodeTypes, []);
@@ -459,17 +693,23 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({ familyTreeId }) => {
     return { width: window.innerWidth, height: window.innerHeight };
   }, []);
 
-  const { loadFamilyTree, isLoading, error } = useFamilyTreeData(
-    familyTreeId,
-    setNodes,
-    setEdges,
-    fitView,
-    getContainerSize
-  );
+  const { loadFamilyTree, refetchNewSubmissions, isLoading, error } =
+    useFamilyTreeData(
+      familyTreeId,
+      setNodes,
+      setEdges,
+      fitView,
+      getContainerSize
+    );
 
   useEffect(() => {
+    if (!familyTreeId || typeof familyTreeId !== 'string') {
+      console.error('Invalid familyTreeId on mount:', familyTreeId);
+      toast.error('Invalid family tree ID');
+      return;
+    }
     void loadFamilyTree();
-  }, [loadFamilyTree]);
+  }, [loadFamilyTree, familyTreeId]);
 
   const onNodeClick: NodeMouseHandler = useCallback(
     (event, node) => {
@@ -686,8 +926,9 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({ familyTreeId }) => {
         style: {
           width,
           height,
-          backgroundColor: 'rgba(249, 245, 249, 0.8)',
-          border: '2px dashed #444',
+          backgroundColor: 'rgba(243, 244, 246, 0.6)',
+          border: '1px solid #d1d5db',
+          borderRadius: '2px',
           zIndex: 1,
           boxSizing: 'border-box'
         },
@@ -1044,9 +1285,9 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({ familyTreeId }) => {
   const styles = `
   .react-flow__node-group {
     z-index: 1;
-    background: rgba(249, 245, 249, 0.8);
-    border: 2px dashed #444;
-    border-radius: 4px;
+    background: rgba(243, 244, 246, 0.6);
+    border: 1px solid #d1d5db;
+    border-radius: 2px;
     pointer-events: auto;
     min-width: 100px;
     min-height: 100px;
@@ -1054,88 +1295,96 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({ familyTreeId }) => {
   }
   .react-flow__node-default {
     pointer-events: auto;
-    background: #fff;
-    border: 1px solid #ddd;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
     border-radius: 4px;
     font-size: 12px;
-    color: #333;
+    color: #374151;
     padding: 8px;
     z-index: 20;
     width: ${NODE_WIDTH}px;
     height: ${NODE_HEIGHT}px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
   }
   .react-flow__node:not(.react-flow__node-group) {
     cursor: grab;
     z-index: 20;
   }
   .react-flow__node:not(.react-flow__node-group).selected {
-    box-shadow: 0 0 0 2px #1976d2 !important;
-    border: 1px solid #1976d2 !important;
+    box-shadow: 0 0 0 2px #3b82f6 !important;
+    border: 1px solid #3b82f6 !important;
   }
   .react-flow__node-group.selected {
-    border: 2px solid #1976d2 !important;
-    background-color: rgba(25, 118, 210, 0.1) !important;
+    border: 1px solid #3b82f6 !important;
+    background-color: rgba(59, 130, 246, 0.1) !important;
   }
   .layout-controls {
     display: flex;
-    gap: 10px;
+    gap: 8px;
     flex-wrap: wrap;
     align-items: center;
     padding: 10px;
     position: absolute;
-    top: 0;
-    left: 0;
+    top: 8px;
+    left: 8px;
     z-index: 1000;
+    background: #ffffff;
+    border-radius: 4px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   }
   .layout-controls button {
-    padding: 8px 12px;
-    border: 1px solid #ddd;
-    background: white;
+    padding: 6px 10px;
+    border: 1px solid #e5e7eb;
+    background: #ffffff;
     border-radius: 4px;
     cursor: pointer;
-    font-size: 14px;
+    font-size: 12px;
+    color: #374151;
+    transition: background 0.2s;
   }
   .layout-controls button:hover {
-    background: #f5f5f5;
+    background: #f3f4f6;
   }
   .layout-controls .divider {
     width: 1px;
-    height: 30px;
-    background: #ddd;
-    margin: 0 5px;
+    height: 24px;
+    background: #e5e7eb;
+    margin: 0 4px;
   }
   .context-menu {
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    padding: 8px;
-    background: white;
-    border: 1px solid #ccc;
+    gap: 6px;
+    padding: 6px;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
     border-radius: 4px;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.15);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
     position: fixed;
     z-index: 1000;
   }
   .context-menu button {
-    padding: 6px 12px;
+    padding: 4px 10px;
     border: none;
-    background: white;
+    background: #ffffff;
     text-align: left;
     cursor: pointer;
-    font-size: 14px;
-    color: #333;
+    font-size: 12px;
+    color: #374151;
     border-radius: 2px;
+    transition: background 0.2s;
   }
   .context-menu button:hover,
   .context-menu button:focus {
-    background: #f5f5f5;
+    background: #f3f4f6;
     outline: none;
   }
   .context-menu .title {
-    font-weight: bold;
-    color: #666;
+    font-weight: 500;
+    color: #6b7280;
     padding-bottom: 4px;
-    border-bottom: 1px solid #eee;
+    border-bottom: 1px solid #e5e7eb;
+    font-size: 12px;
   }
   .react-flow-container {
     width: 100%;
@@ -1150,23 +1399,23 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({ familyTreeId }) => {
   }
   .react-flow__controls {
     position: fixed;
-    bottom: 20px;
-    left: 20px;
+    bottom: 16px;
+    left: 16px;
     z-index: 2000;
-    background: white;
+    background: #ffffff;
     border-radius: 4px;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-    padding: 5px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    padding: 4px;
   }
   .react-flow__minimap {
     position: fixed;
-    bottom: 20px;
-    right: 20px;
+    bottom: 16px;
+    right: 16px;
     z-index: 2000;
-    background: white;
+    background: #ffffff;
     border-radius: 4px;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-    padding: 5px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    padding: 4px;
   }
 `;
 
@@ -1186,6 +1435,9 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({ familyTreeId }) => {
           </button>
           <button type="button" onClick={recenterView}>
             Recenter View
+          </button>
+          <button type="button" onClick={refetchNewSubmissions}>
+            Refetch Submissions
           </button>
           <div className="divider" />
         </div>
