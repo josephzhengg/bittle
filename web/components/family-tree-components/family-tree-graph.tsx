@@ -638,27 +638,72 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({ familyTreeId }) => {
   );
 
   const resetLayout = useCallback(async () => {
-    const { width, height } = getContainerSize();
-    const updatedNodes = autoLayout(nodes, edges, width, height);
+    if (!containerRef.current) {
+      toast.error('Container not ready. Please try again.');
+      return;
+    }
 
     try {
-      const updates = updatedNodes.map((node) => ({
-        id: node.id,
-        position_x: node.position.x,
-        position_y: node.position.y,
-        identifier: node.data.label.split(' ').slice(1).join(' ')
-      }));
+      const { width, height } = getContainerSize();
+      if (width <= 0 || height <= 0) {
+        throw new Error(
+          'Invalid container dimensions: width or height is zero or negative'
+        );
+      }
+
+      if (!nodes.length) {
+        throw new Error('No nodes available to layout');
+      }
+      if (
+        !nodes.every(
+          (n) => n.id && n.data && n.data.label && n.data.form_submission_id
+        )
+      ) {
+        throw new Error(
+          'Invalid node data: some nodes are missing id, label, or form_submission_id'
+        );
+      }
+
+      const updatedNodes = autoLayout(nodes, edges, width, height);
+      if (!updatedNodes.length) {
+        throw new Error('Auto-layout returned no nodes');
+      }
+
+      const updates = updatedNodes.map((node) => {
+        const identifier = node.data.label.split(' ').slice(1).join(' ').trim();
+        if (!identifier) {
+          throw new Error(
+            `Invalid identifier for node ID ${node.id}: identifier is empty`
+          );
+        }
+        if (node.data.form_submission_id === null) {
+          throw new Error(
+            `Invalid form_submission_id for node ID ${node.id}: value is null`
+          );
+        }
+        return {
+          id: node.id,
+          position_x: Math.round(node.position.x),
+          position_y: Math.round(node.position.y),
+          identifier,
+          form_submission_id: node.data.form_submission_id // Preserve existing value
+        };
+      });
 
       const { error } = await supabase
         .from('tree_member')
         .upsert(updates, { onConflict: 'id' });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase error:', error);
+        throw new Error(`Supabase error: ${error.message}`);
+      }
 
       setNodes(updatedNodes);
       setTimeout(() => fitView({ padding: 0.4 }), 100);
       toast.success('Layout reset and positions saved');
     } catch (err) {
+      console.error('Reset layout error:', err);
       toast.error(
         `Failed to save node positions: ${
           err instanceof Error ? err.message : 'Unknown error'
