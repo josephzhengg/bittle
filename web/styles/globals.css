@@ -588,7 +588,6 @@
 }
 
 /* Graph Styles */
-
 .group-node {
   pointer-events: all;
 }
@@ -616,7 +615,7 @@
   opacity: 0;
   transition: opacity 0.2s;
   pointer-events: all;
-  zIndex: 100;
+  z-index: 100;
 }
 .resize-edge:hover,
 .group-node:hover .resize-edge,
@@ -708,4 +707,291 @@
   color: #666;
   padding-bottom: 4px;
   border-bottom: 1px solid #eee;
+}
+
+/* Submission Details Overlay Styles */
+.submission-box {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  background: #fff;
+  border-radius: 8px;
+  max-width: 80vw;
+  width: auto;
+  max-height: 200px;
+  overflow-x: auto;
+  overflow-y: auto;
+  z-index: 2000;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  backdrop-filter: blur(10px);
+}
+
+.submission-box-content {
+  position: relative;
+}
+
+.submission-box-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 4px;
+  background: #f3f4f6;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.submission-box-close:hover {
+  background: #e5e7eb;
+}
+
+.submission-box-card {
+  margin: 0;
+  border: none;
+  border-radius: 8px;
+}
+
+.submission-box-card-header {
+  padding: 12px 16px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.submission-box-card-content {
+  padding: 0 16px 16px;
+}
+
+.submission-box-table {
+  width: max-content;
+  border-collapse: collapse;
+}
+
+.submission-box-table th,
+.submission-box-table td {
+  padding: 8px 12px;
+  text-align: left;
+  border-bottom: 1px solid #e5e7eb;
+  white-space: nowrap;
+}
+
+.submission-box-table th {
+  font-weight: 600;
+  color: #374151;
+  font-size: 13px;
+  background: #f8fafc;
+}
+
+.submission-box-table td {
+  color: #374151;
+  font-size: 12px;
+}
+
+.submission-box-error {
+  text-align: center;
+  padding: 16px;
+  color: #dc2626;
+  font-size: 13px;
+}
+
+.family-tree-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #f8fafc;
+}
+      
+.loading-container, .error-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: #f8fafc;
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid #e5e7eb;
+  border-top: 3px solid #3b82f6;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 16px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.error-container p {
+  color: #dc2626;
+  font-size: 16px;
+  margin: 0;
+}
+
+.loading-container p {
+  color: #6b7280;
+  font-size: 16px;
+  margin: 0;
+}
+
+.react-flow__node-custom { 
+  background: transparent !important; 
+  border: none !important; 
+  padding: 0 !important; 
+  width: 172px !important; 
+  height: 36px !important; 
+}
+
+.react-flow__node-custom.selected { 
+  transform: scale(1.05); 
+}
+
+.react-flow__node-custom:hover { 
+  transform: scale(1.02); 
+}
+
+.react-flow__attribution {
+  display: none !important;
+}
+
+.react-flow__renderer {
+  background: transparent;
+}
+
+.react-flow__pane {
+  cursor: grab;
+}
+
+.react-flow__pane.dragging {
+  cursor: grabbing;
+}
+
+.react-flow__edge-path:hover {
+  stroke: #3b82f6 !important;
+  stroke-width: 6 !important;
+  cursor: pointer;
+}
+
+.layout-controls { 
+  display: flex; 
+  gap: 8px; 
+  padding: 10px; 
+  position: absolute; 
+  top: 16px; 
+  left: 16px; 
+  z-index: 1000; 
+  background: rgba(255, 255, 255, 0.95); 
+  border-radius: 8px; 
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  backdrop-filter: blur(10px);
+}
+
+.layout-controls button { 
+  padding: 8px 12px; 
+  border: 1px solid #e5e7eb; 
+  background: #fff; 
+  border-radius: 6px; 
+  cursor: pointer; 
+  font-size: 12px; 
+  color: #374151; 
+  transition: all 0.2s; 
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.layout-controls button:hover { 
+  background: #f3f4f6; 
+  border-color: #d1d5db; 
+}
+
+.layout-controls button:disabled { 
+  opacity: 0.5; 
+  cursor: not-allowed; 
+}
+
+.context-menu { 
+  display: flex; 
+  flex-direction: column; 
+  gap: 4px; 
+  padding: 8px; 
+  background: rgba(255, 255, 255, 0.95); 
+  border: 1px solid #e5e7eb; 
+  border-radius: 8px; 
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15); 
+  position: fixed; 
+  z-index: 1000; 
+  min-width: 140px;
+  backdrop-filter: blur(10px);
+}
+
+.context-menu button { 
+  padding: 6px 10px; 
+  border: none; 
+  background: #fff; 
+  text-align: left; 
+  cursor: pointer; 
+  font-size: 12px; 
+  color: #374151; 
+  border-radius: 4px; 
+  transition: background 0.2s; 
+  font-weight: 500; 
+}
+
+.context-menu button:hover { 
+  background: #f3f4f6; 
+}
+
+.context-menu .title { 
+  font-weight: 600; 
+  color: #6b7280; 
+  padding: 4px 10px 6px; 
+  border-bottom: 1px solid #e5e7eb; 
+  font-size: 11px; 
+  text-transform: uppercase; 
+}
+
+.legend { 
+  position: absolute; 
+  top: 16px; 
+  right: 16px; 
+  background: rgba(255, 255, 255, 0.95); 
+  border-radius: 8px; 
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1); 
+  padding: 12px; 
+  z-index: 1000; 
+  font-size: 11px; 
+  color: #374151; 
+  min-width: 180px;
+  backdrop-filter: blur(10px);
+}
+
+.legend-title { 
+  font-weight: 600; 
+  margin-bottom: 8px; 
+  color: #1f2937; 
+}
+
+.legend-item { 
+  display: flex; 
+  align-items: center; 
+  gap: 8px; 
+  margin-bottom: 4px; 
+}
+
+.legend-color { 
+  width: 16px; 
+  height: 16px; 
+  border-radius: 3px; 
+  flex-shrink: 0; 
+}
+
+.react-flow-container {
+  width: 100%;
+  height: 100%;
 }

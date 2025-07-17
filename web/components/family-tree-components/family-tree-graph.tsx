@@ -18,6 +18,7 @@ import ReactFlow, {
 import 'reactflow/dist/style.css';
 import { useSupabase } from '@/lib/supabase';
 import { TreeMember } from '@/utils/supabase/models/tree-member';
+import { QuestionOption } from '@/utils/supabase/models/question-option';
 import {
   createConnection,
   removeConnection,
@@ -25,6 +26,10 @@ import {
   refetchSubmissions,
   toggleBig
 } from '@/utils/supabase/queries/family-tree';
+import { getQuestions, getOptions } from '@/utils/supabase/queries/question';
+import SubmissionDetailsOverlay from '@/components/family-tree-components/submission-details-overlay';
+import EditIdentifierDialog from '@/components/family-tree-components/edit-identifier';
+import { updateIdentifier } from '@/utils/supabase/queries/family-tree';
 import { z } from 'zod';
 import { toast } from 'sonner';
 
@@ -40,6 +45,7 @@ interface NodeData {
   is_big: boolean;
   hasLittles: boolean;
   hasBig: boolean;
+  form_submission_id?: string | null;
 }
 
 interface ContextMenuData {
@@ -48,7 +54,6 @@ interface ContextMenuData {
   position: { x: number; y: number };
 }
 
-// Node styling based on role
 const getNodeStyle = (data: NodeData) => {
   const base = {
     width: NODE_WIDTH,
@@ -144,7 +149,6 @@ const CustomNode: React.FC<{ data: NodeData; selected: boolean }> = ({
 
 const nodeTypes = { custom: CustomNode };
 
-// Position utilities
 const getNodePosition = (
   member: z.infer<typeof TreeMember>,
   containerHeight: number
@@ -199,7 +203,6 @@ const autoLayout = (
   containerWidth: number,
   containerHeight: number
 ) => {
-  // Build adjacency lists
   const bigToLittles = new Map<string, string[]>();
   const littleToBig = new Map<string, string>();
   edges.forEach((edge) => {
@@ -208,12 +211,10 @@ const autoLayout = (
     littleToBig.set(edge.target, edge.source);
   });
 
-  // Find root nodes (bigs with no big or unconnected nodes)
   const roots = nodes.filter(
     (node) => !littleToBig.has(node.id) || !node.data.hasBig
   );
 
-  // Assign levels based on hierarchy
   const levels = new Map<string, number>();
   const assignLevels = (nodeId: string, level: number) => {
     if (!levels.has(nodeId)) {
@@ -226,11 +227,10 @@ const autoLayout = (
   roots.forEach((root) => assignLevels(root.id, 0));
   nodes.forEach((node) => {
     if (!levels.has(node.id)) {
-      levels.set(node.id, 0); // Unconnected nodes at top
+      levels.set(node.id, 0);
     }
   });
 
-  // Group nodes by level
   const levelGroups = new Map<number, Node<NodeData>[]>();
   nodes.forEach((node) => {
     const level = levels.get(node.id) || 0;
@@ -238,14 +238,12 @@ const autoLayout = (
     levelGroups.get(level)?.push(node);
   });
 
-  // Calculate max width needed
   const maxLevelWidth = Math.max(
     ...Array.from(levelGroups.values()).map((group) => group.length)
   );
   const totalWidth = maxLevelWidth * (NODE_WIDTH + PADDING);
   const offsetX = Math.max(0, (containerWidth - totalWidth) / 2);
 
-  // Assign positions
   const updatedNodes = nodes.map((node) => {
     const level = levels.get(node.id) || 0;
     const levelNodes = levelGroups.get(level) || [];
@@ -266,7 +264,6 @@ const autoLayout = (
   return updatedNodes;
 };
 
-// Data loading hook
 const useFamilyTreeData = (
   familyTreeId: string,
   setNodes: React.Dispatch<React.SetStateAction<Node<NodeData>[]>>,
@@ -284,13 +281,23 @@ const useFamilyTreeData = (
     setError(null);
 
     try {
-      const [members, { data: connections }] = await Promise.all([
-        getFamilyTreeMembers(supabase, familyTreeId),
-        supabase
-          .from('connections')
-          .select('id, big_id, little_id')
-          .eq('family_tree_id', familyTreeId)
-      ]);
+      const [members, { data: connections }, { data: familyTree }] =
+        await Promise.all([
+          getFamilyTreeMembers(supabase, familyTreeId),
+          supabase
+            .from('connections')
+            .select('id, big_id, little_id')
+            .eq('family_tree_id', familyTreeId),
+          supabase
+            .from('family_tree')
+            .select('form_id')
+            .eq('id', familyTreeId)
+            .single()
+        ]);
+
+      if (!familyTree) {
+        throw new Error('Family tree not found');
+      }
 
       const { height } = getContainerSize();
       const bigToLittles = new Map<string, string[]>();
@@ -311,7 +318,8 @@ const useFamilyTreeData = (
           position_y: member.position_y,
           is_big: member.is_big ?? false,
           hasLittles,
-          hasBig
+          hasBig,
+          form_submission_id: member.form_submission_id
         };
 
         return {
@@ -344,7 +352,7 @@ const useFamilyTreeData = (
           }
         })) ?? [];
 
-      setNodes(nodes); // Use stored positions instead of autoLayout
+      setNodes(nodes);
       setEdges(edges);
       setTimeout(() => fitView({ padding: 0.4 }), 100);
     } catch (err) {
@@ -360,10 +368,20 @@ const useFamilyTreeData = (
     setIsLoading(true);
 
     try {
-      const [members, submissions] = await Promise.all([
+      const [members, submissions, { data: familyTree }] = await Promise.all([
         getFamilyTreeMembers(supabase, familyTreeId),
-        refetchSubmissions(supabase, familyTreeId)
+        refetchSubmissions(supabase, familyTreeId),
+        supabase
+          .from('family_tree')
+          .select('form_id, question_id')
+          .eq('id', familyTreeId)
+          .single()
       ]);
+
+      if (!familyTree) {
+        toast.error('Family tree data not found');
+        return;
+      }
 
       const existingIds = new Set(
         members.map((m) => m.form_submission_id).filter(Boolean)
@@ -372,17 +390,6 @@ const useFamilyTreeData = (
 
       if (!newSubmissions.length) {
         toast.info('No new submissions found');
-        return;
-      }
-
-      const { data: familyTree } = await supabase
-        .from('family_tree')
-        .select('form_id, question_id')
-        .eq('id', familyTreeId)
-        .single();
-
-      if (!familyTree) {
-        toast.error('Family tree data not found');
         return;
       }
 
@@ -436,7 +443,8 @@ const useFamilyTreeData = (
             position_y: member.position_y,
             is_big: false,
             hasLittles: false,
-            hasBig: false
+            hasBig: false,
+            form_submission_id: member.form_submission_id
           };
 
           return {
@@ -478,6 +486,16 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({ familyTreeId }) => {
   const [nodes, setNodes, onNodesChange] = useNodesState<NodeData>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [contextMenu, setContextMenu] = useState<ContextMenuData | null>(null);
+  const [selectedSubmission, setSelectedSubmission] = useState<{
+    formSubmissionId: string | null;
+    formId: string | null;
+    allOptions: Record<string, QuestionOption[]>;
+  } | null>(null);
+  const [editDialog, setEditDialog] = useState<{
+    isOpen: boolean;
+    nodeId: string;
+    currentIdentifier: string;
+  } | null>(null);
   const { fitView } = useReactFlow();
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -624,28 +642,26 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({ familyTreeId }) => {
     const updatedNodes = autoLayout(nodes, edges, width, height);
 
     try {
-      // Update nodes one by one to avoid conflicts
-      for (const node of updatedNodes) {
-        const { error } = await supabase
-          .from('tree_member')
-          .update({
-            position_x: node.position.x,
-            position_y: node.position.y,
-            identifier: node.data.label.split(' ').slice(1).join(' ') // Extract identifier without the emoji
-          })
-          .eq('id', node.id);
+      const updates = updatedNodes.map((node) => ({
+        id: node.id,
+        position_x: node.position.x,
+        position_y: node.position.y,
+        identifier: node.data.label.split(' ').slice(1).join(' ')
+      }));
 
-        if (error) throw error;
-      }
+      const { error } = await supabase
+        .from('tree_member')
+        .upsert(updates, { onConflict: 'id' });
+
+      if (error) throw error;
 
       setNodes(updatedNodes);
       setTimeout(() => fitView({ padding: 0.4 }), 100);
       toast.success('Layout reset and positions saved');
     } catch (err) {
-      console.error('Error resetting layout:', err);
       toast.error(
         `Failed to save node positions: ${
-          err instanceof Error ? err.message : JSON.stringify(err)
+          err instanceof Error ? err.message : 'Unknown error'
         }`
       );
     }
@@ -679,6 +695,98 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({ familyTreeId }) => {
     [setNodes, supabase, getContainerSize]
   );
 
+  const handleSaveIdentifier = useCallback(
+    async (nodeId: string, newIdentifier: string) => {
+      try {
+        await updateIdentifier(supabase, nodeId, newIdentifier);
+
+        setNodes((nds) =>
+          nds.map((n) =>
+            n.id === nodeId
+              ? {
+                  ...n,
+                  data: {
+                    ...n.data,
+                    label: `${getRoleIcon(n.data)} ${newIdentifier}`
+                  }
+                }
+              : n
+          )
+        );
+
+        toast.success('Identifier updated successfully');
+        setEditDialog(null);
+      } catch (err) {
+        toast.error(
+          `Failed to update identifier: ${
+            err instanceof Error ? err.message : 'Unknown error'
+          }`
+        );
+      }
+    },
+    [setNodes, supabase]
+  );
+
+  const handleNodeClick = useCallback(
+    async (e: React.MouseEvent, node: Node<NodeData>) => {
+      e.stopPropagation();
+      setNodes((nds) => nds.map((n) => ({ ...n, selected: n.id === node.id })));
+      setEdges((eds) => eds.map((e) => ({ ...e, selected: false })));
+      setContextMenu(null);
+
+      if (e.detail === 2) {
+        const cleanIdentifier = node.data.label.split(' ').slice(1).join(' ');
+        setEditDialog({
+          isOpen: true,
+          nodeId: node.id,
+          currentIdentifier: cleanIdentifier
+        });
+        return;
+      }
+
+      if (node.data.form_submission_id) {
+        try {
+          const { data: familyTree } = await supabase
+            .from('family_tree')
+            .select('form_id')
+            .eq('id', familyTreeId)
+            .single();
+
+          if (!familyTree?.form_id) {
+            throw new Error('Form ID not found for this family tree');
+          }
+
+          const questions = await getQuestions(supabase, familyTree.form_id);
+          const allOptions: Record<string, QuestionOption[]> = {};
+          for (const question of questions) {
+            if (
+              question.type === 'MULTIPLE_CHOICE' ||
+              question.type === 'SELECT_ALL'
+            ) {
+              const options = await getOptions(supabase, question.id);
+              allOptions[question.id] = options;
+            }
+          }
+
+          setSelectedSubmission({
+            formSubmissionId: node.data.form_submission_id,
+            formId: familyTree.form_id,
+            allOptions
+          });
+        } catch (err) {
+          toast.error(
+            `Failed to fetch submission details: ${
+              err instanceof Error ? err.message : 'Unknown error'
+            }`
+          );
+        }
+      } else {
+        toast.info('No submission details available for this member');
+      }
+    },
+    [setNodes, setEdges, supabase, familyTreeId]
+  );
+
   if (isLoading)
     return (
       <div className="loading-container">
@@ -695,212 +803,6 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({ familyTreeId }) => {
 
   return (
     <div className="family-tree-container">
-      <style>{`
-        .family-tree-container {
-          position: relative;
-          width: 100%;
-          height: 100%;
-          overflow: hidden;
-          background: #f8fafc;
-        }
-      
-        .loading-container, .error-container {
-          position: fixed;
-          top: 0;
-          left: 0;
-          width: 100vw;
-          height: 100vh;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          background: #f8fafc;
-        }
-        
-        .loading-spinner {
-          width: 40px;
-          height: 40px;
-          border: 3px solid #e5e7eb;
-          border-top: 3px solid #3b82f6;
-          border-radius: 50%;
-          animation: spin 1s linear infinite;
-          margin-bottom: 16px;
-        }
-        
-        @keyframes spin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
-        
-        .error-container p {
-          color: #dc2626;
-          font-size: 16px;
-          margin: 0;
-        }
-        
-        .loading-container p {
-          color: #6b7280;
-          font-size: 16px;
-          margin: 0;
-        }
-        
-        .react-flow__node-custom { 
-          background: transparent !important; 
-          border: none !important; 
-          padding: 0 !important; 
-          width: ${NODE_WIDTH}px !important; 
-          height: ${NODE_HEIGHT}px !important; 
-        }
-        
-        .react-flow__node-custom.selected { 
-          transform: scale(1.05); 
-        }
-        
-        .react-flow__node-custom:hover { 
-          transform: scale(1.02); 
-        }
-        
-        .react-flow__attribution {
-          display: none !important;
-        }
-        
-        .react-flow__renderer {
-          background: transparent;
-        }
-        
-        .react-flow__pane {
-          cursor: grab;
-        }
-        
-        .react-flow__pane.dragging {
-          cursor: grabbing;
-        }
-        
-        .react-flow__edge-path:hover {
-          stroke: #3b82f6 !important;
-          stroke-width: 6 !important;
-          cursor: pointer;
-        }
-        
-        .layout-controls { 
-          display: flex; 
-          gap: 8px; 
-          padding: 10px; 
-          position: absolute; 
-          top: 16px; 
-          left: 16px; 
-          z-index: 1000; 
-          background: rgba(255, 255, 255, 0.95); 
-          border-radius: 8px; 
-          box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-          backdrop-filter: blur(10px);
-        }
-        
-        .layout-controls button { 
-          padding: 8px 12px; 
-          border: 1px solid #e5e7eb; 
-          background: #fff; 
-          border-radius: 6px; 
-          cursor: pointer; 
-          font-size: 12px; 
-          color: #374151; 
-          transition: all 0.2s; 
-          font-weight: 500;
-          white-space: nowrap;
-        }
-        
-        .layout-controls button:hover { 
-          background: #f3f4f6; 
-          border-color: #d1d5db; 
-        }
-        
-        .layout-controls button:disabled { 
-          opacity: 0.5; 
-          cursor: not-allowed; 
-        }
-        
-        .context-menu { 
-          display: flex; 
-          flex-direction: column; 
-          gap: 4px; 
-          padding: 8px; 
-          background: rgba(255, 255, 255, 0.95); 
-          border: 1px solid #e5e7eb; 
-          border-radius: 8px; 
-          box-shadow: 0 4px 12px rgba(0,0,0,0.15); 
-          position: fixed; 
-          z-index: 1000; 
-          min-width: 140px;
-          backdrop-filter: blur(10px);
-        }
-        
-        .context-menu button { 
-          padding: 6px 10px; 
-          border: none; 
-          background: #fff; 
-          text-align: left; 
-          cursor: pointer; 
-          font-size: 12px; 
-          color: #374151; 
-          border-radius: 4px; 
-          transition: background 0.2s; 
-          font-weight: 500; 
-        }
-        
-        .context-menu button:hover { 
-          background: #f3f4f6; 
-        }
-        
-        .context-menu .title { 
-          font-weight: 600; 
-          color: #6b7280; 
-          padding: 4px 10px 6px; 
-          border-bottom: 1px solid #e5e7eb; 
-          font-size: 11px; 
-          text-transform: uppercase; 
-        }
-        
-        .legend { 
-          position: absolute; 
-          top: 16px; 
-          right: 16px; 
-          background: rgba(255, 255, 255, 0.95); 
-          border-radius: 8px; 
-          box-shadow: 0 2px 8px rgba(0,0,0,0.1); 
-          padding: 12px; 
-          z-index: 1000; 
-          font-size: 11px; 
-          color: #374151; 
-          min-width: 180px;
-          backdrop-filter: blur(10px);
-        }
-        
-        .legend-title { 
-          font-weight: 600; 
-          margin-bottom: 8px; 
-          color: #1f2937; 
-        }
-        
-        .legend-item { 
-          display: flex; 
-          align-items: center; 
-          gap: 8px; 
-          margin-bottom: 4px; 
-        }
-        
-        .legend-color { 
-          width: 16px; 
-          height: 16px; 
-          border-radius: 3px; 
-          flex-shrink: 0; 
-        }
-        
-        .react-flow-container {
-          width: 100%;
-          height: 100%;
-        }
-      `}</style>
-
       <div className="layout-controls">
         <button onClick={resetLayout} disabled={isLoading}>
           Auto Layout
@@ -970,7 +872,10 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({ familyTreeId }) => {
       <div
         ref={containerRef}
         className="react-flow-container"
-        onClick={() => setContextMenu(null)}>
+        onClick={() => {
+          setContextMenu(null);
+          setSelectedSubmission(null);
+        }}>
         <ReactFlow
           nodes={nodes}
           edges={edges}
@@ -1012,18 +917,13 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({ familyTreeId }) => {
               position: { x: e.clientX, y: e.clientY }
             });
           }}
-          onNodeClick={(e, node) => {
-            e.stopPropagation();
-            setNodes((nds) =>
-              nds.map((n) => ({ ...n, selected: n.id === node.id }))
-            );
-            setEdges((eds) => eds.map((e) => ({ ...e, selected: false })));
-            setContextMenu(null);
-          }}
+          onNodeClick={handleNodeClick}
           onPaneClick={() => {
             setNodes((nds) => nds.map((n) => ({ ...n, selected: false })));
             setEdges((eds) => eds.map((e) => ({ ...e, selected: false })));
             setContextMenu(null);
+            setSelectedSubmission(null);
+            setEditDialog(null);
           }}
           nodeTypes={nodeTypes}
           fitView
@@ -1054,12 +954,47 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({ familyTreeId }) => {
               </button>
             )}
             <button
+              onClick={() => {
+                const node = nodes.find((n) => n.id === contextMenu.id);
+                if (node) {
+                  const cleanIdentifier = node.data.label
+                    .split(' ')
+                    .slice(1)
+                    .join(' ');
+                  setEditDialog({
+                    isOpen: true,
+                    nodeId: contextMenu.id,
+                    currentIdentifier: cleanIdentifier
+                  });
+                  setContextMenu(null);
+                }
+              }}>
+              Edit Identifier
+            </button>
+            <button
               onClick={() => handleDelete(contextMenu.id, contextMenu.type)}>
               Delete {contextMenu.type === 'node' ? 'Member' : 'Connection'}
             </button>
           </div>
         )}
+        {selectedSubmission && (
+          <SubmissionDetailsOverlay
+            formSubmissionId={selectedSubmission.formSubmissionId}
+            formId={selectedSubmission.formId!}
+            allOptions={selectedSubmission.allOptions}
+            onClose={() => setSelectedSubmission(null)}
+          />
+        )}
       </div>
+      {editDialog && (
+        <EditIdentifierDialog
+          isOpen={editDialog.isOpen}
+          nodeId={editDialog.nodeId}
+          currentIdentifier={editDialog.currentIdentifier}
+          onSave={handleSaveIdentifier}
+          onCancel={() => setEditDialog(null)}
+        />
+      )}
     </div>
   );
 };

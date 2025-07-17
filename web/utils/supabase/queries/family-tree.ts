@@ -341,7 +341,6 @@ export async function refetchSubmissions(
   return submissionData || [];
 }
 
-// Toggle is_big status for a member
 export async function toggleBig(
   supabase: SupabaseClient,
   member_id: string,
@@ -355,7 +354,6 @@ export async function toggleBig(
     throw new Error(`Error toggling big status: ${updateError.message}`);
 }
 
-// Get family tree by code
 export async function getFamilyTreeByCode(
   supabase: SupabaseClient,
   code: string
@@ -371,4 +369,18 @@ export async function getFamilyTreeByCode(
     );
   }
   return familyTreeData;
+}
+
+export async function updateIdentifier(
+  supabase: SupabaseClient,
+  member_id: string,
+  new_identifier: string
+): Promise<void> {
+  const { error } = await supabase
+    .from('tree_member')
+    .update({ identifier: new_identifier })
+    .eq('id', member_id);
+  if (error) {
+    throw new Error(`Error updating identifier: ${error.message}`);
+  }
 }
