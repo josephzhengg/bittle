@@ -33,49 +33,61 @@ const EditIdentifierDialog: React.FC<EditIdentifierDialogProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (identifier.trim()) {
-      onSave(nodeId, identifier.trim());
+    const trimmedIdentifier = identifier.trim();
+    if (trimmedIdentifier) {
+      onSave(nodeId, trimmedIdentifier);
     }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      if (identifier.trim()) {
-        onSave(nodeId, identifier.trim());
+      const trimmedIdentifier = identifier.trim();
+      if (trimmedIdentifier) {
+        onSave(nodeId, trimmedIdentifier);
       }
     }
   };
 
+  const isValid = identifier.trim().length > 0;
+
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onCancel()}>
-      <DialogContent className="sm:max-w-[425px]">
-        <DialogHeader>
-          <DialogTitle>Edit Identifier</DialogTitle>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader className="space-y-3">
+          <DialogTitle className="text-xl font-semibold">
+            Edit Identifier
+          </DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit}>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="identifier" className="text-right">
-                Name
-              </Label>
-              <Input
-                id="identifier"
-                value={identifier}
-                onChange={(e) => setIdentifier(e.target.value)}
-                onKeyDown={handleKeyDown}
-                className="col-span-3"
-                placeholder="Enter identifier..."
-                autoFocus
-              />
-            </div>
+
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="space-y-2">
+            <Label
+              htmlFor="identifier"
+              className="text-sm font-medium text-gray-700">
+              Identifier Name
+            </Label>
+            <Input
+              id="identifier"
+              value={identifier}
+              onChange={(e) => setIdentifier(e.target.value)}
+              onKeyDown={handleKeyDown}
+              className="w-full"
+              placeholder="Enter identifier name..."
+              autoFocus
+            />
           </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={onCancel}>
+
+          <DialogFooter className="flex gap-3 pt-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onCancel}
+              className="flex-1">
               Cancel
             </Button>
-            <Button type="submit" disabled={!identifier.trim()}>
-              Save changes
+            <Button type="submit" disabled={!isValid} className="flex-1">
+              Save Changes
             </Button>
           </DialogFooter>
         </form>
