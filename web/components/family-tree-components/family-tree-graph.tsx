@@ -1,4 +1,4 @@
-import React, { useCallback, useState, useRef, useEffect } from 'react';
+import React, { useCallback, useState, useRef } from 'react';
 import ReactFlow, {
   useNodesState,
   useEdgesState,
@@ -22,21 +22,22 @@ import { QuestionOption } from '@/utils/supabase/models/question-option';
 import {
   createConnection,
   removeConnection,
-  getFamilyTreeMembers,
   refetchSubmissions,
-  toggleBig
+  toggleBig,
+  getFamilyTreeMembers
 } from '@/utils/supabase/queries/family-tree';
 import { getQuestions, getOptions } from '@/utils/supabase/queries/question';
 import SubmissionDetailsOverlay from '@/components/family-tree-components/submission-details-overlay';
 import EditIdentifierDialog from '@/components/family-tree-components/edit-identifier';
 import { updateIdentifier } from '@/utils/supabase/queries/family-tree';
+import SubmissionDetailsLoadingSkeleton from '@/components/family-tree-components/submission-details-skeleton';
 import { z } from 'zod';
 import { toast } from 'sonner';
 
-const NODE_WIDTH = 172;
-const NODE_HEIGHT = 36;
-const PADDING = 50;
-const VERTICAL_SPACING = 100;
+export const NODE_WIDTH = 172;
+export const NODE_HEIGHT = 36;
+export const PADDING = 50;
+export const VERTICAL_SPACING = 100;
 
 interface NodeData {
   label: string;
@@ -52,6 +53,12 @@ interface ContextMenuData {
   id: string;
   type: 'node' | 'edge';
   position: { x: number; y: number };
+}
+
+interface FamilyTreeFlowProps {
+  familyTreeId: string;
+  initialNodes: Node<NodeData>[];
+  initialEdges: Edge[];
 }
 
 const getNodeStyle = (data: NodeData) => {
@@ -267,101 +274,11 @@ const autoLayout = (
 const useFamilyTreeData = (
   familyTreeId: string,
   setNodes: React.Dispatch<React.SetStateAction<Node<NodeData>[]>>,
-  setEdges: React.Dispatch<React.SetStateAction<Edge[]>>,
   fitView: (options?: import('reactflow').FitViewOptions) => void,
   getContainerSize: () => { width: number; height: number }
 ) => {
   const supabase = useSupabase();
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const loadFamilyTree = useCallback(async () => {
-    if (!familyTreeId) return;
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const [members, { data: connections }, { data: familyTree }] =
-        await Promise.all([
-          getFamilyTreeMembers(supabase, familyTreeId),
-          supabase
-            .from('connections')
-            .select('id, big_id, little_id')
-            .eq('family_tree_id', familyTreeId),
-          supabase
-            .from('family_tree')
-            .select('form_id')
-            .eq('id', familyTreeId)
-            .single()
-        ]);
-
-      if (!familyTree) {
-        throw new Error('Family tree not found');
-      }
-
-      const { height } = getContainerSize();
-      const bigToLittles = new Map<string, string[]>();
-      const littleToBig = new Map<string, string>();
-
-      connections?.forEach((conn) => {
-        if (!bigToLittles.has(conn.big_id)) bigToLittles.set(conn.big_id, []);
-        bigToLittles.get(conn.big_id)?.push(conn.little_id);
-        littleToBig.set(conn.little_id, conn.big_id);
-      });
-
-      const nodes: Node[] = members.map((member) => {
-        const hasLittles = bigToLittles.has(member.id);
-        const hasBig = littleToBig.has(member.id);
-        const data: NodeData = {
-          label: member.identifier,
-          position_x: member.position_x,
-          position_y: member.position_y,
-          is_big: member.is_big ?? false,
-          hasLittles,
-          hasBig,
-          form_submission_id: member.form_submission_id
-        };
-
-        return {
-          id: member.id,
-          type: 'custom',
-          data: { ...data, label: `${getRoleIcon(data)} ${member.identifier}` },
-          position: getNodePosition(member, height),
-          draggable: true,
-          selectable: true
-        };
-      });
-
-      const edges: Edge[] =
-        connections?.map((conn) => ({
-          id: conn.id,
-          type: 'smoothstep',
-          source: conn.big_id,
-          target: conn.little_id,
-          style: {
-            strokeWidth: 4,
-            stroke: '#6b7280',
-            transition: 'all 0.2s ease'
-          },
-          animated: true,
-          markerEnd: {
-            type: MarkerType.ArrowClosed,
-            color: '#6b7280',
-            width: 20,
-            height: 20
-          }
-        })) ?? [];
-
-      setNodes(nodes);
-      setEdges(edges);
-      setTimeout(() => fitView({ padding: 0.4 }), 100);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error');
-      toast.error('Failed to load family tree');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [familyTreeId, supabase, setNodes, setEdges, fitView, getContainerSize]);
+  const [isLoading, setIsLoading] = useState(false);
 
   const refetchNewSubmissions = useCallback(async () => {
     if (!familyTreeId) return;
@@ -474,17 +391,18 @@ const useFamilyTreeData = (
     }
   }, [familyTreeId, supabase, setNodes, fitView, getContainerSize]);
 
-  return { loadFamilyTree, refetchNewSubmissions, isLoading, error };
+  return { refetchNewSubmissions, isLoading };
 };
 
-interface FamilyTreeFlowProps {
-  familyTreeId: string;
-}
-
-const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({ familyTreeId }) => {
+const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
+  familyTreeId,
+  initialNodes,
+  initialEdges
+}) => {
   const supabase = useSupabase();
-  const [nodes, setNodes, onNodesChange] = useNodesState<NodeData>([]);
-  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
+  const [nodes, setNodes, onNodesChange] =
+    useNodesState<NodeData>(initialNodes);
+  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>(initialEdges);
   const [contextMenu, setContextMenu] = useState<ContextMenuData | null>(null);
   const [selectedSubmission, setSelectedSubmission] = useState<{
     formSubmissionId: string | null;
@@ -496,8 +414,8 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({ familyTreeId }) => {
     nodeId: string;
     currentIdentifier: string;
   } | null>(null);
-  const { fitView } = useReactFlow();
   const containerRef = useRef<HTMLDivElement>(null);
+  const { fitView, getViewport } = useReactFlow();
 
   const getContainerSize = useCallback(() => {
     if (containerRef.current) {
@@ -507,18 +425,12 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({ familyTreeId }) => {
     return { width: window.innerWidth, height: window.innerHeight };
   }, []);
 
-  const { loadFamilyTree, refetchNewSubmissions, isLoading, error } =
-    useFamilyTreeData(
-      familyTreeId,
-      setNodes,
-      setEdges,
-      fitView,
-      getContainerSize
-    );
-
-  useEffect(() => {
-    if (familyTreeId) loadFamilyTree();
-  }, [loadFamilyTree, familyTreeId]);
+  const { refetchNewSubmissions, isLoading } = useFamilyTreeData(
+    familyTreeId,
+    setNodes,
+    fitView,
+    getContainerSize
+  );
 
   const onConnect = useCallback(
     async (connection: Connection) => {
@@ -551,7 +463,6 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({ familyTreeId }) => {
 
         setEdges((eds) => addEdge(newEdge, eds));
         toast.success('Connection created');
-        loadFamilyTree();
       } catch (err) {
         toast.error(
           `Failed to create connection: ${
@@ -560,7 +471,7 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({ familyTreeId }) => {
         );
       }
     },
-    [setEdges, supabase, loadFamilyTree]
+    [setEdges, supabase]
   );
 
   const handleToggleBig = useCallback(
@@ -621,7 +532,6 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({ familyTreeId }) => {
             await removeConnection(supabase, edge.target, edge.source);
             setEdges((eds) => eds.filter((e) => e.id !== id));
             toast.success('Connection deleted');
-            loadFamilyTree();
           }
         }
       } catch (err) {
@@ -634,7 +544,7 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({ familyTreeId }) => {
         setContextMenu(null);
       }
     },
-    [edges, setNodes, setEdges, supabase, loadFamilyTree]
+    [edges, setNodes, setEdges, supabase]
   );
 
   const resetLayout = useCallback(async () => {
@@ -651,8 +561,9 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({ familyTreeId }) => {
         );
       }
 
-      if (!nodes.length) {
-        throw new Error('No nodes available to layout');
+      if (!nodes?.length) {
+        toast('No nodes to reset layout for. Please refetch submissions.');
+        return;
       }
       if (
         !nodes.every(
@@ -686,7 +597,7 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({ familyTreeId }) => {
           position_x: Math.round(node.position.x),
           position_y: Math.round(node.position.y),
           identifier,
-          form_submission_id: node.data.form_submission_id // Preserve existing value
+          form_submission_id: node.data.form_submission_id
         };
       });
 
@@ -728,9 +639,8 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({ familyTreeId }) => {
             n.id === node.id ? { ...n, position: { x, y: constrainedY } } : n
           )
         );
-        toast.success('Position updated');
       } catch (err) {
-        toast.error(
+        toast(
           `Failed to update position: ${
             err instanceof Error ? err.message : 'Unknown error'
           }`
@@ -791,6 +701,12 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({ familyTreeId }) => {
 
       if (node.data.form_submission_id) {
         try {
+          setSelectedSubmission({
+            formSubmissionId: node.data.form_submission_id,
+            formId: null,
+            allOptions: {}
+          });
+
           const { data: familyTree } = await supabase
             .from('family_tree')
             .select('form_id')
@@ -819,6 +735,7 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({ familyTreeId }) => {
             allOptions
           });
         } catch (err) {
+          setSelectedSubmission(null);
           toast.error(
             `Failed to fetch submission details: ${
               err instanceof Error ? err.message : 'Unknown error'
@@ -837,12 +754,6 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({ familyTreeId }) => {
       <div className="loading-container">
         <div className="loading-spinner"></div>
         <p>Loading family tree...</p>
-      </div>
-    );
-  if (error)
-    return (
-      <div className="error-container">
-        <p>Error: {error}</p>
       </div>
     );
 
@@ -865,54 +776,77 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({ familyTreeId }) => {
         </button>
       </div>
 
-      <div className="legend">
-        <div className="legend-title">Legend</div>
-        <div className="legend-item">
-          <div
-            className="legend-color"
-            style={{
-              background: 'linear-gradient(135deg, #8b5cf6, #6d28d9)'
-            }}
-          />
-          <span>👑🌱 Big and Little</span>
-        </div>
-        <div className="legend-item">
-          <div
-            className="legend-color"
-            style={{
-              background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)'
-            }}
-          />
-          <span>👑 Big with Littles</span>
-        </div>
-        <div className="legend-item">
-          <div
-            className="legend-color"
-            style={{
-              background: 'linear-gradient(135deg, #6366f1, #4f46e5)'
-            }}
-          />
-          <span>⭐ Big without Littles</span>
-        </div>
-        <div className="legend-item">
-          <div
-            className="legend-color"
-            style={{
-              background: 'linear-gradient(135deg, #10b981, #047857)'
-            }}
-          />
-          <span>🌱 Little</span>
-        </div>
-        <div className="legend-item">
-          <div
-            className="legend-color"
-            style={{
-              background: 'linear-gradient(135deg, #f3f4f6, #e5e7eb)'
-            }}
-          />
-          <span>⚪ Unconnected</span>
+      <div className="absolute bottom-4 left-4 z-10">
+        <div className="bg-gradient-to-br from-white via-gray-50 to-gray-100 backdrop-blur-sm p-4 rounded-xl shadow-2xl border border-gray-200/50 text-sm min-w-[220px]">
+          <div className="flex items-center gap-2 mb-3 pb-2 border-b border-gray-200/70">
+            <div className="w-2 h-2 rounded-full bg-gradient-to-r from-blue-500 to-purple-600"></div>
+            <span className="font-bold text-gray-800 tracking-wide">
+              FAMILY TREE LEGEND
+            </span>
+          </div>
+          <div className="space-y-2.5">
+            <div className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-100/60 transition-colors duration-200">
+              <div className="flex flex-row items-center justify-center w-18 h-7 bg-gradient-to-r from-purple-500 to-purple-700 rounded text-white text-xs font-medium gap-1">
+                <span>👑</span>
+                <span>🌱</span>
+              </div>
+              <span className="text-gray-700 font-medium">Big and Little</span>
+            </div>
+            <div className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-100/60 transition-colors duration-200">
+              <div className="flex items-center justify-center w-16 h-7 bg-gradient-to-r from-blue-500 to-blue-700 rounded text-white text-xs font-medium">
+                👑
+              </div>
+              <span className="text-gray-700 font-medium">
+                Big with Littles
+              </span>
+            </div>
+            <div className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-100/60 transition-colors duration-200">
+              <div className="flex items-center justify-center w-16 h-7 bg-gradient-to-r from-indigo-500 to-indigo-700 rounded text-white text-xs font-medium">
+                ⭐
+              </div>
+              <span className="text-gray-700 font-medium">
+                Big without Littles
+              </span>
+            </div>
+            <div className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-100/60 transition-colors duration-200">
+              <div className="flex items-center justify-center w-16 h-7 bg-gradient-to-r from-green-500 to-green-700 rounded text-white text-xs font-medium">
+                🌱
+              </div>
+              <span className="text-gray-700 font-medium">Little</span>
+            </div>
+            <div className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-100/60 transition-colors duration-200">
+              <div className="flex items-center justify-center w-16 h-7 bg-gradient-to-r from-gray-400 to-gray-500 rounded text-white text-xs font-medium">
+                ⚪
+              </div>
+              <span className="text-gray-700 font-medium">Unconnected</span>
+            </div>
+          </div>
+          <div className="mt-3 pt-2 border-t border-gray-200/70">
+            <div className="text-xs text-gray-500 text-center">
+              Double-click nodes to edit • Right-click for options
+            </div>
+          </div>
         </div>
       </div>
+
+      {selectedSubmission && selectedSubmission.formId && (
+        <div className="z-50">
+          <SubmissionDetailsOverlay
+            formSubmissionId={selectedSubmission.formSubmissionId}
+            formId={selectedSubmission.formId}
+            allOptions={selectedSubmission.allOptions}
+            onClose={() => setSelectedSubmission(null)}
+          />
+        </div>
+      )}
+
+      {selectedSubmission && !selectedSubmission.formId && (
+        <div className="z-50">
+          <SubmissionDetailsLoadingSkeleton
+            onClose={() => setSelectedSubmission(null)}
+          />
+        </div>
+      )}
 
       <div
         ref={containerRef}
@@ -933,10 +867,32 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({ familyTreeId }) => {
             setNodes((nds) =>
               nds.map((n) => ({ ...n, selected: n.id === node.id }))
             );
+
+            const containerBounds =
+              containerRef.current?.getBoundingClientRect();
+            if (!containerBounds) return;
+
+            const viewport = getViewport();
+            const { x: panX, y: panY, zoom } = viewport;
+
+            const nodeScreenX =
+              (node.position.x + NODE_WIDTH / 2) * zoom + panX;
+            const nodeScreenY =
+              (node.position.y + NODE_HEIGHT / 2) * zoom + panY;
+
+            const menuX = Math.max(
+              10,
+              Math.min(nodeScreenX + 20, containerBounds.width - 220)
+            );
+            const menuY = Math.max(
+              10,
+              Math.min(nodeScreenY - 50, containerBounds.height - 200)
+            );
+
             setContextMenu({
               id: node.id,
               type: 'node',
-              position: { x: e.clientX, y: e.clientY }
+              position: { x: menuX, y: menuY }
             });
           }}
           onEdgeContextMenu={(e, edge) => {
@@ -979,26 +935,47 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({ familyTreeId }) => {
           <Controls />
           <Background variant={BackgroundVariant.Dots} />
         </ReactFlow>
-        {contextMenu && (
-          <div
-            className="context-menu"
-            style={{
-              top: contextMenu.position.y,
-              left: contextMenu.position.x
-            }}>
-            <div className="title">
-              {contextMenu.type === 'node'
-                ? 'Member Options'
-                : 'Connection Options'}
+      </div>
+
+      {contextMenu && (
+        <div
+          className="absolute bg-white/95 backdrop-blur-md border border-gray-200/50 rounded-xl shadow-2xl py-3 z-[100] min-w-[200px] animate-in fade-in-0 zoom-in-95 duration-150"
+          style={{
+            left: contextMenu.position.x + 10,
+            top: contextMenu.position.y + 10,
+            transform: 'translate(0, 0)'
+          }}>
+          <div className="px-4 py-2 border-b border-gray-100">
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-gradient-to-r from-blue-500 to-purple-600"></div>
+              <span className="font-semibold text-gray-800 text-sm">
+                {contextMenu.type === 'node'
+                  ? 'Member Options'
+                  : 'Connection Options'}
+              </span>
             </div>
+          </div>
+
+          <div className="py-2">
             {contextMenu.type === 'node' && (
-              <button onClick={() => handleToggleBig(contextMenu.id)}>
-                {nodes.find((n) => n.id === contextMenu.id)?.data.is_big
-                  ? 'Demote from Big'
-                  : 'Promote to Big'}
+              <button
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 hover:text-blue-700 transition-all duration-150 group"
+                onClick={() => handleToggleBig(contextMenu.id)}>
+                <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 text-white text-xs group-hover:shadow-lg transition-shadow">
+                  {nodes.find((n) => n.id === contextMenu.id)?.data.is_big
+                    ? '👑'
+                    : '⭐'}
+                </div>
+                <span className="font-medium">
+                  {nodes.find((n) => n.id === contextMenu.id)?.data.is_big
+                    ? 'Demote from Big'
+                    : 'Promote to Big'}
+                </span>
               </button>
             )}
+
             <button
+              className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gradient-to-r hover:from-emerald-50 hover:to-green-50 hover:text-emerald-700 transition-all duration-150 group"
               onClick={() => {
                 const node = nodes.find((n) => n.id === contextMenu.id);
                 if (node) {
@@ -1014,23 +991,27 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({ familyTreeId }) => {
                   setContextMenu(null);
                 }
               }}>
-              Edit Identifier
+              <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-r from-emerald-500 to-green-600 text-white text-xs group-hover:shadow-lg transition-shadow">
+                ✏️
+              </div>
+              <span className="font-medium">Edit Identifier</span>
             </button>
+
+            <div className="mx-2 my-2 border-t border-gray-100"></div>
+
             <button
+              className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-sm text-red-600 hover:bg-gradient-to-r hover:from-red-50 hover:to-pink-50 hover:text-red-700 transition-all duration-150 group"
               onClick={() => handleDelete(contextMenu.id, contextMenu.type)}>
-              Delete {contextMenu.type === 'node' ? 'Member' : 'Connection'}
+              <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-r from-red-500 to-pink-600 text-white text-xs group-hover:shadow-lg transition-shadow">
+                🗑️
+              </div>
+              <span className="font-medium">
+                Delete {contextMenu.type === 'node' ? 'Member' : 'Connection'}
+              </span>
             </button>
           </div>
-        )}
-        {selectedSubmission && (
-          <SubmissionDetailsOverlay
-            formSubmissionId={selectedSubmission.formSubmissionId}
-            formId={selectedSubmission.formId!}
-            allOptions={selectedSubmission.allOptions}
-            onClose={() => setSelectedSubmission(null)}
-          />
-        )}
-      </div>
+        </div>
+      )}
       {editDialog && (
         <EditIdentifierDialog
           isOpen={editDialog.isOpen}

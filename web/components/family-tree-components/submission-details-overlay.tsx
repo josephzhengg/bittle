@@ -1,9 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { useSupabase } from '@/lib/supabase';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { X, User, FileText } from 'lucide-react';
+import {
+  X,
+  User,
+  FileText,
+  AlertCircle,
+  CheckCircle2,
+  GripVertical
+} from 'lucide-react';
 import {
   getQuestionResponse,
   getResponseOptionSelection
@@ -14,14 +20,12 @@ import { QuestionResponse } from '@/utils/supabase/models/question-response';
 import { ResponseOptionSelection } from '@/utils/supabase/models/response-option-selection';
 import { QuestionOption } from '@/utils/supabase/models/question-option';
 import { toast } from 'sonner';
-
 interface SubmissionDetailsOverlayProps {
   formSubmissionId: string | null;
   formId: string;
   allOptions: Record<string, QuestionOption[]>;
   onClose: () => void;
 }
-
 const SubmissionDetailsOverlay: React.FC<SubmissionDetailsOverlayProps> = ({
   formSubmissionId,
   formId,
@@ -36,7 +40,7 @@ const SubmissionDetailsOverlay: React.FC<SubmissionDetailsOverlayProps> = ({
   >([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
+  const [isCollapsed, setIsCollapsed] = useState(false);
   useEffect(() => {
     const fetchSubmissionDetails = async () => {
       if (!formSubmissionId || !formId) {
@@ -44,10 +48,8 @@ const SubmissionDetailsOverlay: React.FC<SubmissionDetailsOverlayProps> = ({
         setIsLoading(false);
         return;
       }
-
       setIsLoading(true);
       setError(null);
-
       try {
         const [questionsData, responsesData, selectionsData] =
           await Promise.all([
@@ -55,7 +57,6 @@ const SubmissionDetailsOverlay: React.FC<SubmissionDetailsOverlayProps> = ({
             getQuestionResponse(supabase, formSubmissionId),
             getResponseOptionSelection(supabase, formSubmissionId)
           ]);
-
         setQuestions(questionsData.sort((a, b) => a.index - b.index));
         setResponses(responsesData);
         setOptionSelections(selectionsData);
@@ -66,17 +67,15 @@ const SubmissionDetailsOverlay: React.FC<SubmissionDetailsOverlayProps> = ({
         setIsLoading(false);
       }
     };
-
     fetchSubmissionDetails();
   }, [supabase, formSubmissionId, formId]);
-
   const getResponseForQuestion = (questionId: string) => {
     const response = responses.find((r) => r.question_id === questionId);
     if (!response) {
-      return 'No response';
+      return { text: 'No response', hasResponse: false };
     }
     if (response.free_text) {
-      return response.free_text;
+      return { text: response.free_text, hasResponse: true };
     }
     const selections = optionSelections
       .filter((s) => s.response_id === response.id)
@@ -87,161 +86,190 @@ const SubmissionDetailsOverlay: React.FC<SubmissionDetailsOverlayProps> = ({
         return option?.label || 'Unknown option';
       })
       .filter((label) => label.trim());
-    return selections.length > 0 ? selections.join(', ') : 'No response';
+    return {
+      text: selections.length > 0 ? selections.join(', ') : 'No response',
+      hasResponse: selections.length > 0
+    };
   };
-
-  //   const getQuestionTypeIcon = (type: string) => {
-  //     switch (type) {
-  //       case 'FREE_RESPONSE':
-  //         return <FileText className="w-4 h-4" />;
-  //       case 'MULTIPLE_CHOICE':
-  //         return <CheckCircle className="w-4 h-4" />;
-  //       case 'SELECT_ALL':
-  //         return <CheckCircle className="w-4 h-4" />;
-  //       default:
-  //         return <FileText className="w-4 h-4" />;
-  //     }
-  //   };
-
-  //   const getQuestionTypeLabel = (type: string) => {
-  //     switch (type) {
-  //       case 'FREE_RESPONSE':
-  //         return 'Text Response';
-  //       case 'MULTIPLE_CHOICE':
-  //         return 'Multiple Choice';
-  //       case 'SELECT_ALL':
-  //         return 'Select All';
-  //       default:
-  //         return 'Unknown';
-  //     }
-  //   };
-
+  const getQuestionTypeIcon = (type: string) => {
+    switch (type) {
+      case 'FREE_RESPONSE':
+        return <FileText className="w-4 h-4 text-blue-600" />;
+      case 'MULTIPLE_CHOICE':
+        return <CheckCircle2 className="w-4 h-4 text-green-600" />;
+      case 'SELECT_ALL':
+        return <CheckCircle2 className="w-4 h-4 text-purple-600" />;
+      default:
+        return <FileText className="w-4 h-4 text-gray-600" />;
+    }
+  };
+  const getQuestionTypeLabel = (type: string) => {
+    switch (type) {
+      case 'FREE_RESPONSE':
+        return 'Text Response';
+      case 'MULTIPLE_CHOICE':
+        return 'Multiple Choice';
+      case 'SELECT_ALL':
+        return 'Select All';
+      default:
+        return 'Unknown';
+    }
+  };
   return (
-    <div className="submission-box" onClick={(e) => e.stopPropagation()}>
-      <div className="submission-box-content">
-        <Button
-          className="submission-box-close hover:bg-gray-200 transition-all duration-300"
-          onClick={onClose}>
-          <X className="w-4 h-4 text-gray-700" />
-        </Button>
-        <Card className="submission-box-card">
-          <CardHeader className="submission-box-card-header">
+    <div className="fixed top-4 right-4 z-50 flex flex-col">
+      {/* Floating Panel */}
+      <div
+        className={`bg-white/95 backdrop-blur-sm border border-gray-200 rounded-2xl shadow-2xl transition-all duration-300 ease-out ${
+          isCollapsed ? 'w-14' : 'w-96'
+        }`}
+        style={{
+          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
+        }}
+        onClick={(e) => e.stopPropagation()}>
+        {/* Header */}
+        <div className="flex items-center justify-between p-4">
+          {!isCollapsed && (
             <div className="flex items-center space-x-3">
-              <div className="p-2 rounded-lg bg-gradient-to-r from-blue-500 to-purple-500">
+              <div className="p-2 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 shadow-lg">
                 <User className="w-4 h-4 text-white" />
               </div>
               <div>
-                <CardTitle className="text-lg font-bold text-gray-800">
+                <h2 className="text-lg font-bold text-gray-900">
                   Submission Details
-                </CardTitle>
-                <p className="text-gray-600 text-xs mt-1">
-                  Response ID: {formSubmissionId?.slice(-8)}
+                </h2>
+                <p className="text-gray-500 text-xs mt-0.5">
+                  ID: {formSubmissionId?.slice(-8)}
                 </p>
               </div>
             </div>
-          </CardHeader>
-
-          <CardContent className="submission-box-card-content p-4 max-h-[400px] overflow-y-auto">
+          )}
+          <div
+            className={`flex items-center ${
+              isCollapsed ? 'justify-center w-full' : 'space-x-1'
+            }`}>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsCollapsed(!isCollapsed)}
+              className={`rounded-full hover:bg-gray-100 transition-colors ${
+                isCollapsed ? 'p-6' : 'p-1.5'
+              }`}>
+              <GripVertical
+                className={`text-gray-500 ${
+                  isCollapsed ? 'w-8 h-8' : 'w-4 h-4'
+                }`}
+              />
+            </Button>
+            {!isCollapsed && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onClose}
+                className="rounded-full p-1.5 hover:bg-gray-100 transition-colors">
+                <X className="w-4 h-4 text-gray-500" />
+              </Button>
+            )}
+          </div>
+        </div>
+        {/* Content */}
+        <div
+          className={`transition-all duration-300 ${
+            isCollapsed ? 'h-0 overflow-hidden' : 'h-auto'
+          }`}>
+          {!isCollapsed && <div className="border-t border-gray-100/50"></div>}
+          <div className="max-h-[calc(100vh-12rem)] overflow-y-auto">
             {isLoading ? (
-              <div className="submission-box-table">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-gray-200">
-                      {[...Array(3)].map((_, i) => (
-                        <th
-                          key={i}
-                          className="text-left p-2 text-gray-700 font-medium">
-                          <Skeleton className="h-4 w-20 bg-gray-200" />
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      {[...Array(3)].map((_, i) => (
-                        <td key={i} className="p-2 text-gray-600 text-sm">
-                          <Skeleton className="h-4 w-24 bg-gray-200" />
-                        </td>
-                      ))}
-                    </tr>
-                  </tbody>
-                </table>
+              <div className="p-4 space-y-4">
+                <div className="space-y-4">
+                  {[...Array(3)].map((_, i) => (
+                    <div key={i} className="space-y-2">
+                      <Skeleton className="h-4 w-3/4 bg-gray-200" />
+                      <Skeleton className="h-16 w-full bg-gray-100" />
+                    </div>
+                  ))}
+                </div>
               </div>
             ) : error ? (
-              <div className="submission-box-error text-center py-6">
-                <div className="w-10 h-10 mx-auto mb-2 rounded-full bg-red-100 flex items-center justify-center">
-                  <X className="w-5 h-5 text-red-500" />
+              <div className="flex flex-col items-center justify-center py-8 px-4">
+                <div className="w-12 h-12 mb-3 rounded-full bg-red-100 flex items-center justify-center">
+                  <AlertCircle className="w-6 h-6 text-red-500" />
                 </div>
-                <p className="text-red-600 text-sm">{error}</p>
+                <h3 className="text-sm font-medium text-gray-900 mb-2 text-center">
+                  Error Loading Details
+                </h3>
+                <p className="text-xs text-gray-600 text-center">{error}</p>
               </div>
             ) : questions.length > 0 ? (
-              <div className="submission-box-table">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-gray-200">
-                      {questions.map((question, index) => (
-                        <th
-                          key={question.id}
-                          className="text-left p-2 text-gray-700 font-medium text-sm">
-                          <div className="flex items-center space-x-2">
-                            <span className="text-xs bg-gradient-to-r from-blue-500 to-purple-500 text-white px-2 py-1 rounded-full">
-                              #{index + 1}
+              <div className="p-4 space-y-4">
+                {questions.map((question, index) => {
+                  const response = getResponseForQuestion(question.id);
+                  return (
+                    <div
+                      key={question.id}
+                      className="bg-gray-50/50 backdrop-blur-sm rounded-xl p-4 border border-gray-200/50 hover:shadow-md transition-all duration-200">
+                      {/* Question Header */}
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex items-center space-x-2">
+                          <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 text-white text-xs font-medium">
+                            {index + 1}
+                          </span>
+                          <div className="flex items-center space-x-1">
+                            {getQuestionTypeIcon(question.type)}
+                            <span className="text-xs px-2 py-0.5 rounded-full bg-white/80 text-gray-600 font-medium border border-gray-200">
+                              {getQuestionTypeLabel(question.type)}
                             </span>
-                            <span className="truncate">{question.prompt}</span>
                           </div>
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      {questions.map((question) => {
-                        const response = getResponseForQuestion(question.id);
-                        const hasResponse = response !== 'No response';
-
-                        return (
-                          <td
-                            key={question.id}
-                            className="p-2 text-gray-700 text-sm align-top">
-                            <div
-                              className={`p-2 rounded-lg border transition-all duration-300 ${
-                                hasResponse
-                                  ? 'bg-green-50 border-green-200 text-gray-800'
-                                  : 'bg-red-50 border-red-200 text-gray-500'
-                              }`}>
-                              {hasResponse ? (
-                                <span className="whitespace-pre-wrap">
-                                  {response}
-                                </span>
-                              ) : (
-                                <span className="italic">No response</span>
-                              )}
-                            </div>
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  </tbody>
-                </table>
+                        </div>
+                        <div className="flex-shrink-0">
+                          {response.hasResponse ? (
+                            <CheckCircle2 className="w-4 h-4 text-green-500" />
+                          ) : (
+                            <AlertCircle className="w-4 h-4 text-orange-400" />
+                          )}
+                        </div>
+                      </div>
+                      {/* Question Text */}
+                      <h4 className="text-xs font-medium text-gray-900 mb-3 leading-relaxed">
+                        {question.prompt}
+                      </h4>
+                      {/* Response */}
+                      <div
+                        className={`p-3 rounded-lg border transition-all duration-200 ${
+                          response.hasResponse
+                            ? 'bg-green-50/80 border-green-200 text-gray-800'
+                            : 'bg-orange-50/80 border-orange-200 text-gray-600'
+                        }`}>
+                        {response.hasResponse ? (
+                          <p className="text-xs leading-relaxed whitespace-pre-wrap">
+                            {response.text}
+                          </p>
+                        ) : (
+                          <p className="text-xs italic text-gray-500">
+                            No response provided
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             ) : (
-              <div className="text-center py-6">
-                <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-blue-100 flex items-center justify-center">
+              <div className="flex flex-col items-center justify-center py-8 px-4">
+                <div className="w-12 h-12 mb-3 rounded-full bg-blue-100 flex items-center justify-center">
                   <FileText className="w-6 h-6 text-blue-600" />
                 </div>
-                <h3 className="text-gray-800 text-sm font-medium mb-1">
+                <h3 className="text-sm font-medium text-gray-900 mb-2 text-center">
                   No Responses Found
                 </h3>
-                <p className="text-gray-600 text-xs">
+                <p className="text-xs text-gray-600 text-center">
                   This submission doesn&apos;t contain any responses yet.
                 </p>
               </div>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
     </div>
   );
 };
-
 export default SubmissionDetailsOverlay;

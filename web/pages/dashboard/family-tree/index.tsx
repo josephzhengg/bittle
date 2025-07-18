@@ -128,11 +128,10 @@ export default function FamilyTreesPage({ user }: FamilyTreesPageProps) {
       familyTrees.refetch();
 
       router.push(`/dashboard/family-tree/${familyTree.code}`);
-    } catch (error) {
-      toast.error(
+    } catch {
+      toast(
         'Duplicate family tree found, please use the existing tree, or delete it before proceeding!'
       );
-      console.error('Error creating family tree:', error);
     }
   };
 
