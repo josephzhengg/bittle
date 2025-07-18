@@ -30,6 +30,7 @@ import { z } from 'zod';
 import { useMemo, useState } from 'react';
 import { Question } from '@/utils/supabase/models/question';
 import { format } from 'date-fns';
+import { FormStatsCards } from '@/components/dashboard-components/form-stats-card';
 
 export type CurrentFormsPageProps = {
   user: User;
@@ -37,7 +38,7 @@ export type CurrentFormsPageProps = {
     id: string;
     title: string;
     description?: string;
-    deadline?: string;
+    deadline?: string; // ISO string for serialization
     formId: string;
     questions: Question[];
     formCode: string;
@@ -60,7 +61,7 @@ export default function FormPage({
     queryKey: ['formData', formCode],
     queryFn: async () => {
       const code = z.string().parse(formCode);
-      return getFormData(supabase, code); // This should return { id, title, description, deadline }
+      return getFormData(supabase, code); // Returns { id, title, description, deadline }
     },
     enabled: !!formCode,
     initialData: initialFormData ? {
@@ -69,7 +70,7 @@ export default function FormPage({
       description: initialFormData.description,
       deadline: initialFormData.deadline
     } : undefined,
-    staleTime: 5 * 60 * 1000 // Consider data fresh for 5 minutes
+    staleTime: 5 * 60 * 1000
   });
 
   const { data: formId } = useQuery({
@@ -97,12 +98,10 @@ export default function FormPage({
     staleTime: 5 * 60 * 1000
   });
 
-  // Sort questions by index for consistent display
   const sortedQuestions = useMemo(() => {
     return questions ? [...questions].sort((a, b) => a.index - b.index) : [];
   }, [questions]);
 
-  // Basic statistics
   const stats = useMemo(() => {
     if (!sortedQuestions) return null;
 
@@ -115,7 +114,6 @@ export default function FormPage({
     return { total, typeBreakdown };
   }, [sortedQuestions]);
 
-  // Helper function to format question type for display
   const formatQuestionType = (type: string) => {
     const typeMap: Record<string, string> = {
       FREE_RESPONSE: 'Free Response',
@@ -125,7 +123,6 @@ export default function FormPage({
     return typeMap[type] || type;
   };
 
-  // Helper function to format date and time
   const formatDateTime = (dateInput: string | Date) => {
     const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
     return date.toLocaleString('en-US', {
@@ -138,7 +135,6 @@ export default function FormPage({
     });
   };
 
-  // Helper function to check if deadline is approaching (within 24 hours)
   const isDeadlineApproaching = () => {
     if (!formData?.deadline) return false;
     const now = new Date();
@@ -148,7 +144,6 @@ export default function FormPage({
     return hoursUntilDeadline > 0 && hoursUntilDeadline <= 24;
   };
 
-  // Helper function to check if deadline has passed
   const isDeadlinePassed = () => {
     if (!formData?.deadline) return false;
     const now = new Date();
@@ -159,7 +154,7 @@ export default function FormPage({
   const getDeadlineStatusColor = () => {
     if (isDeadlinePassed()) return 'text-red-600';
     if (isDeadlineApproaching()) return 'text-amber-600';
-    return 'text-slate-600';
+    return 'text-green-600';
   };
 
   const getDeadlineStatusText = () => {
@@ -168,7 +163,6 @@ export default function FormPage({
     return 'Active';
   };
 
-  // Handle refresh with loading state
   const handleRefresh = async () => {
     setIsRefreshing(true);
     try {
@@ -178,7 +172,6 @@ export default function FormPage({
     }
   };
 
-  // Show error state if there was a server-side error
   if (error) {
     return (
       <DashBoardLayout user={user}>
@@ -225,7 +218,7 @@ export default function FormPage({
                   <Badge
                     variant="outline"
                     className={`text-xs w-fit ${
-                      isDeadlinePassed() 
+                      isDeadlinePassed()
                         ? 'bg-red-50 text-red-700 border-red-200'
                         : isDeadlineApproaching()
                         ? 'bg-amber-50 text-amber-700 border-amber-200'
@@ -274,8 +267,7 @@ export default function FormPage({
               />
               {isRefreshing ? 'Refreshing...' : 'Refresh'}
             </Button>
-            
-            {/* Edit Form Info Button */}
+
             {formData && (
               <FormEditDialog
                 form={{
@@ -295,7 +287,7 @@ export default function FormPage({
                 }
               />
             )}
-            
+
             <Button
               onClick={() => {
                 router.push(`/dashboard/current/form/${formCode}/edit`);
@@ -334,68 +326,12 @@ export default function FormPage({
         </div>
 
         {/* Statistics Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium flex items-center gap-2">
-                <FileText className="w-5 h-5 text-purple-600" />
-                Total Questions
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {isPageLoading ? (
-                  <Skeleton className="h-8 w-16" />
-                ) : (
-                  stats?.total || 0
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium flex items-center gap-2">
-                <Eye className="w-5 h-5 text-blue-600" />
-                Form Code
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-lg font-mono">
-                {isPageLoading ? (
-                  <Skeleton className="h-6 w-20" />
-                ) : (
-                  formCode || 'N/A'
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium flex items-center gap-2">
-                <Calendar className="w-5 h-5 text-pink-600" />
-                Deadline
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-sm font-medium">
-                {isPageLoading ? (
-                  <Skeleton className="h-5 w-24" />
-                ) : formData?.deadline ? (
-                  format(new Date(formData.deadline), 'MMM d, yyyy')
-                ) : (
-                  'No deadline'
-                )}
-              </div>
-              {formData?.deadline && (
-                <div className="text-xs text-muted-foreground mt-1">
-                  {format(new Date(formData.deadline), 'h:mm a')}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+        <FormStatsCards
+          formCode={typeof formCode === 'string' ? formCode : 'N/A'}
+          formData={{ deadline: formData?.deadline }}
+          stats={stats}
+          isPageLoading={isPageLoading}
+        />
 
         {/* Question Types Breakdown Card */}
         <Card>
@@ -507,7 +443,6 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
   const { 'form-code': formCode } = context.query;
   const currentPath = context.resolvedUrl;
 
-  // Validate form code first
   if (!formCode || typeof formCode !== 'string') {
     return {
       props: {
@@ -518,13 +453,13 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
     };
   }
 
-  // Check deadline to determine if we should redirect between past/current routes
   try {
+    // Fetch deadline for redirect logic
     const deadline = await getFormDeadline(supabase, formCode);
     const now = new Date();
     const isDeadlinePassed = deadline ? new Date(deadline) < now : false;
 
-    // If accessing past route but deadline hasn't passed, redirect to current
+    // Redirect based on deadline status
     if (currentPath.includes('/dashboard/past/form/') && !isDeadlinePassed) {
       return {
         redirect: {
@@ -534,7 +469,6 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
       };
     }
 
-    // If accessing current route but deadline has passed, redirect to past
     if (currentPath.includes('/dashboard/current/form/') && isDeadlinePassed) {
       return {
         redirect: {
@@ -544,58 +478,45 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
       };
     }
 
-    try {
-      // Fetch all required data server-side
-      const [formData, formId] = await Promise.all([
-        getFormData(supabase, formCode), // This should return { id, title, description, deadline }
-        getFormIdByCode(supabase, formCode)
-      ]);
+    // Fetch all required data
+    const [formData, formId] = await Promise.all([
+      getFormData(supabase, formCode),
+      getFormIdByCode(supabase, formCode)
+    ]);
 
-      if (!formData || !formId) {
-        return {
-          props: {
-            user: userData.user,
-            initialFormData: null,
-            error: 'Form not found'
-          }
-        };
-      }
-
-      // Fetch questions
-      const questions = await getQuestions(supabase, formId);
-
-      return {
-        props: {
-          user: userData.user,
-          initialFormData: {
-            id: formData.id,
-            title: formData.title,
-            description: formData.description,
-            deadline: formData.deadline,
-            formId,
-            questions: questions || [],
-            formCode
-          }
-        }
-      };
-    } catch (error) {
-      console.error('Error fetching form data:', error);
+    if (!formData || !formId) {
       return {
         props: {
           user: userData.user,
           initialFormData: null,
-          error: 'Failed to load form data'
+          error: 'Form not found'
         }
       };
     }
-  } catch (error) {
-    console.error('Error checking form deadline:', error);
-    // Continue without redirect if deadline check fails
 
+    const questions = await getQuestions(supabase, formId);
+
+    return {
+      props: {
+        user: userData.user,
+        initialFormData: {
+          id: formData.id,
+          title: formData.title,
+          description: formData.description,
+          deadline: formData.deadline || null, // Use as-is if string, fallback to null
+          formId,
+          questions: questions || [],
+          formCode
+        }
+      }
+    };
+  } catch (error) {
+    console.error('Error in getServerSideProps:', error);
+
+    // Fallback: Attempt to fetch data without deadline check
     try {
-      // Fetch all required data server-side
       const [formData, formId] = await Promise.all([
-        getFormData(supabase, formCode), // This should return { id, title, description, deadline }
+        getFormData(supabase, formCode),
         getFormIdByCode(supabase, formCode)
       ]);
 
@@ -609,7 +530,6 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
         };
       }
 
-      // Fetch questions
       const questions = await getQuestions(supabase, formId);
 
       return {
@@ -619,15 +539,15 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
             id: formData.id,
             title: formData.title,
             description: formData.description,
-            deadline: formData.deadline,
+            deadline: formData.deadline || null, // Use as-is if string, fallback to null
             formId,
             questions: questions || [],
             formCode
           }
         }
       };
-    } catch (error) {
-      console.error('Error fetching form data:', error);
+    } catch (fallbackError) {
+      console.error('Fallback error fetching form data:', fallbackError);
       return {
         props: {
           user: userData.user,
