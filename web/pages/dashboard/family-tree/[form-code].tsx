@@ -5,6 +5,7 @@ import DashboardLayout from '@/components/layouts/dashboard-layout';
 import FamilyTreeFlow from '@/components/family-tree-components/family-tree-graph';
 import { ReactFlowProvider } from 'reactflow';
 import { Node, Edge, MarkerType } from 'reactflow';
+import { useState, useEffect } from 'react';
 import {
   getFamilyTreeByCode,
   getFamilyTreeMembers
@@ -37,12 +38,28 @@ export default function FamilyTreePage({
   initialEdges,
   familyTreeId
 }: FamilyTreePageProps) {
+  const useIsMobile = () => {
+    const [isMobile, setIsMobile] = useState(false);
+
+    useEffect(() => {
+      const checkMobile = () => {
+        setIsMobile(window.innerWidth < 768);
+      };
+
+      checkMobile();
+      window.addEventListener('resize', checkMobile);
+      return () => window.removeEventListener('resize', checkMobile);
+    }, []);
+
+    return isMobile;
+  };
+  const isMobile = useIsMobile();
   return (
     <DashboardLayout user={user}>
       <div
         style={{
           width: '100%',
-          height: '85vh',
+          height: `${isMobile ? '70vh' : '85vh'}`,
           position: 'relative',
           overflow: 'hidden'
         }}>
@@ -84,7 +101,6 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
   }
 
   try {
-    // Fetch family tree by code
     const familyTree = await getFamilyTreeByCode(supabase, formCode);
     if (!familyTree) {
       return {
@@ -97,7 +113,6 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
       };
     }
 
-    // Fetch members and connections
     const [members, { data: connections }] = await Promise.all([
       getFamilyTreeMembers(supabase, familyTree.id),
       supabase
@@ -106,10 +121,8 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
         .eq('family_tree_id', familyTree.id)
     ]);
 
-    // Compute container height (use a default value for SSR)
-    const containerHeight = 720 * 0.85; // Match VIEWPORT_HEIGHT from createFamilyTree
+    const containerHeight = 720 * 0.85;
 
-    // Build bigToLittles and littleToBig maps
     const bigToLittles = new Map<string, string[]>();
     const littleToBig = new Map<string, string>();
     connections?.forEach((conn) => {
@@ -118,11 +131,9 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
       littleToBig.set(conn.little_id, conn.big_id);
     });
 
-    // Create nodes
     const getRoleIcon = (data: NodeData) => {
       if (data.is_big && data.hasLittles && data.hasBig) return '👑🌱';
-      if (data.is_big && data.hasLittles) return '👑';
-      if (data.is_big) return '⭐';
+      if (data.is_big) return '👑';
       if (data.hasBig) return '🌱';
       return '⚪';
     };
@@ -156,7 +167,6 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
       };
     });
 
-    // Create edges
     const edges: Edge[] =
       connections?.map((conn) => ({
         id: conn.id,

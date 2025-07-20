@@ -384,3 +384,24 @@ export async function updateIdentifier(
     throw new Error(`Error updating identifier: ${error.message}`);
   }
 }
+
+export async function createFamilyMember(
+  supabase: SupabaseClient,
+  family_tree_id: string,
+  identifier: string
+): Promise<z.infer<typeof TreeMember>> {
+  const { data, error } = await supabase
+    .from('tree_member')
+    .insert({
+      family_tree_id,
+      identifier,
+      position_x: NODE_WIDTH / 2 + PADDING,
+      position_y: NODE_HEIGHT / 2 + PADDING
+    })
+    .select()
+    .single();
+  if (error) {
+    throw new Error(`Error creating family member: ${error.message}`);
+  }
+  return data;
+}

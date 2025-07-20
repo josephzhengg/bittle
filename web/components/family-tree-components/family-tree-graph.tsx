@@ -1,4 +1,4 @@
-import React, { useCallback, useState, useRef } from 'react';
+import React, { useCallback, useState, useRef, useMemo } from 'react';
 import ReactFlow, {
   useNodesState,
   useEdgesState,
@@ -24,20 +24,27 @@ import {
   removeConnection,
   refetchSubmissions,
   toggleBig,
-  getFamilyTreeMembers
+  getFamilyTreeMembers,
+  createFamilyMember,
+  updateIdentifier
 } from '@/utils/supabase/queries/family-tree';
 import { getQuestions, getOptions } from '@/utils/supabase/queries/question';
 import SubmissionDetailsOverlay from '@/components/family-tree-components/submission-details-overlay';
 import EditIdentifierDialog from '@/components/family-tree-components/edit-identifier';
-import { updateIdentifier } from '@/utils/supabase/queries/family-tree';
 import SubmissionDetailsLoadingSkeleton from '@/components/family-tree-components/submission-details-skeleton';
 import { z } from 'zod';
 import { toast } from 'sonner';
+import { SupabaseClient } from '@supabase/supabase-js';
 
 export const NODE_WIDTH = 172;
 export const NODE_HEIGHT = 36;
 export const PADDING = 50;
 export const VERTICAL_SPACING = 100;
+
+export const MOBILE_NODE_WIDTH = 140;
+export const MOBILE_NODE_HEIGHT = 32;
+export const MOBILE_PADDING = 20;
+export const MOBILE_VERTICAL_SPACING = 60;
 
 interface NodeData {
   label: string;
@@ -61,98 +68,226 @@ interface FamilyTreeFlowProps {
   initialEdges: Edge[];
 }
 
-const getNodeStyle = (data: NodeData) => {
+const proOptions = {
+  hideAttribution: true
+};
+
+const createStyledEdge = (
+  edgeId: string,
+  source: string,
+  target: string,
+  nodes: Node<NodeData>[]
+): Edge => {
+  const sourceNode = nodes.find((n) => n.id === source);
+  const targetNode = nodes.find((n) => n.id === target);
+  const isBigToLittle = sourceNode?.data.is_big && targetNode?.data.hasBig;
+
+  return {
+    id: edgeId,
+    type: 'smoothstep',
+    source,
+    target,
+    style: getEdgeStyle(sourceNode, targetNode),
+    animated: isBigToLittle,
+    markerEnd: getCustomMarker(isBigToLittle ? 'bigToLittle' : 'general'),
+    data: {
+      relationshipType: isBigToLittle ? 'bigToLittle' : 'general'
+    }
+  };
+};
+
+const useIsMobile = () => {
+  const [isMobile, setIsMobile] = useState(false);
+
+  React.useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  return isMobile;
+};
+
+const getEdgeStyle = (
+  sourceNode?: Node<NodeData>,
+  targetNode?: Node<NodeData>
+) => {
+  const isBigToLittle = sourceNode?.data.is_big && targetNode?.data.hasBig;
+
+  return {
+    stroke: isBigToLittle
+      ? 'url(#bigToLittleGradient)'
+      : 'url(#generalGradient)',
+    strokeWidth: isBigToLittle ? 3 : 2.5,
+    strokeDasharray: isBigToLittle ? 'none' : '5,3',
+    filter: isBigToLittle
+      ? 'drop-shadow(0 2px 4px rgba(147, 51, 234, 0.2))'
+      : 'drop-shadow(0 1px 3px rgba(0, 0, 0, 0.1))',
+    transition: 'all 0.3s ease'
+  };
+};
+
+const getNodeStyle = (data: NodeData, isMobile: boolean) => {
   const base = {
-    width: NODE_WIDTH,
-    height: NODE_HEIGHT,
-    borderRadius: '6px',
-    padding: '8px',
-    fontSize: '12px',
+    width: isMobile ? MOBILE_NODE_WIDTH : NODE_WIDTH,
+    height: isMobile ? MOBILE_NODE_HEIGHT : NODE_HEIGHT,
+    borderRadius: isMobile ? '4px' : '6px',
+    padding: isMobile ? '4px 6px' : '8px',
+    fontSize: isMobile ? '10px' : '12px',
     fontWeight: '500',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     textAlign: 'center' as const,
-    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
-    transition: 'all 0.2s ease'
+    boxShadow: isMobile
+      ? '0 1px 3px rgba(0, 0, 0, 0.1)'
+      : '0 2px 4px rgba(0, 0, 0, 0.1)',
+    transition: 'all 0.2s ease',
+    boxSizing: 'border-box' as const,
+    overflow: 'visible'
   };
 
-  if (data.is_big && data.hasLittles && data.hasBig) {
+  if (data.is_big && data.hasBig) {
     return {
       ...base,
       background: 'linear-gradient(135deg, #8b5cf6, #6d28d9)',
       color: '#fff',
-      border: '2px solid #5b21b6'
-    };
-  } else if (data.is_big && data.hasLittles) {
-    return {
-      ...base,
-      background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)',
-      color: '#fff',
-      border: '2px solid #1e40af'
+      border: isMobile ? '1px solid #5b21b6' : '2px solid #5b21b6'
     };
   } else if (data.is_big) {
     return {
       ...base,
       background: 'linear-gradient(135deg, #6366f1, #4f46e5)',
       color: '#fff',
-      border: '2px solid #4338ca'
+      border: isMobile ? '1px solid #4338ca' : '2px solid #4338ca'
     };
   } else if (data.hasBig) {
     return {
       ...base,
       background: 'linear-gradient(135deg, #10b981, #047857)',
       color: '#fff',
-      border: '2px solid #065f46'
+      border: isMobile ? '1px solid #065f46' : '2px solid #065f46'
     };
   } else {
     return {
       ...base,
       background: 'linear-gradient(135deg, #f3f4f6, #e5e7eb)',
       color: '#374151',
-      border: '2px solid #d1d5db'
+      border: isMobile ? '1px solid #d1d5db' : '2px solid #d1d5db'
     };
   }
 };
 
 const getRoleIcon = (data: NodeData) => {
-  if (data.is_big && data.hasLittles && data.hasBig) return '👑🌱';
-  if (data.is_big && data.hasLittles) return '👑';
+  if (data.is_big && data.hasBig) return '👑🌱';
   if (data.is_big) return '⭐';
   if (data.hasBig) return '🌱';
   return '⚪';
 };
 
+const getCustomMarker = (type: 'bigToLittle' | 'general') => ({
+  type: MarkerType.ArrowClosed,
+  color: type === 'bigToLittle' ? '#8b5cf6' : '#64748b',
+  width: 16,
+  height: 16,
+  strokeWidth: 1.5
+});
+
 const CustomNode: React.FC<{ data: NodeData; selected: boolean }> = ({
   data,
   selected
-}) => (
-  <div style={getNodeStyle(data)} className={selected ? 'selected' : ''}>
-    <Handle
-      type="target"
-      position={Position.Top}
+}) => {
+  const isMobile = useIsMobile();
+  const fullName = data.label.split(' ').slice(1).join(' ');
+  const roleIcon = data.label.split(' ')[0];
+
+  const truncateText = (text: string, maxLength: number) => {
+    if (text.length <= maxLength) return text;
+    return text.substring(0, maxLength - 3) + '...';
+  };
+
+  const getMaxTextLength = () => {
+    if (isMobile) {
+      const availableWidth = MOBILE_NODE_WIDTH - 20;
+      const avgCharWidth = 6;
+      return Math.floor(availableWidth / avgCharWidth);
+    } else {
+      const availableWidth = NODE_WIDTH - 32;
+      const avgCharWidth = 7;
+      return Math.floor(availableWidth / avgCharWidth);
+    }
+  };
+
+  const maxLength = getMaxTextLength();
+  const truncatedName = truncateText(fullName, maxLength);
+  const displayText = `${roleIcon} ${truncatedName}`;
+
+  return (
+    <div
       style={{
-        background: '#374151',
-        width: 8,
-        height: 8,
-        border: '2px solid #fff',
-        top: -4
+        ...getNodeStyle(data, isMobile),
+        minWidth: isMobile ? MOBILE_NODE_WIDTH : NODE_WIDTH,
+        maxWidth: isMobile ? MOBILE_NODE_WIDTH : NODE_WIDTH,
+        minHeight: isMobile ? MOBILE_NODE_HEIGHT : NODE_HEIGHT,
+        maxHeight: isMobile ? MOBILE_NODE_HEIGHT : NODE_HEIGHT,
+        lineHeight: isMobile ? '1.4' : '1.3',
+        position: 'relative'
       }}
-    />
-    <div>{data.label}</div>
-    <Handle
-      type="source"
-      position={Position.Bottom}
-      style={{
-        background: '#374151',
-        width: 8,
-        height: 8,
-        border: '2px solid #fff',
-        bottom: -4
-      }}
-    />
-  </div>
-);
+      className={`react-flow__node-custom ${selected ? 'selected' : ''}`}
+      title={`${roleIcon} ${fullName}`}>
+      <Handle
+        type="target"
+        position={Position.Top}
+        style={{
+          background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+          width: isMobile ? 8 : 12,
+          height: isMobile ? 8 : 12,
+          border: '2px solid #fff',
+          borderRadius: '50%',
+          boxShadow: '0 2px 6px rgba(99, 102, 241, 0.4)',
+          top: isMobile ? -6 : -8,
+          zIndex: 10,
+          transition: 'all 0.2s ease'
+        }}
+      />
+      <div
+        style={{
+          width: '100%',
+          height: '100%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+          fontSize: isMobile ? '10px' : '12px',
+          fontWeight: '500',
+          padding: isMobile ? '0 6px' : '0 8px'
+        }}>
+        {displayText}
+      </div>
+      <Handle
+        type="source"
+        position={Position.Bottom}
+        style={{
+          background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+          width: isMobile ? 8 : 12,
+          height: isMobile ? 8 : 12,
+          border: '2px solid #fff',
+          borderRadius: '50%',
+          boxShadow: '0 2px 6px rgba(99, 102, 241, 0.4)',
+          bottom: isMobile ? -6 : -8,
+          zIndex: 10,
+          transition: 'all 0.2s ease'
+        }}
+      />
+    </div>
+  );
+};
 
 const nodeTypes = { custom: CustomNode };
 
@@ -269,6 +404,79 @@ const autoLayout = (
   });
 
   return updatedNodes;
+};
+
+const AddMemberDialog: React.FC<{
+  isOpen: boolean;
+  familyTreeId: string;
+  onSave: (identifier: string) => Promise<void>;
+  onCancel: () => void;
+}> = ({ isOpen, onSave, onCancel }) => {
+  const [identifier, setIdentifier] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!identifier.trim()) {
+      toast.error('Please enter a valid identifier');
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      await onSave(identifier);
+      setIdentifier('');
+    } catch (err) {
+      toast.error(
+        `Failed to add member: ${
+          err instanceof Error ? err.message : 'Unknown error'
+        }`
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100]">
+      <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-2xl">
+        <h2 className="text-lg font-semibold text-gray-800 mb-4">
+          Add New Member
+        </h2>
+        <form onSubmit={handleSubmit}>
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Identifier
+            </label>
+            <input
+              type="text"
+              value={identifier}
+              onChange={(e) => setIdentifier(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Enter identifier..."
+              disabled={isSubmitting}
+            />
+          </div>
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={onCancel}
+              disabled={isSubmitting}
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500">
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isSubmitting || identifier.trim().length === 0}
+              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50">
+              {isSubmitting ? 'Adding...' : 'Add Member'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
 };
 
 const useFamilyTreeData = (
@@ -394,15 +602,127 @@ const useFamilyTreeData = (
   return { refetchNewSubmissions, isLoading };
 };
 
+const updateNodeRoles = async (
+  nodes: Node<NodeData>[],
+  edges: Edge[],
+  setNodes: React.Dispatch<React.SetStateAction<Node<NodeData>[]>>,
+  setEdges: React.Dispatch<React.SetStateAction<Edge[]>>,
+  supabase: SupabaseClient
+) => {
+  const bigToLittles = new Map<string, string[]>();
+  const littleToBig = new Map<string, string>();
+
+  edges.forEach((edge) => {
+    if (!bigToLittles.has(edge.source)) bigToLittles.set(edge.source, []);
+    bigToLittles.get(edge.source)?.push(edge.target);
+    littleToBig.set(edge.target, edge.source);
+  });
+
+  const shouldBeBig = new Set<string>();
+  edges.forEach((edge) => {
+    shouldBeBig.add(edge.source);
+  });
+
+  const updates: { id: string; is_big: boolean }[] = [];
+
+  const updatedNodes = nodes.map((node) => {
+    const hasLittles =
+      bigToLittles.has(node.id) && bigToLittles.get(node.id)!.length > 0;
+    const hasBig = littleToBig.has(node.id);
+    const newIsBig = shouldBeBig.has(node.id);
+
+    if (node.data.is_big !== newIsBig) {
+      updates.push({ id: node.id, is_big: newIsBig });
+    }
+
+    const updatedData = {
+      ...node.data,
+      hasLittles,
+      hasBig,
+      is_big: newIsBig
+    };
+
+    return {
+      ...node,
+      data: {
+        ...updatedData,
+        label: `${getRoleIcon(updatedData)} ${node.data.label
+          .split(' ')
+          .slice(1)
+          .join(' ')}`
+      }
+    };
+  });
+
+  const updatedEdges = edges.map((edge) => {
+    const sourceNode = updatedNodes.find((n) => n.id === edge.source);
+    const targetNode = updatedNodes.find((n) => n.id === edge.target);
+    const isBigToLittle = sourceNode?.data.is_big && targetNode?.data.hasBig;
+
+    return {
+      ...edge,
+      type: 'smoothstep',
+      style: getEdgeStyle(sourceNode, targetNode),
+      animated: isBigToLittle,
+      markerEnd: getCustomMarker(isBigToLittle ? 'bigToLittle' : 'general'),
+      data: {
+        ...edge.data,
+        relationshipType: isBigToLittle ? 'bigToLittle' : 'general'
+      }
+    };
+  });
+
+  if (updates.length > 0) {
+    try {
+      const { error } = await supabase
+        .from('tree_member')
+        .upsert(updates, { onConflict: 'id' });
+
+      if (error) {
+        console.error('Failed to update big status:', error);
+      }
+    } catch (err) {
+      console.error('Error updating big status:', err);
+    }
+  }
+
+  setNodes(updatedNodes);
+  setEdges(updatedEdges);
+};
+
 const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
   familyTreeId,
   initialNodes,
   initialEdges
 }) => {
   const supabase = useSupabase();
+  const styledInitialEdges = useMemo(
+    () =>
+      initialEdges.map((edge) => {
+        const sourceNode = initialNodes.find((n) => n.id === edge.source);
+        const targetNode = initialNodes.find((n) => n.id === edge.target);
+        const isBigToLittle =
+          sourceNode?.data.is_big && targetNode?.data.hasBig;
+
+        return {
+          ...edge,
+          type: 'smoothstep',
+          style: getEdgeStyle(sourceNode, targetNode),
+          animated: isBigToLittle,
+          markerEnd: getCustomMarker(isBigToLittle ? 'bigToLittle' : 'general'),
+          data: {
+            ...edge.data,
+            relationshipType: isBigToLittle ? 'bigToLittle' : 'general'
+          }
+        };
+      }),
+    [initialEdges, initialNodes]
+  );
+
   const [nodes, setNodes, onNodesChange] =
     useNodesState<NodeData>(initialNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>(initialEdges);
+  const [edges, setEdges, onEdgesChange] =
+    useEdgesState<Edge>(styledInitialEdges);
   const [contextMenu, setContextMenu] = useState<ContextMenuData | null>(null);
   const [selectedSubmission, setSelectedSubmission] = useState<{
     formSubmissionId: string | null;
@@ -414,7 +734,9 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
     nodeId: string;
     currentIdentifier: string;
   } | null>(null);
+  const [addMemberDialog, setAddMemberDialog] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const isMobile = useIsMobile();
   const { fitView, getViewport } = useReactFlow();
 
   const getContainerSize = useCallback(() => {
@@ -432,6 +754,54 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
     getContainerSize
   );
 
+  const handleAddMember = useCallback(
+    async (identifier: string) => {
+      try {
+        const { width, height } = getContainerSize();
+        const newMember = await createFamilyMember(
+          supabase,
+          familyTreeId,
+          identifier
+        );
+
+        const position = findEmptySpace(nodes, newMember.id, width, height);
+        const data: NodeData = {
+          label: newMember.identifier,
+          position_x: position.x,
+          position_y: position.y,
+          is_big: false,
+          hasLittles: false,
+          hasBig: false,
+          form_submission_id: newMember.form_submission_id
+        };
+
+        const newNode = {
+          id: newMember.id,
+          type: 'custom',
+          data: {
+            ...data,
+            label: `${getRoleIcon(data)} ${newMember.identifier}`
+          },
+          position,
+          draggable: true,
+          selectable: true
+        };
+
+        setNodes((nds) => [...nds, newNode]);
+        setAddMemberDialog(false);
+        setTimeout(() => fitView({ padding: 0.4 }), 100);
+        toast.success('New member added successfully');
+      } catch (err) {
+        toast.error(
+          `Failed to add member: ${
+            err instanceof Error ? err.message : 'Unknown error'
+          }`
+        );
+      }
+    },
+    [supabase, familyTreeId, setNodes, fitView, getContainerSize, nodes]
+  );
+
   const onConnect = useCallback(
     async (connection: Connection) => {
       if (!connection.source || !connection.target) return;
@@ -442,26 +812,27 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
           connection.source,
           connection.target
         );
-        const newEdge = {
-          id: result[0].id,
-          type: 'smoothstep',
-          source: connection.source,
-          target: connection.target,
-          style: {
-            strokeWidth: 4,
-            stroke: '#6b7280',
-            transition: 'all 0.2s ease'
-          },
-          animated: true,
-          markerEnd: {
-            type: MarkerType.ArrowClosed,
-            color: '#6b7280',
-            width: 20,
-            height: 20
-          }
-        };
 
-        setEdges((eds) => addEdge(newEdge, eds));
+        const newEdge = createStyledEdge(
+          result[0].id,
+          connection.source,
+          connection.target,
+          nodes
+        );
+
+        setEdges((eds) => {
+          const updatedEdges = addEdge(newEdge, eds);
+          setTimeout(async () => {
+            await updateNodeRoles(
+              nodes,
+              updatedEdges,
+              setNodes,
+              setEdges,
+              supabase
+            );
+          }, 0);
+          return updatedEdges;
+        });
         toast.success('Connection created');
       } catch (err) {
         toast.error(
@@ -471,7 +842,7 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
         );
       }
     },
-    [setEdges, supabase]
+    [setEdges, supabase, nodes, setNodes]
   );
 
   const handleToggleBig = useCallback(
@@ -486,22 +857,46 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
           `Member ${newIsBig ? 'promoted to big' : 'demoted from big'}`
         );
 
-        setNodes((nds) =>
-          nds.map((n) =>
-            n.id === nodeId
-              ? {
-                  ...n,
-                  data: {
+        const updatedNodes = nodes.map((n) =>
+          n.id === nodeId
+            ? {
+                ...n,
+                data: {
+                  ...n.data,
+                  is_big: newIsBig,
+                  label: `${getRoleIcon({
                     ...n.data,
-                    is_big: newIsBig,
-                    label: `${getRoleIcon({
-                      ...n.data,
-                      is_big: newIsBig
-                    })} ${n.data.label.split(' ').slice(1).join(' ')}`
-                  }
+                    is_big: newIsBig
+                  })} ${n.data.label.split(' ').slice(1).join(' ')}`
                 }
-              : n
-          )
+              }
+            : n
+        );
+
+        setNodes(updatedNodes);
+
+        setEdges((eds) =>
+          eds.map((edge) => {
+            const sourceNode = updatedNodes.find((n) => n.id === edge.source);
+            const targetNode = updatedNodes.find((n) => n.id === edge.target);
+            const isBigToLittle =
+              sourceNode?.data.is_big && targetNode?.data.hasBig;
+
+            const updatedEdge: Edge = {
+              ...edge,
+              type: 'smoothstep',
+              style: getEdgeStyle(sourceNode, targetNode),
+              animated: isBigToLittle,
+              markerEnd: getCustomMarker(
+                isBigToLittle ? 'bigToLittle' : 'general'
+              ),
+              data: {
+                ...(edge.data as Edge),
+                relationshipType: isBigToLittle ? 'bigToLittle' : 'general'
+              }
+            };
+            return updatedEdge;
+          })
         );
       } catch (err) {
         toast.error(
@@ -513,7 +908,7 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
         setContextMenu(null);
       }
     },
-    [nodes, setNodes, supabase]
+    [nodes, setNodes, setEdges, supabase]
   );
 
   const handleDelete = useCallback(
@@ -522,15 +917,40 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
         if (type === 'node') {
           await supabase.from('tree_member').delete().eq('id', id);
           setNodes((nds) => nds.filter((n) => n.id !== id));
-          setEdges((eds) =>
-            eds.filter((e) => e.source !== id && e.target !== id)
-          );
+          setEdges((eds) => {
+            const updatedEdges = eds.filter(
+              (e) => e.source !== id && e.target !== id
+            );
+            setTimeout(async () => {
+              const remainingNodes = nodes.filter((n) => n.id !== id);
+              await updateNodeRoles(
+                remainingNodes,
+                updatedEdges,
+                setNodes,
+                setEdges,
+                supabase
+              );
+            }, 0);
+            return updatedEdges;
+          });
           toast.success('Member deleted');
         } else {
           const edge = edges.find((e) => e.id === id);
           if (edge) {
             await removeConnection(supabase, edge.target, edge.source);
-            setEdges((eds) => eds.filter((e) => e.id !== id));
+            setEdges((eds) => {
+              const updatedEdges = eds.filter((e) => e.id !== id);
+              setTimeout(async () => {
+                await updateNodeRoles(
+                  nodes,
+                  updatedEdges,
+                  setNodes,
+                  setEdges,
+                  supabase
+                );
+              }, 0);
+              return updatedEdges;
+            });
             toast.success('Connection deleted');
           }
         }
@@ -544,7 +964,7 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
         setContextMenu(null);
       }
     },
-    [edges, setNodes, setEdges, supabase]
+    [edges, setNodes, setEdges, supabase, nodes]
   );
 
   const resetLayout = useCallback(async () => {
@@ -562,16 +982,14 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
       }
 
       if (!nodes?.length) {
-        toast('No nodes to reset layout for. Please refetch submissions.');
+        toast(
+          'No nodes to reset layout for. Please refetch submissions or add members.'
+        );
         return;
       }
-      if (
-        !nodes.every(
-          (n) => n.id && n.data && n.data.label && n.data.form_submission_id
-        )
-      ) {
+      if (!nodes.every((n) => n.id && n.data && n.data.label)) {
         throw new Error(
-          'Invalid node data: some nodes are missing id, label, or form_submission_id'
+          'Invalid node data: some nodes are missing id or label'
         );
       }
 
@@ -587,18 +1005,22 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
             `Invalid identifier for node ID ${node.id}: identifier is empty`
           );
         }
-        if (node.data.form_submission_id === null) {
-          throw new Error(
-            `Invalid form_submission_id for node ID ${node.id}: value is null`
-          );
-        }
-        return {
+        const update: {
+          id: string;
+          position_x: number;
+          position_y: number;
+          identifier: string;
+          form_submission_id?: string | null;
+        } = {
           id: node.id,
           position_x: Math.round(node.position.x),
           position_y: Math.round(node.position.y),
-          identifier,
-          form_submission_id: node.data.form_submission_id
+          identifier
         };
+        if (node.data.form_submission_id) {
+          update.form_submission_id = node.data.form_submission_id;
+        }
+        return update;
       });
 
       const { error } = await supabase
@@ -736,7 +1158,7 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
           });
         } catch (err) {
           setSelectedSubmission(null);
-          toast.error(
+          toast(
             `Failed to fetch submission details: ${
               err instanceof Error ? err.message : 'Unknown error'
             }`
@@ -744,6 +1166,7 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
         }
       } else {
         toast.info('No submission details available for this member');
+        setSelectedSubmission(null);
       }
     },
     [setNodes, setEdges, supabase, familyTreeId]
@@ -759,77 +1182,169 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
 
   return (
     <div className="family-tree-container">
-      <div className="layout-controls">
-        <button onClick={resetLayout} disabled={isLoading}>
-          Auto Layout
+      <div
+        className={`layout-controls ${
+          isMobile
+            ? 'flex flex-wrap gap-1 p-2 bg-white/90 backdrop-blur-sm rounded-lg shadow-md mx-2 mt-2 justify-center items-center fixed top-0 left-0 right-0 z-10'
+            : 'flex gap-3 p-3'
+        }`}>
+        <button
+          onClick={resetLayout}
+          disabled={isLoading}
+          className={`${
+            isMobile
+              ? 'px-2 py-1.5 text-xs font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50 flex-1 min-w-0 flex items-center justify-center'
+              : 'px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50'
+          }`}>
+          {isMobile ? 'Layout' : 'Auto Layout'}
         </button>
         <button
           onClick={() => {
             setTimeout(() => fitView({ padding: 0.4 }), 100);
             toast.success('View recentered');
           }}
-          disabled={isLoading}>
-          Recenter
+          disabled={isLoading}
+          className={`${
+            isMobile
+              ? 'px-2 py-1.5 text-xs font-medium text-white bg-purple-600 rounded-md hover:bg-purple-700 focus:outline-none focus:ring-1 focus:ring-purple-500 disabled:opacity-50 flex-1 min-w-0 flex items-center justify-center'
+              : 'px-4 py-2 text-sm font-medium text-white bg-purple-600 rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:opacity-50'
+          }`}>
+          {isMobile ? 'Center' : 'Recenter'}
         </button>
-        <button onClick={refetchNewSubmissions} disabled={isLoading}>
-          Refetch Submissions
+        <button
+          onClick={refetchNewSubmissions}
+          disabled={isLoading}
+          className={`${
+            isMobile
+              ? 'px-2 py-1.5 text-xs font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:opacity-50 flex-1 min-w-0 flex items-center justify-center'
+              : 'px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50'
+          }`}>
+          {isMobile ? 'Refetch' : 'Refetch Submissions'}
+        </button>
+        <button
+          onClick={() => setAddMemberDialog(true)}
+          disabled={isLoading}
+          className={`${
+            isMobile
+              ? 'px-2 py-1.5 text-xs font-medium text-white bg-green-600 rounded-md hover:bg-green-700 focus:outline-none focus:ring-1 focus:ring-green-500 disabled:opacity-50 flex-1 min-w-0 flex items-center justify-center'
+              : 'px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 disabled:opacity-50'
+          }`}>
+          {isMobile ? 'Add' : 'Add Member'}
         </button>
       </div>
 
-      <div className="absolute bottom-4 left-4 z-10">
-        <div className="bg-gradient-to-br from-white via-gray-50 to-gray-100 backdrop-blur-sm p-4 rounded-xl shadow-2xl border border-gray-200/50 text-sm min-w-[220px]">
-          <div className="flex items-center gap-2 mb-3 pb-2 border-b border-gray-200/70">
+      <div
+        className={`absolute ${
+          isMobile
+            ? 'bottom-2 right-2 scale-90 origin-bottom-right'
+            : 'bottom-4 left-4'
+        } z-10`}>
+        <div
+          className={`bg-gradient-to-br from-white via-gray-50 to-gray-100 backdrop-blur-sm rounded-xl shadow-2xl border border-gray-200/50 ${
+            isMobile
+              ? 'p-2 text-xs min-w-[160px] max-w-[180px]'
+              : 'p-4 text-sm min-w-[220px]'
+          }`}>
+          <div
+            className={`flex items-center gap-2 pb-2 border-b border-gray-200/70 ${
+              isMobile ? 'mb-2' : 'mb-3'
+            }`}>
             <div className="w-2 h-2 rounded-full bg-gradient-to-r from-blue-500 to-purple-600"></div>
-            <span className="font-bold text-gray-800 tracking-wide">
-              FAMILY TREE LEGEND
+            <span
+              className={`font-bold text-gray-800 tracking-wide ${
+                isMobile ? 'text-[10px]' : ''
+              }`}>
+              {isMobile ? 'LEGEND' : 'FAMILY TREE LEGEND'}
             </span>
           </div>
-          <div className="space-y-2.5">
-            <div className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-100/60 transition-colors duration-200">
-              <div className="flex flex-row items-center justify-center w-18 h-7 bg-gradient-to-r from-purple-500 to-purple-700 rounded text-white text-xs font-medium gap-1">
+          <div className={`${isMobile ? 'space-y-1.5' : 'space-y-2.5'}`}>
+            <div
+              className={`flex items-center rounded-lg hover:bg-gray-100/60 transition-colors duration-200 ${
+                isMobile ? 'gap-2 p-1' : 'gap-3 p-2'
+              }`}>
+              <div
+                className={`flex flex-row items-center justify-center bg-gradient-to-r from-purple-500 to-purple-700 rounded text-white font-medium gap-1 ${
+                  isMobile ? 'w-12 h-5 text-[8px]' : 'w-18 h-7 text-xs'
+                }`}>
                 <span>👑</span>
                 <span>🌱</span>
               </div>
-              <span className="text-gray-700 font-medium">Big and Little</span>
-            </div>
-            <div className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-100/60 transition-colors duration-200">
-              <div className="flex items-center justify-center w-16 h-7 bg-gradient-to-r from-blue-500 to-blue-700 rounded text-white text-xs font-medium">
-                👑
-              </div>
-              <span className="text-gray-700 font-medium">
-                Big with Littles
+              <span
+                className={`text-gray-700 font-medium ${
+                  isMobile ? 'text-[10px]' : ''
+                }`}>
+                {isMobile ? 'Big+Little' : 'Big and Little'}
               </span>
             </div>
-            <div className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-100/60 transition-colors duration-200">
-              <div className="flex items-center justify-center w-16 h-7 bg-gradient-to-r from-indigo-500 to-indigo-700 rounded text-white text-xs font-medium">
+            <div
+              className={`flex items-center rounded-lg hover:bg-gray-100/60 transition-colors duration-200 ${
+                isMobile ? 'gap-2 p-1' : 'gap-3 p-2'
+              }`}>
+              <div
+                className={`flex items-center justify-center bg-gradient-to-r from-indigo-500 to-indigo-700 rounded text-white font-medium ${
+                  isMobile ? 'w-12 h-5 text-[8px]' : 'w-16 h-7 text-xs'
+                }`}>
                 ⭐
               </div>
-              <span className="text-gray-700 font-medium">
-                Big without Littles
+              <span
+                className={`text-gray-700 font-medium ${
+                  isMobile ? 'text-[10px]' : ''
+                }`}>
+                Big
               </span>
             </div>
-            <div className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-100/60 transition-colors duration-200">
-              <div className="flex items-center justify-center w-16 h-7 bg-gradient-to-r from-green-500 to-green-700 rounded text-white text-xs font-medium">
+            <div
+              className={`flex items-center rounded-lg hover:bg-gray-100/60 transition-colors duration-200 ${
+                isMobile ? 'gap-2 p-1' : 'gap-3 p-2'
+              }`}>
+              <div
+                className={`flex items-center justify-center bg-gradient-to-r from-green-500 to-green-700 rounded text-white font-medium ${
+                  isMobile ? 'w-12 h-5 text-[8px]' : 'w-16 h-7 text-xs'
+                }`}>
                 🌱
               </div>
-              <span className="text-gray-700 font-medium">Little</span>
+              <span
+                className={`text-gray-700 font-medium ${
+                  isMobile ? 'text-[10px]' : ''
+                }`}>
+                Little
+              </span>
             </div>
-            <div className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-100/60 transition-colors duration-200">
-              <div className="flex items-center justify-center w-16 h-7 bg-gradient-to-r from-gray-400 to-gray-500 rounded text-white text-xs font-medium">
+            <div
+              className={`flex items-center rounded-lg hover:bg-gray-100/60 transition-colors duration-200 ${
+                isMobile ? 'gap-2 p-1' : 'gap-3 p-2'
+              }`}>
+              <div
+                className={`flex items-center justify-center bg-gradient-to-r from-gray-400 to-gray-500 rounded text-white font-medium ${
+                  isMobile ? 'w-12 h-5 text-[8px]' : 'w-16 h-7 text-xs'
+                }`}>
                 ⚪
               </div>
-              <span className="text-gray-700 font-medium">Unconnected</span>
+              <span
+                className={`text-gray-700 font-medium ${
+                  isMobile ? 'text-[10px]' : ''
+                }`}>
+                Unconnected
+              </span>
             </div>
           </div>
-          <div className="mt-3 pt-2 border-t border-gray-200/70">
-            <div className="text-xs text-gray-500 text-center">
-              Double-click nodes to edit • Right-click for options
+          <div
+            className={`border-t border-gray-200/70 ${
+              isMobile ? 'mt-2 pt-1' : 'mt-3 pt-2'
+            }`}>
+            <div
+              className={`text-gray-500 text-center ${
+                isMobile ? 'text-[9px] leading-tight' : 'text-xs'
+              }`}>
+              {isMobile
+                ? 'Double-tap to edit members'
+                : 'Double-click nodes to edit • Right-click for options'}
             </div>
           </div>
         </div>
       </div>
 
-      {selectedSubmission && selectedSubmission.formId && (
+      {selectedSubmission && selectedSubmission.formId && !isMobile && (
         <div className="z-50">
           <SubmissionDetailsOverlay
             formSubmissionId={selectedSubmission.formSubmissionId}
@@ -840,7 +1355,7 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
         </div>
       )}
 
-      {selectedSubmission && !selectedSubmission.formId && (
+      {selectedSubmission && !selectedSubmission.formId && !isMobile && (
         <div className="z-50">
           <SubmissionDetailsLoadingSkeleton
             onClose={() => setSelectedSubmission(null)}
@@ -925,23 +1440,63 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
             setContextMenu(null);
             setSelectedSubmission(null);
             setEditDialog(null);
+            setAddMemberDialog(false);
           }}
           nodeTypes={nodeTypes}
           fitView
-          fitViewOptions={{ padding: 0.4, maxZoom: 1 }}
-          minZoom={0.2}
-          maxZoom={4}>
-          <MiniMap />
-          <Controls />
-          <Background variant={BackgroundVariant.Dots} />
+          fitViewOptions={{
+            padding: isMobile ? 0.2 : 0.4,
+            maxZoom: isMobile ? 2 : 1
+          }}
+          minZoom={isMobile ? 0.1 : 0.2}
+          maxZoom={isMobile ? 6 : 4}
+          proOptions={proOptions}>
+          <svg style={{ position: 'absolute', width: 0, height: 0 }}>
+            <defs>
+              <linearGradient
+                id="bigToLittleGradient"
+                x1="0%"
+                y1="0%"
+                x2="100%"
+                y2="100%">
+                <stop offset="0%" stopColor="#8b5cf6" stopOpacity={0.8} />
+                <stop offset="50%" stopColor="#a855f7" stopOpacity={0.9} />
+                <stop offset="100%" stopColor="#7c3aed" stopOpacity={0.8} />
+              </linearGradient>
+              <linearGradient
+                id="generalGradient"
+                x1="0%"
+                y1="0%"
+                x2="100%"
+                y2="100%">
+                <stop offset="0%" stopColor="#64748b" stopOpacity={0.6} />
+                <stop offset="50%" stopColor="#94a3b8" stopOpacity={0.7} />
+                <stop offset="100%" stopColor="#475569" stopOpacity={0.6} />
+              </linearGradient>
+            </defs>
+          </svg>
+          {!isMobile && <MiniMap />}
+          <Controls
+            showZoom={!isMobile}
+            showFitView={true}
+            showInteractive={!isMobile}
+          />
+          <Background
+            variant={BackgroundVariant.Dots}
+            gap={isMobile ? 15 : 20}
+          />
         </ReactFlow>
       </div>
 
       {contextMenu && (
         <div
-          className="absolute bg-white/95 backdrop-blur-md border border-gray-200/50 rounded-xl shadow-2xl py-3 z-[100] min-w-[200px] animate-in fade-in-0 zoom-in-95 duration-150"
+          className={`absolute bg-white/95 backdrop-blur-md border border-gray-200/50 rounded-xl shadow-2xl py-3 z-[100] ${
+            isMobile ? 'min-w-[160px] text-sm' : 'min-w-[200px]'
+          } animate-in fade-in-0 zoom-in-95 duration-150`}
           style={{
-            left: contextMenu.position.x + 10,
+            left: isMobile
+              ? Math.min(contextMenu.position.x, window.innerWidth - 170)
+              : contextMenu.position.x + 10,
             top: contextMenu.position.y + 10,
             transform: 'translate(0, 0)'
           }}>
@@ -958,47 +1513,46 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
 
           <div className="py-2">
             {contextMenu.type === 'node' && (
-              <button
-                className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 hover:text-blue-700 transition-all duration-150 group"
-                onClick={() => handleToggleBig(contextMenu.id)}>
-                <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 text-white text-xs group-hover:shadow-lg transition-shadow">
-                  {nodes.find((n) => n.id === contextMenu.id)?.data.is_big
-                    ? '👑'
-                    : '⭐'}
-                </div>
-                <span className="font-medium">
-                  {nodes.find((n) => n.id === contextMenu.id)?.data.is_big
-                    ? 'Demote from Big'
-                    : 'Promote to Big'}
-                </span>
-              </button>
+              <>
+                <button
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 hover:text-blue-700 transition-all duration-150 group"
+                  onClick={() => handleToggleBig(contextMenu.id)}>
+                  <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 text-white text-xs group-hover:shadow-lg transition-shadow">
+                    {nodes.find((n) => n.id === contextMenu.id)?.data.is_big
+                      ? '👑'
+                      : '⭐'}
+                  </div>
+                  <span className="font-medium">
+                    {nodes.find((n) => n.id === contextMenu.id)?.data.is_big
+                      ? 'Demote from Big'
+                      : 'Promote to Big'}
+                  </span>
+                </button>
+                <button
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gradient-to-r hover:from-emerald-50 hover:to-green-50 hover:text-emerald-700 transition-all duration-150 group"
+                  onClick={() => {
+                    const node = nodes.find((n) => n.id === contextMenu.id);
+                    if (node) {
+                      const cleanIdentifier = node.data.label
+                        .split(' ')
+                        .slice(1)
+                        .join(' ');
+                      setEditDialog({
+                        isOpen: true,
+                        nodeId: contextMenu.id,
+                        currentIdentifier: cleanIdentifier
+                      });
+                      setContextMenu(null);
+                    }
+                  }}>
+                  <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-r from-emerald-500 to-green-600 text-white text-xs group-hover:shadow-lg transition-shadow">
+                    ✏️
+                  </div>
+                  <span className="font-medium">Edit Identifier</span>
+                </button>
+                <div className="mx-2 my-2 border-t border-gray-100"></div>
+              </>
             )}
-
-            <button
-              className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gradient-to-r hover:from-emerald-50 hover:to-green-50 hover:text-emerald-700 transition-all duration-150 group"
-              onClick={() => {
-                const node = nodes.find((n) => n.id === contextMenu.id);
-                if (node) {
-                  const cleanIdentifier = node.data.label
-                    .split(' ')
-                    .slice(1)
-                    .join(' ');
-                  setEditDialog({
-                    isOpen: true,
-                    nodeId: contextMenu.id,
-                    currentIdentifier: cleanIdentifier
-                  });
-                  setContextMenu(null);
-                }
-              }}>
-              <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-r from-emerald-500 to-green-600 text-white text-xs group-hover:shadow-lg transition-shadow">
-                ✏️
-              </div>
-              <span className="font-medium">Edit Identifier</span>
-            </button>
-
-            <div className="mx-2 my-2 border-t border-gray-100"></div>
-
             <button
               className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-sm text-red-600 hover:bg-gradient-to-r hover:from-red-50 hover:to-pink-50 hover:text-red-700 transition-all duration-150 group"
               onClick={() => handleDelete(contextMenu.id, contextMenu.type)}>
@@ -1019,6 +1573,14 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
           currentIdentifier={editDialog.currentIdentifier}
           onSave={handleSaveIdentifier}
           onCancel={() => setEditDialog(null)}
+        />
+      )}
+      {addMemberDialog && (
+        <AddMemberDialog
+          isOpen={addMemberDialog}
+          familyTreeId={familyTreeId}
+          onSave={handleAddMember}
+          onCancel={() => setAddMemberDialog(false)}
         />
       )}
     </div>
