@@ -1,15 +1,28 @@
 import React, { useState, useCallback, useRef } from 'react';
-import { useIsMobile } from './family-tree-graph';
+
+export const useIsMobile = () => {
+  const [isMobile, setIsMobile] = useState(false);
+
+  React.useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  return isMobile;
+};
 
 interface TutorialStep {
   id: string;
   title: string;
   description: string;
-  targetSelector?: string; // CSS selector for the element to highlight
-  position: 'top' | 'bottom' | 'left' | 'right' | 'center'; // Tooltip position
-  offsetX?: number; // Optional X offset for tooltip
-  offsetY?: number; // Optional Y offset for tooltip
-  exampleVisual?: React.ReactNode; // Optional example visual for steps
+  videoUrl?: string; // URL to the demo video
+  videoType?: 'mp4' | 'webm' | 'gif'; // Video format
+  tips?: string[]; // Additional tips for the feature
 }
 
 interface TutorialOverlayProps {
@@ -21,128 +34,51 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ onComplete }) => {
   const [currentStep, setCurrentStep] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Mock node visual for steps requiring node/edge examples
-  const mockNode = (
-    <div
-      style={{
-        width: isMobile ? '100px' : '140px',
-        height: isMobile ? '24px' : '32px',
-        background: 'linear-gradient(135deg, #f3f4f6, #e5e7eb)',
-        border: isMobile ? '1px solid #d1d5db' : '2px solid #d1d5db',
-        borderRadius: '8px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        fontSize: isMobile ? '10px' : '12px',
-        color: '#1f2937',
-        position: 'relative',
-        margin: '8px auto'
-      }}>
-      ⚪ Example Node
-      <div
-        style={{
-          position: 'absolute',
-          top: isMobile ? '-5px' : '-7px',
-          width: isMobile ? '8px' : '10px',
-          height: isMobile ? '8px' : '10px',
-          background: 'linear-gradient(135deg, #3b82f6, #9333ea)',
-          border: '2px solid #fff',
-          borderRadius: '50%'
-        }}
-      />{' '}
-      {/* Top handle */}
-      <div
-        style={{
-          position: 'absolute',
-          bottom: isMobile ? '-5px' : '-7px',
-          width: isMobile ? '8px' : '10px',
-          height: isMobile ? '8px' : '10px',
-          background: 'linear-gradient(135deg, #3b82f6, #9333ea)',
-          border: '2px solid #fff',
-          borderRadius: '50%'
-        }}
-      />{' '}
-      {/* Bottom handle */}
-    </div>
-  );
-
-  // Mock edge visual
-  const mockEdge = (
-    <svg
-      style={{
-        width: isMobile ? '100px' : '140px',
-        height: isMobile ? '40px' : '60px',
-        margin: '8px auto',
-        display: 'block'
-      }}>
-      <path
-        d={isMobile ? 'M10,10 Q50,50 90,30' : 'M10,10 Q70,60 130,50'}
-        stroke="#64748b"
-        strokeWidth="3"
-        fill="none"
-        markerEnd="url(#arrow)"
-      />
-      <defs>
-        <marker
-          id="arrow"
-          markerWidth="10"
-          markerHeight="10"
-          refX="6"
-          refY="3"
-          orient="auto"
-          markerUnits="strokeWidth">
-          <path d="M0,0 L0,6 L9,3 z" fill="#64748b" />
-        </marker>
-      </defs>
-    </svg>
-  );
-
   const steps: TutorialStep[] = [
     {
       id: 'intro',
       title: 'Welcome to the Family Tree!',
       description:
-        'This interactive tool lets you visualize and manage your family tree. Let’s explore how to use it!',
-      position: 'center'
+        "This interactive tool lets you visualize and manage your family tree. Let's explore how to use it!"
     },
     {
       id: 'layout-controls',
       title: 'Control Buttons',
       description:
         'Use these buttons to manage the tree: reset the layout, recenter the view, refetch new submissions, or add a new member.',
-      targetSelector: '.layout-controls',
-      position: 'bottom',
-      offsetY: isMobile ? 8 : 12
+      videoUrl: '/demos/layout-controls.mp4',
+      videoType: 'mp4',
+      tips: [
+        'Reset button reorganizes the tree layout',
+        'Center button focuses the view on the tree',
+        'Refresh button updates with new data'
+      ]
     },
     {
       id: 'add-member',
       title: 'Adding a Member',
       description:
         'Click the "Add Member" button to add a new member to the tree. Enter their identifier to create a new node.',
-      targetSelector: '.layout-controls button:nth-child(4)', // Add Member button
-      position: 'bottom',
-      offsetY: isMobile ? 8 : 12
+      videoUrl: '/demos/add-member.mp4',
+      videoType: 'mp4',
+      tips: [
+        'Use clear, recognizable identifiers',
+        'New members start as unconnected nodes',
+        'You can edit the identifier later'
+      ]
     },
     {
       id: 'create-connection',
       title: 'Creating Connections',
       description:
         'Drag from the bottom handle of one node to the top handle of another to create a Big-Little connection.',
-      position: 'center',
-      exampleVisual: (
-        <div>
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'center',
-              gap: isMobile ? '10px' : '20px'
-            }}>
-            {mockNode}
-            {mockNode}
-          </div>
-          {mockEdge}
-        </div>
-      )
+      videoUrl: '/demos/create-connection.mp4',
+      videoType: 'mp4',
+      tips: [
+        'Bottom handle = Big (mentor)',
+        'Top handle = Little (mentee)',
+        'Connections show family lineage'
+      ]
     },
     {
       id: 'edit-member',
@@ -150,8 +86,13 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ onComplete }) => {
       description: `${
         isMobile ? 'Double-tap' : 'Double-click'
       } a node to edit its identifier.`,
-      position: 'center',
-      exampleVisual: mockNode
+      videoUrl: '/demos/edit-member.mp4',
+      videoType: 'mp4',
+      tips: [
+        'Quick way to fix typos',
+        'Changes are saved automatically',
+        'Press Enter to confirm changes'
+      ]
     },
     {
       id: 'toggle-big',
@@ -159,8 +100,13 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ onComplete }) => {
       description: `${
         isMobile ? 'Tap and hold' : 'Right-click'
       } a node to open the context menu and promote or demote a member to/from Big status.`,
-      position: 'center',
-      exampleVisual: mockNode
+      videoUrl: '/demos/toggle-status.mp4',
+      videoType: 'mp4',
+      tips: [
+        'Big status affects node appearance',
+        'Only Bigs can have Littles',
+        'Status changes update the legend'
+      ]
     },
     {
       id: 'delete',
@@ -168,48 +114,34 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ onComplete }) => {
       description: `${
         isMobile ? 'Tap and hold' : 'Right-click'
       } a node or connection to open the context menu and delete it.`,
-      position: 'center',
-      exampleVisual: (
-        <div>
-          {mockNode}
-          {mockEdge}
-        </div>
-      )
+      videoUrl: '/demos/delete-items.mp4',
+      videoType: 'mp4',
+      tips: [
+        'Deleting a node removes all its connections',
+        'Deleting connections preserves the nodes',
+        'Changes cannot be undone'
+      ]
     },
     {
       id: 'legend',
       title: 'Understanding the Legend',
       description:
         'The legend explains node types: Big and Little (👑🌱), Big (⭐), Little (🌱), and Unconnected (⚪).',
-      targetSelector: '.legend',
-      position: isMobile ? 'top' : 'left',
-      offsetX: isMobile ? 0 : -12,
-      offsetY: isMobile ? -12 : 0
+      videoUrl: '/demos/legend-guide.mp4',
+      videoType: 'mp4',
+      tips: [
+        'Icons help identify member roles',
+        'Colors indicate connection status',
+        'Legend updates automatically'
+      ]
     },
     {
       id: 'conclusion',
-      title: 'You’re Ready!',
+      title: "You're Ready!",
       description:
-        'You’re all set to use the family tree! Restart the tutorial anytime from the control buttons.',
-      position: 'center'
+        "You're all set to use the family tree! Restart the tutorial anytime from the control buttons."
     }
   ];
-
-  const getElementBounds = useCallback((selector?: string) => {
-    if (!selector) return null;
-    const element = document.querySelector(selector);
-    if (!element) return null;
-    const bounds = element.getBoundingClientRect();
-    // Adjust for fixed .layout-controls positioning
-    if (selector === '.layout-controls') {
-      return {
-        ...bounds,
-        top: bounds.top + window.scrollY,
-        left: bounds.left + window.scrollX
-      };
-    }
-    return bounds;
-  }, []);
 
   const handleNext = useCallback(() => {
     if (currentStep < steps.length - 1) {
@@ -229,134 +161,131 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ onComplete }) => {
     onComplete();
   }, [onComplete]);
 
-  const getTooltipPosition = useCallback(
-    (step: TutorialStep) => {
-      const bounds = getElementBounds(step.targetSelector);
-      if (!bounds || step.position === 'center') {
-        return {
-          top: '50%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)'
-        };
-      }
+  const handleStepClick = useCallback((stepIndex: number) => {
+    setCurrentStep(stepIndex);
+  }, []);
 
-      const offsetX = step.offsetX || 0;
-      const offsetY = step.offsetY || 0;
-      const tooltipWidth = isMobile ? 260 : 320;
-      const tooltipHeight = isMobile ? 160 : 200;
+  const renderVideo = (step: TutorialStep) => {
+    if (!step.videoUrl) return null;
 
-      let top: number, left: number, transform: string;
+    return (
+      <div className="mb-4 rounded-lg overflow-hidden bg-gray-100">
+        <video
+          className="w-full h-auto max-h-48"
+          controls
+          loop
+          muted
+          autoPlay
+          playsInline>
+          <source
+            src={step.videoUrl}
+            type={`video/${step.videoType || 'mp4'}`}
+          />
+          Your browser does not support the video tag.
+        </video>
+      </div>
+    );
+  };
 
-      switch (step.position) {
-        case 'top':
-          top = bounds.top - tooltipHeight - offsetY;
-          left = bounds.left + bounds.width / 2;
-          transform = 'translate(-50%, 0)';
-          break;
-        case 'bottom':
-          top = bounds.bottom + offsetY;
-          left = bounds.left + bounds.width / 2;
-          transform = 'translate(-50%, 0)';
-          break;
-        case 'left':
-          top = bounds.top + bounds.height / 2;
-          left = bounds.left - tooltipWidth - offsetX;
-          transform = 'translate(0, -50%)';
-          break;
-        case 'right':
-          top = bounds.top + bounds.height / 2;
-          left = bounds.right + offsetX;
-          transform = 'translate(0, -50%)';
-          break;
-        default:
-          top = window.innerHeight / 2;
-          left = window.innerWidth / 2;
-          transform = 'translate(-50%, -50%)';
-      }
+  const renderTips = (tips?: string[]) => {
+    if (!tips || tips.length === 0) return null;
 
-      // Ensure tooltip stays within viewport
-      top = Math.max(
-        10,
-        Math.min(top, window.innerHeight - tooltipHeight - 10)
-      );
-      left = Math.max(
-        10,
-        Math.min(left, window.innerWidth - tooltipWidth - 10)
-      );
-
-      return { top, left, transform };
-    },
-    [isMobile, getElementBounds]
-  );
-
-  const renderSpotlight = (step: TutorialStep) => {
-    const bounds = getElementBounds(step.targetSelector);
-    if (!bounds) return null;
-
-    const padding = isMobile ? 8 : 12;
-    const spotlightStyle = {
-      position: 'absolute' as const,
-      top: bounds.top - padding,
-      left: bounds.left - padding,
-      width: bounds.width + padding * 2,
-      height: bounds.height + padding * 2,
-      borderRadius: 'var(--radius)',
-      boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.5)',
-      animation: 'pulse-subtle 2s ease-in-out infinite',
-      pointerEvents: 'none' as React.CSSProperties['pointerEvents']
-    };
-
-    return <div style={spotlightStyle} />;
+    return (
+      <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+        <h4 className="text-sm font-medium text-blue-800 mb-2">💡 Tips:</h4>
+        <ul className="text-sm text-blue-700 space-y-1">
+          {tips.map((tip, index) => (
+            <li key={index} className="flex items-start gap-2">
+              <span className="text-blue-500 mt-0.5">•</span>
+              <span>{tip}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
   };
 
   return (
     <div
       ref={containerRef}
-      className="fixed inset-0 z-[200] pointer-events-auto"
-      style={{ background: 'rgba(0, 0, 0, 0.3)', backdropFilter: 'blur(2px)' }}>
-      {steps[currentStep].targetSelector && renderSpotlight(steps[currentStep])}
+      className="fixed inset-0 z-[200] flex items-center justify-center p-4"
+      style={{ background: 'rgba(0, 0, 0, 0.5)', backdropFilter: 'blur(4px)' }}>
       <div
-        className={`absolute bg-white/95 backdrop-blur-md rounded-xl shadow-2xl border border-gray-200/50 p-4 pointer-events-auto animate-fade-in-up ${
-          isMobile ? 'max-w-[260px] text-sm' : 'max-w-[320px]'
-        }`}
-        style={getTooltipPosition(steps[currentStep])}>
-        <div className="flex items-center gap-2 mb-3">
-          <div className="w-2 h-2 rounded-full bg-gradient-to-r from-blue-500 to-purple-600" />
-          <h3 className="font-semibold text-gray-800">
-            {steps[currentStep].title}
-          </h3>
+        className={`bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden animate-fade-in-up ${
+          isMobile
+            ? 'w-full max-w-sm max-h-[90vh]'
+            : 'w-full max-w-2xl max-h-[85vh]'
+        }`}>
+        {/* Header */}
+        <div className="bg-gradient-to-r from-blue-500 to-purple-600 text-white p-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold">Family Tree Tutorial</h2>
+            <button
+              onClick={onComplete}
+              className="text-white/80 hover:text-white text-xl font-bold">
+              ✕
+            </button>
+          </div>
+          <div className="mt-2 flex gap-1">
+            {steps.map((_, index) => (
+              <button
+                key={index}
+                onClick={() => handleStepClick(index)}
+                className={`h-2 rounded-full transition-all ${
+                  index === currentStep
+                    ? 'bg-white flex-1'
+                    : index < currentStep
+                    ? 'bg-white/70 w-2'
+                    : 'bg-white/30 w-2'
+                }`}
+              />
+            ))}
+          </div>
         </div>
-        <p className="text-gray-600 mb-4">{steps[currentStep].description}</p>
-        {steps[currentStep].exampleVisual && (
-          <div className="mb-4">{steps[currentStep].exampleVisual}</div>
-        )}
-        <div className="flex justify-between items-center">
-          <button
-            onClick={handlePrevious}
-            disabled={currentStep === 0}
-            className={`nav-button px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 disabled:opacity-50 ${
-              isMobile ? 'text-xs' : ''
-            }`}>
-            Previous
-          </button>
-          <span className="text-gray-500 text-sm">
-            {currentStep + 1} / {steps.length}
-          </span>
-          <div className="flex gap-2">
+
+        {/* Content */}
+        <div className="p-6 overflow-y-auto flex-1">
+          <div className="mb-4">
+            <h3 className="text-xl font-semibold text-gray-800 mb-2">
+              {steps[currentStep].title}
+            </h3>
+            <p className="text-gray-600 leading-relaxed">
+              {steps[currentStep].description}
+            </p>
+          </div>
+
+          {renderVideo(steps[currentStep])}
+          {renderTips(steps[currentStep].tips)}
+        </div>
+
+        {/* Footer */}
+        <div className="border-t border-gray-200 p-4 bg-gray-50">
+          <div className="flex justify-between items-center">
             <button
-              onClick={handleSkip}
-              className={`nav-button px-3 py-1.5 text-sm font-medium text-red-600 bg-red-50 rounded-md hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-500 ${
-                isMobile ? 'text-xs' : ''
-              }`}>
-              Skip
+              onClick={handlePrevious}
+              disabled={currentStep === 0}
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 disabled:opacity-50 disabled:cursor-not-allowed">
+              Previous
             </button>
-            <button
-              onClick={handleNext}
-              className={`nav-button px-3 py-1.5 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                isMobile ? 'text-xs' : ''
-              }`}>
-              {currentStep === steps.length - 1 ? 'Finish' : 'Next'}
-            </button>
+
+            <div className="flex items-center gap-4">
+              <span className="text-sm text-gray-500">
+                {currentStep + 1} of {steps.length}
+              </span>
+
+              <div className="flex gap-2">
+                <button
+                  onClick={handleSkip}
+                  className="px-4 py-2 text-sm font-medium text-gray-600 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500">
+                  Skip Tutorial
+                </button>
+                <button
+                  onClick={handleNext}
+                  className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  {currentStep === steps.length - 1 ? 'Finish' : 'Next'}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </div>

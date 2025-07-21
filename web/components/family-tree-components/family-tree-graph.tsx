@@ -99,7 +99,7 @@ const createStyledEdge = (
 
   return {
     id: edgeId,
-    type: isVertical ? 'bezier' : 'smoothstep',
+    type: isVertical ? 'default' : 'smoothstep',
     source,
     target,
     style: getEdgeStyle(sourceNode, targetNode),
@@ -823,15 +823,24 @@ const updateNodeRoles = async (
 
   if (updates.length > 0) {
     try {
-      const { error } = await supabase
-        .from('tree_member')
-        .upsert(updates, { onConflict: 'id' });
+      for (const update of updates) {
+        const { error } = await supabase
+          .from('tree_member')
+          .update({ is_big: update.is_big })
+          .eq('id', update.id);
 
-      if (error) {
-        console.error('Failed to update big status:', error);
+        if (error) {
+          console.error(
+            'Failed to update big status for node:',
+            update.id,
+            error
+          );
+          throw error;
+        }
       }
     } catch (err) {
       console.error('Error updating big status:', err);
+      throw err;
     }
   }
 
