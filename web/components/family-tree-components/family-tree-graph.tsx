@@ -1,4 +1,10 @@
-import React, { useCallback, useState, useRef, useMemo } from 'react';
+import React, {
+  useCallback,
+  useState,
+  useRef,
+  useMemo,
+  useEffect
+} from 'react';
 import ReactFlow, {
   useNodesState,
   useEdgesState,
@@ -32,6 +38,7 @@ import { getQuestions, getOptions } from '@/utils/supabase/queries/question';
 import SubmissionDetailsOverlay from '@/components/family-tree-components/submission-details-overlay';
 import EditIdentifierDialog from '@/components/family-tree-components/edit-identifier';
 import SubmissionDetailsLoadingSkeleton from '@/components/family-tree-components/submission-details-skeleton';
+import TutorialOverlay from '@/components/family-tree-components/tutorial';
 import { z } from 'zod';
 import { toast } from 'sonner';
 import { SupabaseClient } from '@supabase/supabase-js';
@@ -82,21 +89,32 @@ const createStyledEdge = (
   const targetNode = nodes.find((n) => n.id === target);
   const isBigToLittle = sourceNode?.data.is_big && targetNode?.data.hasBig;
 
+  const sourceX = sourceNode?.position?.x;
+  const targetX = targetNode?.position?.x;
+
+  const isVertical =
+    sourceX !== undefined &&
+    targetX !== undefined &&
+    Math.abs(sourceX - targetX) < 10;
+
   return {
     id: edgeId,
-    type: 'smoothstep',
+    type: isVertical ? 'bezier' : 'smoothstep',
     source,
     target,
     style: getEdgeStyle(sourceNode, targetNode),
     animated: isBigToLittle,
     markerEnd: getCustomMarker(isBigToLittle ? 'bigToLittle' : 'general'),
+    sourceHandle: isVertical ? 'right' : undefined,
+    targetHandle: isVertical ? 'left' : undefined,
     data: {
-      relationshipType: isBigToLittle ? 'bigToLittle' : 'general'
+      relationshipType: isBigToLittle ? 'bigToLittle' : 'general',
+      isVertical
     }
   };
 };
 
-const useIsMobile = () => {
+export const useIsMobile = () => {
   const [isMobile, setIsMobile] = useState(false);
 
   React.useEffect(() => {
@@ -135,35 +153,37 @@ const getNodeStyle = (data: NodeData, isMobile: boolean) => {
   const base = {
     width: isMobile ? MOBILE_NODE_WIDTH : NODE_WIDTH,
     height: isMobile ? MOBILE_NODE_HEIGHT : NODE_HEIGHT,
-    borderRadius: isMobile ? '4px' : '6px',
-    padding: isMobile ? '4px 6px' : '8px',
-    fontSize: isMobile ? '10px' : '12px',
+    borderRadius: 'var(--radius-md)',
+    padding: isMobile ? '0.5rem' : '0.75rem',
+    fontSize: isMobile ? '0.7rem' : '0.875rem',
     fontWeight: '500',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     textAlign: 'center' as const,
-    boxShadow: isMobile
-      ? '0 1px 3px rgba(0, 0, 0, 0.1)'
-      : '0 2px 4px rgba(0, 0, 0, 0.1)',
-    transition: 'all 0.2s ease',
+    boxShadow: '0 2px 6px rgba(0, 0, 0, 0.05)',
+    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
     boxSizing: 'border-box' as const,
-    overflow: 'visible'
+    overflow: 'visible',
+    backdropFilter: 'blur(4px)',
+    WebkitBackdropFilter: 'blur(4px)'
   };
 
   if (data.is_big && data.hasBig) {
     return {
       ...base,
-      background: 'linear-gradient(135deg, #8b5cf6, #6d28d9)',
+      background: 'linear-gradient(135deg, var(--secondary), #6d28d9)',
       color: '#fff',
-      border: isMobile ? '1px solid #5b21b6' : '2px solid #5b21b6'
+      border: isMobile
+        ? '1px solid var(--secondary)'
+        : '2px solid var(--secondary)'
     };
   } else if (data.is_big) {
     return {
       ...base,
-      background: 'linear-gradient(135deg, #6366f1, #4f46e5)',
+      background: 'linear-gradient(135deg, var(--primary), #4f46e5)',
       color: '#fff',
-      border: isMobile ? '1px solid #4338ca' : '2px solid #4338ca'
+      border: isMobile ? '1px solid var(--primary)' : '2px solid var(--primary)'
     };
   } else if (data.hasBig) {
     return {
@@ -176,8 +196,8 @@ const getNodeStyle = (data: NodeData, isMobile: boolean) => {
     return {
       ...base,
       background: 'linear-gradient(135deg, #f3f4f6, #e5e7eb)',
-      color: '#374151',
-      border: isMobile ? '1px solid #d1d5db' : '2px solid #d1d5db'
+      color: 'var(--foreground)',
+      border: isMobile ? '1px solid var(--border)' : '2px solid var(--border)'
     };
   }
 };
@@ -212,7 +232,7 @@ const CustomNode: React.FC<{ data: NodeData; selected: boolean }> = ({
 
   const getMaxTextLength = () => {
     if (isMobile) {
-      const availableWidth = MOBILE_NODE_WIDTH - 20;
+      const availableWidth = MOBILE_NODE_WIDTH - 24;
       const avgCharWidth = 6;
       return Math.floor(availableWidth / avgCharWidth);
     } else {
@@ -243,15 +263,15 @@ const CustomNode: React.FC<{ data: NodeData; selected: boolean }> = ({
         type="target"
         position={Position.Top}
         style={{
-          background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-          width: isMobile ? 8 : 12,
-          height: isMobile ? 8 : 12,
+          background: 'linear-gradient(135deg, var(--primary), var(--accent))',
+          width: isMobile ? 10 : 14,
+          height: isMobile ? 10 : 14,
           border: '2px solid #fff',
           borderRadius: '50%',
-          boxShadow: '0 2px 6px rgba(99, 102, 241, 0.4)',
+          boxShadow: '0 0 8px rgba(64, 66, 209, 0.5)',
           top: isMobile ? -6 : -8,
           zIndex: 10,
-          transition: 'all 0.2s ease'
+          transition: 'all 0.3s ease'
         }}
       />
       <div
@@ -264,9 +284,9 @@ const CustomNode: React.FC<{ data: NodeData; selected: boolean }> = ({
           overflow: 'hidden',
           textOverflow: 'ellipsis',
           whiteSpace: 'nowrap',
-          fontSize: isMobile ? '10px' : '12px',
+          fontSize: isMobile ? '0.7rem' : '0.875rem',
           fontWeight: '500',
-          padding: isMobile ? '0 6px' : '0 8px'
+          padding: isMobile ? '0 0.5rem' : '0 0.75rem'
         }}>
         {displayText}
       </div>
@@ -274,15 +294,15 @@ const CustomNode: React.FC<{ data: NodeData; selected: boolean }> = ({
         type="source"
         position={Position.Bottom}
         style={{
-          background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-          width: isMobile ? 8 : 12,
-          height: isMobile ? 8 : 12,
+          background: 'linear-gradient(135deg, var(--primary), var(--accent))',
+          width: isMobile ? 10 : 14,
+          height: isMobile ? 10 : 14,
           border: '2px solid #fff',
           borderRadius: '50%',
-          boxShadow: '0 2px 6px rgba(99, 102, 241, 0.4)',
+          boxShadow: '0 0 8px rgba(64, 66, 209, 0.5)',
           bottom: isMobile ? -6 : -8,
           zIndex: 10,
-          transition: 'all 0.2s ease'
+          transition: 'all 0.3s ease'
         }}
       />
     </div>
@@ -347,59 +367,121 @@ const autoLayout = (
 ) => {
   const bigToLittles = new Map<string, string[]>();
   const littleToBig = new Map<string, string>();
+
   edges.forEach((edge) => {
     if (!bigToLittles.has(edge.source)) bigToLittles.set(edge.source, []);
     bigToLittles.get(edge.source)?.push(edge.target);
     littleToBig.set(edge.target, edge.source);
   });
 
+  const orphanIds = nodes
+    .filter(
+      (node) =>
+        !bigToLittles.has(node.id) &&
+        !littleToBig.has(node.id) &&
+        edges.every((e) => e.source !== node.id && e.target !== node.id)
+    )
+    .map((node) => node.id);
+
   const roots = nodes.filter(
-    (node) => !littleToBig.has(node.id) || !node.data.hasBig
+    (node) => !littleToBig.has(node.id) && !orphanIds.includes(node.id)
   );
 
-  const levels = new Map<string, number>();
-  const assignLevels = (nodeId: string, level: number) => {
-    if (!levels.has(nodeId)) {
-      levels.set(nodeId, level);
-      const littles = bigToLittles.get(nodeId) || [];
-      littles.forEach((littleId) => assignLevels(littleId, level + 1));
+  const subtreeWidths = new Map<string, number>();
+  const calculateSubtreeWidth = (nodeId: string): number => {
+    if (subtreeWidths.has(nodeId)) return subtreeWidths.get(nodeId)!;
+    const children = bigToLittles.get(nodeId) || [];
+    if (children.length === 0) {
+      subtreeWidths.set(nodeId, NODE_WIDTH);
+      return NODE_WIDTH;
     }
+    const childrenWidths = children.map((childId) =>
+      calculateSubtreeWidth(childId)
+    );
+    const totalChildWidth =
+      childrenWidths.reduce((sum, width) => sum + width, 0) +
+      (children.length - 1) * PADDING;
+    const width = Math.max(NODE_WIDTH, totalChildWidth);
+    subtreeWidths.set(nodeId, width);
+    return width;
+  };
+  roots.forEach((root) => calculateSubtreeWidth(root.id));
+
+  const positions = new Map<string, { x: number; y: number }>();
+  const positionNode = (
+    nodeId: string,
+    x: number,
+    y: number,
+    availableWidth: number
+  ) => {
+    positions.set(nodeId, {
+      x: x + availableWidth / 2 - NODE_WIDTH / 2,
+      y
+    });
+    const children = bigToLittles.get(nodeId) || [];
+    if (children.length === 0) return;
+
+    const totalChildWidth =
+      children
+        .map((childId) => subtreeWidths.get(childId) || NODE_WIDTH)
+        .reduce((sum, width) => sum + width, 0) +
+      (children.length - 1) * PADDING;
+
+    let childX = x + (availableWidth - totalChildWidth) / 2;
+
+    children.forEach((childId) => {
+      const childWidth = subtreeWidths.get(childId) || NODE_WIDTH;
+      positionNode(
+        childId,
+        childX,
+        y + NODE_HEIGHT + VERTICAL_SPACING,
+        childWidth
+      );
+      childX += childWidth + PADDING;
+    });
   };
 
-  roots.forEach((root) => assignLevels(root.id, 0));
-  nodes.forEach((node) => {
-    if (!levels.has(node.id)) {
-      levels.set(node.id, 0);
-    }
+  let orphanX = PADDING;
+  const orphanY = PADDING;
+  orphanIds.forEach((id) => {
+    positions.set(id, { x: orphanX, y: orphanY });
+    orphanX += NODE_WIDTH + PADDING;
   });
 
-  const levelGroups = new Map<number, Node<NodeData>[]>();
-  nodes.forEach((node) => {
-    const level = levels.get(node.id) || 0;
-    if (!levelGroups.has(level)) levelGroups.set(level, []);
-    levelGroups.get(level)?.push(node);
+  const treeStartY =
+    orphanY +
+    NODE_HEIGHT +
+    (orphanIds.length > 0 ? VERTICAL_SPACING * 2 : VERTICAL_SPACING);
+  let currentRootX = PADDING;
+  roots.forEach((root) => {
+    const rootWidth = subtreeWidths.get(root.id) || NODE_WIDTH;
+    positionNode(root.id, currentRootX, treeStartY, rootWidth);
+    currentRootX += rootWidth + PADDING * 2;
   });
 
-  const maxLevelWidth = Math.max(
-    ...Array.from(levelGroups.values()).map((group) => group.length)
-  );
-  const totalWidth = maxLevelWidth * (NODE_WIDTH + PADDING);
-  const offsetX = Math.max(0, (containerWidth - totalWidth) / 2);
+  const allPositions = Array.from(positions.values());
+  const minX = Math.min(...allPositions.map((p) => p.x));
+  const maxX = Math.max(...allPositions.map((p) => p.x + NODE_WIDTH));
+  const totalLayoutWidth = maxX - minX;
+  const offsetX =
+    totalLayoutWidth < containerWidth
+      ? (containerWidth - totalLayoutWidth) / 2 - minX
+      : 0;
 
   const updatedNodes = nodes.map((node) => {
-    const level = levels.get(node.id) || 0;
-    const levelNodes = levelGroups.get(level) || [];
-    const index = levelNodes.findIndex((n) => n.id === node.id);
-    const levelWidth = levelNodes.length * (NODE_WIDTH + PADDING) - PADDING;
-    const startX = offsetX + (containerWidth - levelWidth) / 2;
-    const x = startX + index * (NODE_WIDTH + PADDING);
-    const y = PADDING + level * (NODE_HEIGHT + VERTICAL_SPACING);
-    const constrainedY = Math.min(y, containerHeight - NODE_HEIGHT - PADDING);
-
+    const pos = positions.get(node.id) || { x: 0, y: 0 };
+    const x = Math.max(
+      PADDING,
+      Math.min(pos.x + offsetX, containerWidth - NODE_WIDTH - PADDING)
+    );
+    const y = Math.max(
+      PADDING,
+      Math.min(pos.y, containerHeight - NODE_HEIGHT - PADDING)
+    );
     return {
       ...node,
-      position: { x, y: constrainedY },
-      data: { ...node.data, position_x: x, position_y: constrainedY }
+      position: { x, y },
+      data: { ...node.data, position_x: x, position_y: y }
     };
   });
 
@@ -482,11 +564,71 @@ const AddMemberDialog: React.FC<{
 const useFamilyTreeData = (
   familyTreeId: string,
   setNodes: React.Dispatch<React.SetStateAction<Node<NodeData>[]>>,
+  setEdges: React.Dispatch<React.SetStateAction<Edge[]>>,
   fitView: (options?: import('reactflow').FitViewOptions) => void,
-  getContainerSize: () => { width: number; height: number }
+  getContainerSize: () => { width: number; height: number },
+  initialEdges: Edge[]
 ) => {
   const supabase = useSupabase();
   const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    const loadInitialMembers = async () => {
+      setIsLoading(true);
+      try {
+        const members = await getFamilyTreeMembers(supabase, familyTreeId);
+        const { height } = getContainerSize();
+        const nodes = members.map((member) => {
+          const data: NodeData = {
+            label: member.identifier,
+            position_x: member.position_x,
+            position_y: member.position_y,
+            is_big: !!member.is_big,
+            hasLittles: false,
+            hasBig: false,
+            form_submission_id: member.form_submission_id
+          };
+          return {
+            id: member.id,
+            type: 'custom',
+            data: {
+              ...data,
+              label: `${getRoleIcon(data)} ${member.identifier}`
+            },
+            position: getNodePosition(member, height),
+            draggable: true,
+            selectable: true
+          };
+        });
+        setNodes(nodes);
+        await updateNodeRoles(
+          nodes,
+          initialEdges,
+          setNodes,
+          setEdges,
+          supabase
+        );
+        setTimeout(() => fitView({ padding: 0.4 }), 100);
+      } catch (err) {
+        toast.error(
+          `Failed to load members: ${
+            err instanceof Error ? err.message : 'Unknown error'
+          }`
+        );
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadInitialMembers();
+  }, [
+    familyTreeId,
+    supabase,
+    setNodes,
+    setEdges,
+    fitView,
+    getContainerSize,
+    initialEdges
+  ]);
 
   const refetchNewSubmissions = useCallback(async () => {
     if (!familyTreeId) return;
@@ -666,7 +808,6 @@ const updateNodeRoles = async (
       animated: isBigToLittle,
       markerEnd: getCustomMarker(isBigToLittle ? 'bigToLittle' : 'general'),
       data: {
-        ...edge.data,
         relationshipType: isBigToLittle ? 'bigToLittle' : 'general'
       }
     };
@@ -719,8 +860,20 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
     [initialEdges, initialNodes]
   );
 
+  const styledInitialNodes = useMemo(
+    () =>
+      initialNodes.map((node) => ({
+        ...node,
+        position: {
+          x: node.data.position_x ?? 0,
+          y: node.data.position_y ?? 0
+        }
+      })),
+    [initialNodes]
+  );
+
   const [nodes, setNodes, onNodesChange] =
-    useNodesState<NodeData>(initialNodes);
+    useNodesState<NodeData>(styledInitialNodes);
   const [edges, setEdges, onEdgesChange] =
     useEdgesState<Edge>(styledInitialEdges);
   const [contextMenu, setContextMenu] = useState<ContextMenuData | null>(null);
@@ -735,9 +888,18 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
     currentIdentifier: string;
   } | null>(null);
   const [addMemberDialog, setAddMemberDialog] = useState(false);
+  const [showTutorial, setShowTutorial] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
   const { fitView, getViewport } = useReactFlow();
+
+  useEffect(() => {
+    const hasSeenTutorial = localStorage.getItem('hasSeenFamilyTreeTutorial');
+    if (!hasSeenTutorial) {
+      setShowTutorial(true);
+      localStorage.setItem('hasSeenFamilyTreeTutorial', 'true');
+    }
+  }, []);
 
   const getContainerSize = useCallback(() => {
     if (containerRef.current) {
@@ -746,12 +908,13 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
     }
     return { width: window.innerWidth, height: window.innerHeight };
   }, []);
-
   const { refetchNewSubmissions, isLoading } = useFamilyTreeData(
     familyTreeId,
     setNodes,
+    setEdges,
     fitView,
-    getContainerSize
+    getContainerSize,
+    styledInitialEdges
   );
 
   const handleAddMember = useCallback(
@@ -834,12 +997,8 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
           return updatedEdges;
         });
         toast.success('Connection created');
-      } catch (err) {
-        toast.error(
-          `Failed to create connection: ${
-            err instanceof Error ? err.message : 'Unknown error'
-          }`
-        );
+      } catch {
+        toast.error('Duplicate connection detected');
       }
     },
     [setEdges, supabase, nodes, setNodes]
@@ -1185,7 +1344,7 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
       <div
         className={`layout-controls ${
           isMobile
-            ? 'flex flex-wrap gap-1 p-2 bg-white/90 backdrop-blur-sm rounded-lg shadow-md mx-2 mt-2 justify-center items-center fixed top-0 left-0 right-0 z-10'
+            ? 'flex flex-wrap gap-1 p-2 backdrop-blur-sm rounded-lg shadow-md mx-2 mt-2 justify-center items-center fixed top-0 left-0 right-0 z-10'
             : 'flex gap-3 p-3'
         }`}>
         <button
@@ -1230,6 +1389,16 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
               : 'px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 disabled:opacity-50'
           }`}>
           {isMobile ? 'Add' : 'Add Member'}
+        </button>
+        <button
+          onClick={() => setShowTutorial(true)}
+          disabled={isLoading}
+          className={`${
+            isMobile
+              ? 'px-2 py-1.5 text-xs font-medium text-white bg-teal-600 rounded-md hover:bg-teal-700 focus:outline-none focus:ring-1 focus:ring-teal-500 disabled:opacity-50 flex-1 min-w-0 flex items-center justify-center'
+              : 'px-4 py-2 text-sm font-medium text-white bg-teal-600 rounded-md hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-500 disabled:opacity-50'
+          }`}>
+          Tutorial
         </button>
       </div>
 
@@ -1361,6 +1530,15 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
             onClose={() => setSelectedSubmission(null)}
           />
         </div>
+      )}
+
+      {showTutorial && (
+        <TutorialOverlay
+          onComplete={() => {
+            setShowTutorial(false);
+            localStorage.setItem('hasSeenFamilyTreeTutorial', 'true');
+          }}
+        />
       )}
 
       <div
