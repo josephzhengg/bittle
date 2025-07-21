@@ -42,6 +42,31 @@ import TutorialOverlay from '@/components/family-tree-components/tutorial';
 import { z } from 'zod';
 import { toast } from 'sonner';
 import { SupabaseClient } from '@supabase/supabase-js';
+import { Layout, RefreshCw, Plus, HelpCircle, Menu } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem
+} from '@/components/ui/dropdown-menu';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+
+const layoutControlItems = [
+  { title: 'Auto Layout', action: 'resetLayout', icon: Layout },
+  { title: 'Recenter', action: 'recenter', icon: RefreshCw },
+  { title: 'Refetch Submissions', action: 'refetch', icon: RefreshCw },
+  { title: 'Add Member', action: 'addMember', icon: Plus },
+  { title: 'Tutorial', action: 'tutorial', icon: HelpCircle }
+];
 
 export const NODE_WIDTH = 172;
 export const NODE_HEIGHT = 36;
@@ -375,24 +400,17 @@ const autoLayout = (nodes: Node<NodeData>[], edges: Edge[]) => {
   const orphanedNodes = nodes.filter(
     (node) => !littleToBig.has(node.id) && !bigToLittles.has(node.id)
   );
-  let orphanX = PADDING;
-  const orphanY = PADDING;
-  orphanedNodes.forEach((node) => {
-    positions.set(node.id, {
-      x: orphanX,
-      y: orphanY
-    });
-    orphanX += NODE_WIDTH + PADDING / 2;
-  });
 
-  const currentY = orphanY + NODE_HEIGHT + VERTICAL_SPACING / 2;
-  let currentX = PADDING;
   const roots = nodes.filter((node) => !littleToBig.has(node.id));
   const connectedNodeIds = new Set(
     nodes
       .filter((node) => littleToBig.has(node.id) || bigToLittles.has(node.id))
       .map((n) => n.id)
   );
+
+  let currentX = PADDING;
+  const orphanY = PADDING;
+  const currentY = orphanY + NODE_HEIGHT + VERTICAL_SPACING / 2;
 
   const layoutTree = (
     nodeId: string,
@@ -430,6 +448,34 @@ const autoLayout = (nodes: Node<NodeData>[], edges: Edge[]) => {
       currentX += treeWidth + PADDING / 2;
     });
 
+  if (orphanedNodes.length > 0) {
+    const totalOrphansWidth =
+      orphanedNodes.length * NODE_WIDTH +
+      (orphanedNodes.length - 1) * (PADDING / 2);
+
+    let minX = PADDING;
+    let maxX = currentX;
+    if (positions.size > 0) {
+      const xs = Array.from(positions.values()).map((pos) => pos.x);
+      minX = Math.min(...xs);
+      maxX = Math.max(...xs) + NODE_WIDTH;
+    }
+    const availableWidth = Math.max(
+      maxX - minX,
+      totalOrphansWidth + PADDING * 2
+    );
+
+    let orphanX = minX + (availableWidth - totalOrphansWidth) / 2;
+
+    orphanedNodes.forEach((node) => {
+      positions.set(node.id, {
+        x: orphanX,
+        y: orphanY
+      });
+      orphanX += NODE_WIDTH + PADDING / 2;
+    });
+  }
+
   const updatedNodes = nodes.map((node) => {
     const pos = positions.get(node.id) || node.position;
     return {
@@ -451,8 +497,7 @@ const AddMemberDialog: React.FC<{
   const [identifier, setIdentifier] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async () => {
     if (!identifier.trim()) {
       toast.error('Please enter a valid identifier');
       return;
@@ -472,46 +517,82 @@ const AddMemberDialog: React.FC<{
     }
   };
 
-  if (!isOpen) return null;
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey && !isSubmitting) {
+      e.preventDefault();
+      const trimmedIdentifier = identifier.trim();
+      if (trimmedIdentifier) {
+        handleSubmit();
+      }
+    }
+  };
+
+  const isValid = identifier.trim().length > 0;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100]">
-      <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-2xl">
-        <h2 className="text-lg font-semibold text-gray-800 mb-4">
-          Add New Member
-        </h2>
-        <form onSubmit={handleSubmit}>
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Identifier
-            </label>
-            <input
-              type="text"
-              value={identifier}
-              onChange={(e) => setIdentifier(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Enter identifier..."
-              disabled={isSubmitting}
-            />
+    <>
+      {/* Custom overlay for extra blur coverage */}
+      {isOpen && (
+        <div
+          className="fixed inset-0 bg-black/20 backdrop-blur-sm z-[9998]"
+          style={{ zIndex: 9998 }}
+          onClick={onCancel}
+        />
+      )}
+
+      <Dialog open={isOpen} onOpenChange={(open) => !open && onCancel()}>
+        <DialogContent
+          className="w-[95vw] max-w-md mx-auto rounded-lg sm:w-full sm:max-w-lg z-[9999] fixed"
+          style={{ zIndex: 9999 }}>
+          <DialogHeader className="pb-4">
+            <DialogTitle className="text-lg font-semibold text-center sm:text-left">
+              Add New Member
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-6">
+            <div className="space-y-3">
+              <Label
+                htmlFor="member-identifier-input"
+                className="text-sm font-medium block">
+                Identifier Name
+              </Label>
+              <Input
+                id="member-identifier-input"
+                type="text"
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
+                onKeyDown={handleKeyDown}
+                className="w-full h-12 text-base px-4 rounded-lg border-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all"
+                placeholder="Enter identifier name..."
+                autoFocus
+                autoComplete="off"
+                spellCheck="false"
+                disabled={isSubmitting}
+              />
+            </div>
+
+            <DialogFooter className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end sm:gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onCancel}
+                disabled={isSubmitting}
+                className="w-full h-12 text-base font-medium rounded-lg border-2 sm:w-auto sm:h-10 sm:px-6">
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                disabled={!isValid || isSubmitting}
+                onClick={handleSubmit}
+                className="w-full h-12 text-base font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed sm:w-auto sm:h-10 sm:px-6">
+                {isSubmitting ? 'Adding...' : 'Add Member'}
+              </Button>
+            </DialogFooter>
           </div>
-          <div className="flex justify-end gap-2">
-            <button
-              type="button"
-              onClick={onCancel}
-              disabled={isSubmitting}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500">
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={isSubmitting || identifier.trim().length === 0}
-              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50">
-              {isSubmitting ? 'Adding...' : 'Add Member'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 };
 
@@ -561,7 +642,6 @@ const useFamilyTreeData = (
           setEdges,
           supabase
         );
-        setTimeout(() => fitView({ padding: 0.4 }), 100);
       } catch (err) {
         toast.error(
           `Failed to load members: ${
@@ -681,7 +761,6 @@ const useFamilyTreeData = (
         });
 
       setNodes((nds: Node[]) => [...nds, ...newNodes]);
-      setTimeout(() => fitView({ padding: 0.4 }), 100);
       toast.success(`Added ${newMembers.length} new members`);
     } catch (err) {
       toast.error(
@@ -692,7 +771,7 @@ const useFamilyTreeData = (
     } finally {
       setIsLoading(false);
     }
-  }, [familyTreeId, supabase, setNodes, fitView, getContainerSize]);
+  }, [familyTreeId, supabase, setNodes, getContainerSize]);
 
   return { refetchNewSubmissions, isLoading };
 };
@@ -940,7 +1019,7 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
 
         setNodes((nds) => [...nds, newNode]);
         setAddMemberDialog(false);
-        setTimeout(() => fitView({ padding: 0.4 }), 100);
+
         toast.success('New member added successfully');
       } catch (err) {
         toast.error(
@@ -950,7 +1029,7 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
         );
       }
     },
-    [supabase, familyTreeId, setNodes, fitView, getContainerSize, nodes]
+    [supabase, familyTreeId, setNodes, getContainerSize, nodes]
   );
 
   const onEdgeContextMenu = useCallback(
@@ -965,7 +1044,6 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
       const viewport = getViewport();
       const { x: panX, y: panY, zoom } = viewport;
 
-      // Calculate the midpoint between source and target node centers
       const midX =
         (sourceNode.position.x +
           NODE_WIDTH / 2 +
@@ -979,7 +1057,6 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
           NODE_HEIGHT / 2) /
         2;
 
-      // Convert to screen coordinates
       const screenX = midX * zoom + panX;
       const screenY = midY * zoom + panY;
 
@@ -1254,7 +1331,6 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
       }
 
       setNodes(updatedNodes);
-      setTimeout(() => fitView({ padding: 0.4 }), 100);
       toast.success('Layout reset and positions saved');
     } catch (err) {
       console.error('Reset layout error:', err);
@@ -1264,7 +1340,7 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
         }`
       );
     }
-  }, [nodes, edges, setNodes, fitView, getContainerSize, supabase]);
+  }, [nodes, edges, setNodes, getContainerSize, supabase]);
 
   const handleSaveIdentifier = useCallback(
     async (nodeId: string, newIdentifier: string) => {
@@ -1359,11 +1435,14 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
           );
         }
       } else {
-        toast.info('No submission details available for this member');
-        setSelectedSubmission(null);
+        if (!isMobile) {
+          toast.info('No submission details available for this member');
+        } else {
+          setSelectedSubmission(null);
+        }
       }
     },
-    [setNodes, setEdges, supabase, familyTreeId]
+    [setNodes, setEdges, supabase, familyTreeId, isMobile]
   );
 
   if (isLoading)
@@ -1376,65 +1455,47 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
 
   return (
     <div className="family-tree-container">
-      <div
-        className={`layout-controls ${
-          isMobile
-            ? 'flex flex-wrap gap-1 p-2 backdrop-blur-sm rounded-lg shadow-md mx-2 mt-2 justify-center items-center fixed top-0 left-0 right-0 z-10'
-            : 'flex gap-3 p-3'
-        }`}>
-        <button
-          onClick={resetLayout}
-          disabled={isLoading}
-          className={`${
-            isMobile
-              ? 'px-2 py-1.5 text-xs font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50 flex-1 min-w-0 flex items-center justify-center'
-              : 'px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50'
-          }`}>
-          {isMobile ? 'Layout' : 'Auto Layout'}
-        </button>
-        <button
-          onClick={() => {
-            setTimeout(() => fitView({ padding: 0.4 }), 100);
-            toast.success('View recentered');
-          }}
-          disabled={isLoading}
-          className={`${
-            isMobile
-              ? 'px-2 py-1.5 text-xs font-medium text-white bg-purple-600 rounded-md hover:bg-purple-700 focus:outline-none focus:ring-1 focus:ring-purple-500 disabled:opacity-50 flex-1 min-w-0 flex items-center justify-center'
-              : 'px-4 py-2 text-sm font-medium text-white bg-purple-600 rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:opacity-50'
-          }`}>
-          {isMobile ? 'Center' : 'Recenter'}
-        </button>
-        <button
-          onClick={refetchNewSubmissions}
-          disabled={isLoading}
-          className={`${
-            isMobile
-              ? 'px-2 py-1.5 text-xs font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:opacity-50 flex-1 min-w-0 flex items-center justify-center'
-              : 'px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50'
-          }`}>
-          {isMobile ? 'Refetch' : 'Refetch Submissions'}
-        </button>
-        <button
-          onClick={() => setAddMemberDialog(true)}
-          disabled={isLoading}
-          className={`${
-            isMobile
-              ? 'px-2 py-1.5 text-xs font-medium text-white bg-green-600 rounded-md hover:bg-green-700 focus:outline-none focus:ring-1 focus:ring-green-500 disabled:opacity-50 flex-1 min-w-0 flex items-center justify-center'
-              : 'px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 disabled:opacity-50'
-          }`}>
-          {isMobile ? 'Add' : 'Add Member'}
-        </button>
-        <button
-          onClick={() => setShowTutorial(true)}
-          disabled={isLoading}
-          className={`${
-            isMobile
-              ? 'px-2 py-1.5 text-xs font-medium text-white bg-teal-600 rounded-md hover:bg-teal-700 focus:outline-none focus:ring-1 focus:ring-teal-500 disabled:opacity-50 flex-1 min-w-0 flex items-center justify-center'
-              : 'px-4 py-2 text-sm font-medium text-white bg-teal-600 rounded-md hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-500 disabled:opacity-50'
-          }`}>
-          Tutorial
-        </button>
+      <div className="absolute top-2 right-2 z-10">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size={isMobile ? 'icon' : undefined}
+              className={`bg-white/80 border border-gray-300 hover:bg-gray-100 hover:border-gray-400 transition rounded-lg shadow-sm
+              ${isMobile ? '' : 'h-14 w-14 min-w-[56px] min-h-[56px] text-lg'}`}
+              aria-label="Open layout controls menu">
+              <Menu
+                className={`text-gray-600 ${isMobile ? 'h-5 w-5' : 'h-8 w-8'}`}
+              />
+              <span className="sr-only">Toggle layout controls menu</span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            align="end"
+            className="w-56 bg-white border border-gray-200 shadow-lg rounded-lg mt-2">
+            <div className="p-2 space-y-1">
+              {layoutControlItems.map((item) => (
+                <DropdownMenuItem
+                  key={item.title}
+                  onClick={() => {
+                    if (item.action === 'resetLayout') resetLayout();
+                    else if (item.action === 'recenter') {
+                      fitView({ padding: isMobile ? 0.1 : 0.4 });
+                      toast.success('View recentered');
+                    } else if (item.action === 'refetch')
+                      refetchNewSubmissions();
+                    else if (item.action === 'addMember')
+                      setAddMemberDialog(true);
+                    else if (item.action === 'tutorial') setShowTutorial(true);
+                  }}
+                  className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-gray-100 transition text-gray-700">
+                  <item.icon className="h-4 w-4 text-gray-500" />
+                  <span className="text-sm">{item.title}</span>
+                </DropdownMenuItem>
+              ))}
+            </div>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
       <div
         className={`absolute ${
@@ -1640,7 +1701,6 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
             const viewport = getViewport();
             const { x: panX, y: panY, zoom } = viewport;
 
-            // Calculate the midpoint between source and target node centers
             const midX =
               (sourceNode.position.x +
                 NODE_WIDTH / 2 +
@@ -1654,7 +1714,6 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
                 NODE_HEIGHT / 2) /
               2;
 
-            // Convert to screen coordinates
             const screenX = midX * zoom + panX;
             const screenY = midY * zoom + panY;
 
@@ -1697,9 +1756,9 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
           nodeTypes={nodeTypes}
           fitView
           fitViewOptions={{
-            padding: 0,
-            includeHiddenNodes: true,
-            duration: 0
+            padding: 0.5,
+            duration: 500,
+            includeHiddenNodes: true
           }}
           minZoom={0.01}
           maxZoom={10}

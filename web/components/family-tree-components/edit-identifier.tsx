@@ -52,47 +52,67 @@ const EditIdentifierDialog: React.FC<EditIdentifierDialogProps> = ({
   const isValid = identifier.trim().length > 0;
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onCancel()}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader className="space-y-3">
-          <DialogTitle className="text-xl font-semibold">
-            Edit Identifier
-          </DialogTitle>
-        </DialogHeader>
+    <>
+      {/* Custom overlay for extra blur coverage */}
+      {isOpen && (
+        <div
+          className="fixed inset-0 bg-black/2 z-[9998]"
+          style={{ zIndex: 9998 }}
+          onClick={onCancel}
+        />
+      )}
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="space-y-2">
-            <Label
-              htmlFor="identifier"
-              className="text-sm font-medium text-gray-700">
-              Identifier Name
-            </Label>
-            <Input
-              id="identifier"
-              value={identifier}
-              onChange={(e) => setIdentifier(e.target.value)}
-              onKeyDown={handleKeyDown}
-              className="w-full"
-              placeholder="Enter identifier name..."
-              autoFocus
-            />
+      <Dialog open={isOpen} onOpenChange={(open) => !open && onCancel()}>
+        <DialogContent
+          className="w-[95vw] max-w-md mx-auto rounded-lg sm:w-full sm:max-w-lg z-[9999] fixed"
+          style={{ zIndex: 9999 }}>
+          <DialogHeader className="pb-4">
+            <DialogTitle className="text-lg font-semibold text-center sm:text-left">
+              Edit Identifier
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-6">
+            <div className="space-y-3">
+              <Label
+                htmlFor="identifier-input"
+                className="text-sm font-medium block">
+                Identifier Name
+              </Label>
+              <Input
+                id="identifier-input"
+                type="text"
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
+                onKeyDown={handleKeyDown}
+                className="w-full h-12 text-base px-4 rounded-lg border-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all"
+                placeholder="Enter identifier name..."
+                autoFocus
+                autoComplete="off"
+                spellCheck="false"
+              />
+            </div>
+
+            <DialogFooter className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end sm:gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onCancel}
+                className="w-full h-12 text-base font-medium rounded-lg border-2 sm:w-auto sm:h-10 sm:px-6">
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                disabled={!isValid}
+                onClick={handleSubmit}
+                className="w-full h-12 text-base font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed sm:w-auto sm:h-10 sm:px-6">
+                Save Changes
+              </Button>
+            </DialogFooter>
           </div>
-
-          <DialogFooter className="flex gap-3 pt-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={onCancel}
-              className="flex-1">
-              Cancel
-            </Button>
-            <Button type="submit" disabled={!isValid} className="flex-1">
-              Save Changes
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 };
 

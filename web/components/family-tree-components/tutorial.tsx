@@ -2,17 +2,14 @@ import React, { useState, useCallback, useRef } from 'react';
 
 export const useIsMobile = () => {
   const [isMobile, setIsMobile] = useState(false);
-
   React.useEffect(() => {
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 768);
     };
-
     checkMobile();
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
-
   return isMobile;
 };
 
@@ -20,9 +17,9 @@ interface TutorialStep {
   id: string;
   title: string;
   description: string;
-  videoUrl?: string; // URL to the demo video
-  videoType?: 'mp4' | 'webm' | 'gif'; // Video format
-  tips?: string[]; // Additional tips for the feature
+  videoUrl?: string;
+  videoType?: 'mp4' | 'webm' | 'gif';
+  tips?: string[];
 }
 
 interface TutorialOverlayProps {
@@ -32,114 +29,113 @@ interface TutorialOverlayProps {
 const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ onComplete }) => {
   const isMobile = useIsMobile();
   const [currentStep, setCurrentStep] = useState(0);
+  const [showTips, setShowTips] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const steps: TutorialStep[] = [
     {
       id: 'intro',
-      title: 'Welcome to the Family Tree!',
-      description:
-        "This interactive tool lets you visualize and manage your family tree. Let's explore how to use it!"
+      title: 'Welcome! 👋',
+      description: "Let's quickly explore your family tree tool!"
     },
     {
       id: 'layout-controls',
-      title: 'Control Buttons',
+      title: 'Control Buttons 🎮',
       description:
-        'Use these buttons to manage the tree: reset the layout, recenter the view, refetch new submissions, or add a new member.',
+        'Reset layout, recenter view, refresh data, or add new members.',
       videoUrl: '/demos/layout-controls.mp4',
       videoType: 'mp4',
       tips: [
-        'Reset button reorganizes the tree layout',
-        'Center button focuses the view on the tree',
-        'Refresh button updates with new data'
+        'Reset reorganizes the tree',
+        'Center focuses the view',
+        'Refresh updates data'
       ]
     },
     {
       id: 'add-member',
-      title: 'Adding a Member',
-      description:
-        'Click the "Add Member" button to add a new member to the tree. Enter their identifier to create a new node.',
+      title: 'Add Members ➕',
+      description: 'Tap "Add Member" to create new nodes with identifiers.',
       videoUrl: '/demos/add-member.mp4',
       videoType: 'mp4',
       tips: [
-        'Use clear, recognizable identifiers',
-        'New members start as unconnected nodes',
-        'You can edit the identifier later'
+        'Use clear identifiers',
+        'New members start unconnected',
+        'Edit identifiers anytime'
       ]
     },
     {
       id: 'create-connection',
-      title: 'Creating Connections',
+      title: 'Make Connections 🔗',
       description:
-        'Drag from the bottom handle of one node to the top handle of another to create a Big-Little connection.',
+        'Drag from bottom handle to top handle to create Big-Little relationships.',
       videoUrl: '/demos/create-connection.mp4',
       videoType: 'mp4',
       tips: [
-        'Bottom handle = Big (mentor)',
-        'Top handle = Little (mentee)',
-        'Connections show family lineage'
+        'Bottom = Big (mentor)',
+        'Top = Little (mentee)',
+        'Shows family lineage'
       ]
     },
     {
       id: 'edit-member',
-      title: 'Editing a Member',
+      title: 'Edit Members ✏️',
       description: `${
         isMobile ? 'Double-tap' : 'Double-click'
-      } a node to edit its identifier.`,
+      } nodes to edit identifiers.`,
       videoUrl: '/demos/edit-member.mp4',
       videoType: 'mp4',
       tips: [
-        'Quick way to fix typos',
-        'Changes are saved automatically',
-        'Press Enter to confirm changes'
+        'Fix typos quickly',
+        'Auto-saves changes',
+        'Press Enter to confirm'
       ]
     },
     {
       id: 'toggle-big',
-      title: 'Toggling Big/Little Status',
+      title: 'Change Status 👑',
       description: `${
-        isMobile ? 'Tap and hold' : 'Right-click'
-      } a node to open the context menu and promote or demote a member to/from Big status.`,
+        isMobile ? 'Long press' : 'Right-click'
+      } to promote/demote Big status.`,
       videoUrl: '/demos/toggle-status.mp4',
       videoType: 'mp4',
       tips: [
-        'Big status affects node appearance',
-        'Only Bigs can have Littles',
-        'Status changes update the legend'
+        'Affects node appearance',
+        'Only Bigs have Littles',
+        'Updates legend automatically'
       ]
     },
     {
       id: 'delete',
-      title: 'Deleting Members or Connections',
+      title: 'Delete Items 🗑️',
       description: `${
-        isMobile ? 'Tap and hold' : 'Right-click'
-      } a node or connection to open the context menu and delete it.`,
+        isMobile ? 'Long press' : 'Right-click'
+      } nodes or connections to delete.`,
       videoUrl: '/demos/delete-items.mp4',
       videoType: 'mp4',
       tips: [
-        'Deleting a node removes all its connections',
-        'Deleting connections preserves the nodes',
+        'Deleting nodes removes connections',
+        'Connection deletion preserves nodes',
         'Changes cannot be undone'
       ]
     },
     {
       id: 'legend',
-      title: 'Understanding the Legend',
+      title: 'Legend Guide 📋',
       description:
-        'The legend explains node types: Big and Little (👑🌱), Big (⭐), Little (🌱), and Unconnected (⚪).',
+        'Icons show roles: Big+Little (👑🌱), Big (⭐), Little (🌱), Unconnected (⚪).',
       videoUrl: '/demos/legend-guide.mp4',
       videoType: 'mp4',
       tips: [
-        'Icons help identify member roles',
-        'Colors indicate connection status',
-        'Legend updates automatically'
+        'Icons identify member roles',
+        'Colors show connection status',
+        'Updates automatically'
       ]
     },
     {
       id: 'conclusion',
-      title: "You're Ready!",
+      title: "You're Ready! 🎉",
       description:
-        "You're all set to use the family tree! Restart the tutorial anytime from the control buttons."
+        'Great! You can restart this tutorial anytime from the control buttons.'
     }
   ];
 
@@ -169,9 +165,9 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ onComplete }) => {
     if (!step.videoUrl) return null;
 
     return (
-      <div className="mb-4 rounded-lg overflow-hidden bg-gray-100">
+      <div className="mb-3 rounded-lg overflow-hidden bg-gray-50 shadow-sm">
         <video
-          className="w-full h-auto max-h-48"
+          className={`w-full ${isMobile ? 'h-32' : 'h-40'} object-cover`}
           controls
           loop
           muted
@@ -190,13 +186,46 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ onComplete }) => {
   const renderTips = (tips?: string[]) => {
     if (!tips || tips.length === 0) return null;
 
+    if (isMobile) {
+      return (
+        <div className="mb-3">
+          <button
+            onClick={() => setShowTips(!showTips)}
+            className="flex items-center gap-2 text-blue-600 hover:text-blue-700 text-sm font-medium">
+            <span>💡</span>
+            <span>Tips</span>
+            <span
+              className={`transform transition-transform ${
+                showTips ? 'rotate-180' : ''
+              }`}>
+              ▼
+            </span>
+          </button>
+          {showTips && (
+            <div className="mt-2 p-2 bg-blue-50 rounded-md border border-blue-100">
+              <ul className="space-y-1 text-xs text-blue-800">
+                {tips.map((tip, index) => (
+                  <li key={index} className="flex items-start gap-1.5">
+                    <span className="text-blue-400 mt-0.5 text-xs">•</span>
+                    <span>{tip}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      );
+    }
+
     return (
-      <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
-        <h4 className="text-sm font-medium text-blue-800 mb-2">💡 Tips:</h4>
-        <ul className="text-sm text-blue-700 space-y-1">
+      <div className="mb-4 p-3 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg border border-blue-100">
+        <h4 className="mb-2 font-medium text-sm text-blue-800 flex items-center gap-1">
+          <span>💡</span> Quick Tips
+        </h4>
+        <ul className="space-y-1.5 text-sm text-blue-700">
           {tips.map((tip, index) => (
             <li key={index} className="flex items-start gap-2">
-              <span className="text-blue-500 mt-0.5">•</span>
+              <span className="text-blue-400 mt-0.5">•</span>
               <span>{tip}</span>
             </li>
           ))}
@@ -208,35 +237,67 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ onComplete }) => {
   return (
     <div
       ref={containerRef}
-      className="fixed inset-0 z-[200] flex items-center justify-center p-4"
-      style={{ background: 'rgba(0, 0, 0, 0.5)', backdropFilter: 'blur(4px)' }}>
+      className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-0 sm:p-4"
+      style={{ background: 'rgba(0, 0, 0, 0.6)', backdropFilter: 'blur(6px)' }}>
       <div
-        className={`bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden animate-fade-in-up ${
+        className={`bg-white shadow-2xl border border-gray-200 overflow-hidden animate-fade-in-up flex flex-col ${
           isMobile
-            ? 'w-full max-w-sm max-h-[90vh]'
-            : 'w-full max-w-2xl max-h-[85vh]'
-        }`}>
+            ? 'w-full max-h-[85vh] rounded-t-2xl'
+            : 'w-full max-w-2xl max-h-[80vh] rounded-xl'
+        }`}
+        style={
+          isMobile
+            ? { borderBottomLeftRadius: 0, borderBottomRightRadius: 0 }
+            : {}
+        }>
         {/* Header */}
-        <div className="bg-gradient-to-r from-blue-500 to-purple-600 text-white p-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold">Family Tree Tutorial</h2>
+        <div
+          className={`bg-gradient-to-r from-blue-500 via-purple-500 to-blue-600 text-white ${
+            isMobile ? 'p-3' : 'p-4'
+          }`}>
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <span
+                className={`${isMobile ? 'text-base' : 'text-lg'} font-bold`}>
+                Family Tree Tutorial
+              </span>
+              <span
+                className={`${
+                  isMobile ? 'text-xs' : 'text-sm'
+                } bg-white/20 px-2 py-0.5 rounded-full font-medium`}>
+                {currentStep + 1}/{steps.length}
+              </span>
+            </div>
             <button
               onClick={onComplete}
-              className="text-white/80 hover:text-white text-xl font-bold">
-              ✕
+              className="text-white/80 hover:text-white transition-colors p-1 hover:bg-white/10 rounded-full">
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
             </button>
           </div>
-          <div className="mt-2 flex gap-1">
+
+          {/* Progress Bar */}
+          <div className="flex gap-1">
             {steps.map((_, index) => (
               <button
                 key={index}
                 onClick={() => handleStepClick(index)}
-                className={`h-2 rounded-full transition-all ${
+                className={`h-1.5 rounded-full transition-all duration-300 ${
                   index === currentStep
-                    ? 'bg-white flex-1'
+                    ? 'bg-white flex-1 shadow-sm'
                     : index < currentStep
                     ? 'bg-white/70 w-2'
-                    : 'bg-white/30 w-2'
+                    : 'bg-white/30 w-2 hover:bg-white/40'
                 }`}
               />
             ))}
@@ -244,12 +305,21 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ onComplete }) => {
         </div>
 
         {/* Content */}
-        <div className="p-6 overflow-y-auto flex-1">
-          <div className="mb-4">
-            <h3 className="text-xl font-semibold text-gray-800 mb-2">
+        <div
+          className={`overflow-y-auto flex-1 ${
+            isMobile ? 'px-4 py-3' : 'p-6'
+          } scrollbar-thin`}>
+          <div className="mb-3">
+            <h3
+              className={`${
+                isMobile ? 'text-lg' : 'text-xl'
+              } font-bold text-gray-800 mb-2 leading-tight`}>
               {steps[currentStep].title}
             </h3>
-            <p className="text-gray-600 leading-relaxed">
+            <p
+              className={`${
+                isMobile ? 'text-sm' : 'text-base'
+              } text-gray-600 leading-relaxed`}>
               {steps[currentStep].description}
             </p>
           </div>
@@ -259,34 +329,56 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ onComplete }) => {
         </div>
 
         {/* Footer */}
-        <div className="border-t border-gray-200 p-4 bg-gray-50">
-          <div className="flex justify-between items-center">
-            <button
-              onClick={handlePrevious}
-              disabled={currentStep === 0}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 disabled:opacity-50 disabled:cursor-not-allowed">
-              Previous
-            </button>
-
-            <div className="flex items-center gap-4">
-              <span className="text-sm text-gray-500">
-                {currentStep + 1} of {steps.length}
-              </span>
-
-              <div className="flex gap-2">
+        <div
+          className={`border-t border-gray-100 bg-gray-50/80 backdrop-blur-sm ${
+            isMobile ? 'p-3' : 'p-4'
+          }`}>
+          {isMobile ? (
+            // Mobile Layout - Stacked
+            <div className="space-y-3">
+              <div className="flex justify-between items-center gap-3">
+                <button
+                  onClick={handlePrevious}
+                  disabled={currentStep === 0}
+                  className="flex-1 px-3 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-sm">
+                  ← Previous
+                </button>
                 <button
                   onClick={handleSkip}
-                  className="px-4 py-2 text-sm font-medium text-gray-600 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500">
+                  className="px-4 py-2.5 text-sm font-medium text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 transition-all shadow-sm">
+                  Skip
+                </button>
+                <button
+                  onClick={handleNext}
+                  className="flex-1 px-3 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-blue-700 rounded-lg hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all shadow-sm">
+                  {currentStep === steps.length - 1 ? 'Finish 🎉' : 'Next →'}
+                </button>
+              </div>
+            </div>
+          ) : (
+            // Desktop Layout
+            <div className="flex justify-between items-center">
+              <button
+                onClick={handlePrevious}
+                disabled={currentStep === 0}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all">
+                ← Previous
+              </button>
+
+              <div className="flex items-center gap-4">
+                <button
+                  onClick={handleSkip}
+                  className="px-4 py-2 text-sm font-medium text-gray-600 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 transition-all">
                   Skip Tutorial
                 </button>
                 <button
                   onClick={handleNext}
-                  className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                  {currentStep === steps.length - 1 ? 'Finish' : 'Next'}
+                  className="px-6 py-2 text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-blue-700 rounded-lg hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all shadow-sm">
+                  {currentStep === steps.length - 1 ? 'Finish 🎉' : 'Next →'}
                 </button>
               </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
     </div>
