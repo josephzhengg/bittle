@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { useIsMobile } from './family-tree-graph';
 
 interface TutorialStep {
@@ -9,6 +9,7 @@ interface TutorialStep {
   position: 'top' | 'bottom' | 'left' | 'right' | 'center'; // Tooltip position
   offsetX?: number; // Optional X offset for tooltip
   offsetY?: number; // Optional Y offset for tooltip
+  exampleVisual?: React.ReactNode; // Optional example visual for steps
 }
 
 interface TutorialOverlayProps {
@@ -19,6 +20,82 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ onComplete }) => {
   const isMobile = useIsMobile();
   const [currentStep, setCurrentStep] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Mock node visual for steps requiring node/edge examples
+  const mockNode = (
+    <div
+      style={{
+        width: isMobile ? '100px' : '140px',
+        height: isMobile ? '24px' : '32px',
+        background: 'linear-gradient(135deg, #f3f4f6, #e5e7eb)',
+        border: isMobile ? '1px solid #d1d5db' : '2px solid #d1d5db',
+        borderRadius: '8px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontSize: isMobile ? '10px' : '12px',
+        color: '#1f2937',
+        position: 'relative',
+        margin: '8px auto'
+      }}>
+      ⚪ Example Node
+      <div
+        style={{
+          position: 'absolute',
+          top: isMobile ? '-5px' : '-7px',
+          width: isMobile ? '8px' : '10px',
+          height: isMobile ? '8px' : '10px',
+          background: 'linear-gradient(135deg, #3b82f6, #9333ea)',
+          border: '2px solid #fff',
+          borderRadius: '50%'
+        }}
+      />{' '}
+      {/* Top handle */}
+      <div
+        style={{
+          position: 'absolute',
+          bottom: isMobile ? '-5px' : '-7px',
+          width: isMobile ? '8px' : '10px',
+          height: isMobile ? '8px' : '10px',
+          background: 'linear-gradient(135deg, #3b82f6, #9333ea)',
+          border: '2px solid #fff',
+          borderRadius: '50%'
+        }}
+      />{' '}
+      {/* Bottom handle */}
+    </div>
+  );
+
+  // Mock edge visual
+  const mockEdge = (
+    <svg
+      style={{
+        width: isMobile ? '100px' : '140px',
+        height: isMobile ? '40px' : '60px',
+        margin: '8px auto',
+        display: 'block'
+      }}>
+      <path
+        d={isMobile ? 'M10,10 Q50,50 90,30' : 'M10,10 Q70,60 130,50'}
+        stroke="#64748b"
+        strokeWidth="3"
+        fill="none"
+        markerEnd="url(#arrow)"
+      />
+      <defs>
+        <marker
+          id="arrow"
+          markerWidth="10"
+          markerHeight="10"
+          refX="6"
+          refY="3"
+          orient="auto"
+          markerUnits="strokeWidth">
+          <path d="M0,0 L0,6 L9,3 z" fill="#64748b" />
+        </marker>
+      </defs>
+    </svg>
+  );
 
   const steps: TutorialStep[] = [
     {
@@ -35,7 +112,7 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ onComplete }) => {
         'Use these buttons to manage the tree: reset the layout, recenter the view, refetch new submissions, or add a new member.',
       targetSelector: '.layout-controls',
       position: 'bottom',
-      offsetY: 10
+      offsetY: isMobile ? 8 : 12
     },
     {
       id: 'add-member',
@@ -44,16 +121,28 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ onComplete }) => {
         'Click the "Add Member" button to add a new member to the tree. Enter their identifier to create a new node.',
       targetSelector: '.layout-controls button:nth-child(4)', // Add Member button
       position: 'bottom',
-      offsetY: 10
+      offsetY: isMobile ? 8 : 12
     },
     {
       id: 'create-connection',
       title: 'Creating Connections',
       description:
         'Drag from the bottom handle of one node to the top handle of another to create a Big-Little connection.',
-      targetSelector: '.react-flow__node-custom', // First node
-      position: 'right',
-      offsetX: 10
+      position: 'center',
+      exampleVisual: (
+        <div>
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'center',
+              gap: isMobile ? '10px' : '20px'
+            }}>
+            {mockNode}
+            {mockNode}
+          </div>
+          {mockEdge}
+        </div>
+      )
     },
     {
       id: 'edit-member',
@@ -61,9 +150,8 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ onComplete }) => {
       description: `${
         isMobile ? 'Double-tap' : 'Double-click'
       } a node to edit its identifier.`,
-      targetSelector: '.react-flow__node-custom',
-      position: 'right',
-      offsetX: 10
+      position: 'center',
+      exampleVisual: mockNode
     },
     {
       id: 'toggle-big',
@@ -71,9 +159,8 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ onComplete }) => {
       description: `${
         isMobile ? 'Tap and hold' : 'Right-click'
       } a node to open the context menu and promote or demote a member to/from Big status.`,
-      targetSelector: '.react-flow__node-custom',
-      position: 'right',
-      offsetX: 10
+      position: 'center',
+      exampleVisual: mockNode
     },
     {
       id: 'delete',
@@ -81,9 +168,13 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ onComplete }) => {
       description: `${
         isMobile ? 'Tap and hold' : 'Right-click'
       } a node or connection to open the context menu and delete it.`,
-      targetSelector: '.react-flow__node-custom',
-      position: 'right',
-      offsetX: 10
+      position: 'center',
+      exampleVisual: (
+        <div>
+          {mockNode}
+          {mockEdge}
+        </div>
+      )
     },
     {
       id: 'legend',
@@ -92,8 +183,8 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ onComplete }) => {
         'The legend explains node types: Big and Little (👑🌱), Big (⭐), Little (🌱), and Unconnected (⚪).',
       targetSelector: '.legend',
       position: isMobile ? 'top' : 'left',
-      offsetX: isMobile ? 0 : -10,
-      offsetY: isMobile ? -10 : 0
+      offsetX: isMobile ? 0 : -12,
+      offsetY: isMobile ? -12 : 0
     },
     {
       id: 'conclusion',
@@ -108,7 +199,16 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ onComplete }) => {
     if (!selector) return null;
     const element = document.querySelector(selector);
     if (!element) return null;
-    return element.getBoundingClientRect();
+    const bounds = element.getBoundingClientRect();
+    // Adjust for fixed .layout-controls positioning
+    if (selector === '.layout-controls') {
+      return {
+        ...bounds,
+        top: bounds.top + window.scrollY,
+        left: bounds.left + window.scrollX
+      };
+    }
+    return bounds;
   }, []);
 
   const handleNext = useCallback(() => {
@@ -132,7 +232,7 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ onComplete }) => {
   const getTooltipPosition = useCallback(
     (step: TutorialStep) => {
       const bounds = getElementBounds(step.targetSelector);
-      if (!bounds) {
+      if (!bounds || step.position === 'center') {
         return {
           top: '50%',
           left: '50%',
@@ -168,15 +268,10 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ onComplete }) => {
           left = bounds.right + offsetX;
           transform = 'translate(0, -50%)';
           break;
-        case 'center':
+        default:
           top = window.innerHeight / 2;
           left = window.innerWidth / 2;
           transform = 'translate(-50%, -50%)';
-          break;
-        default:
-          top = 0;
-          left = 0;
-          transform = '';
       }
 
       // Ensure tooltip stays within viewport
@@ -191,7 +286,7 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ onComplete }) => {
 
       return { top, left, transform };
     },
-    [isMobile]
+    [isMobile, getElementBounds]
   );
 
   const renderSpotlight = (step: TutorialStep) => {
@@ -208,7 +303,7 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ onComplete }) => {
       borderRadius: 'var(--radius)',
       boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.5)',
       animation: 'pulse-subtle 2s ease-in-out infinite',
-      pointerEvents: 'none'
+      pointerEvents: 'none' as React.CSSProperties['pointerEvents']
     };
 
     return <div style={spotlightStyle} />;
@@ -232,6 +327,9 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ onComplete }) => {
           </h3>
         </div>
         <p className="text-gray-600 mb-4">{steps[currentStep].description}</p>
+        {steps[currentStep].exampleVisual && (
+          <div className="mb-4">{steps[currentStep].exampleVisual}</div>
+        )}
         <div className="flex justify-between items-center">
           <button
             onClick={handlePrevious}
