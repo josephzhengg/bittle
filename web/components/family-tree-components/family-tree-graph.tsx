@@ -429,11 +429,19 @@ const autoLayout = (
 
     let childX = x + (availableWidth - totalChildWidth) / 2;
 
-    children.forEach((childId) => {
+    children.forEach((childId, idx) => {
       const childWidth = subtreeWidths.get(childId) || NODE_WIDTH;
+
+      let offsetX = 0;
+      const parentX = x + availableWidth / 2 - NODE_WIDTH / 2;
+      const childPlannedX = childX + childWidth / 2 - NODE_WIDTH / 2;
+      if (Math.abs(childPlannedX - parentX) < 10) {
+        offsetX = (idx % 2 === 0 ? 1 : -1) * 8;
+      }
+
       positionNode(
         childId,
-        childX,
+        childX + offsetX,
         y + NODE_HEIGHT + VERTICAL_SPACING,
         childWidth
       );
