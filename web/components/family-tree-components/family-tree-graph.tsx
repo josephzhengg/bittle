@@ -89,24 +89,21 @@ const createStyledEdge = (
   const targetNode = nodes.find((n) => n.id === target);
   const isBigToLittle = sourceNode?.data.is_big && targetNode?.data.hasBig;
 
-  const sourceX = sourceNode?.position?.x;
-  const targetX = targetNode?.position?.x;
-
-  const isVertical =
-    sourceX !== undefined &&
-    targetX !== undefined &&
-    Math.abs(sourceX - targetX) < 10;
+  const sourceX = sourceNode?.position?.x ?? 0;
+  const targetX = targetNode?.position?.x ?? 0;
+  const isVertical = Math.abs(sourceX - targetX) < 10;
 
   return {
     id: edgeId,
-    type: isVertical ? 'default' : 'smoothstep',
     source,
     target,
+
+    type: isVertical ? 'straight' : 'smoothstep',
+    sourceHandle: isVertical ? 'bottom' : undefined,
+    targetHandle: isVertical ? 'top' : undefined,
     style: getEdgeStyle(sourceNode, targetNode),
     animated: isBigToLittle,
     markerEnd: getCustomMarker(isBigToLittle ? 'bigToLittle' : 'general'),
-    sourceHandle: isVertical ? 'right' : undefined,
-    targetHandle: isVertical ? 'left' : undefined,
     data: {
       relationshipType: isBigToLittle ? 'bigToLittle' : 'general',
       isVertical
@@ -117,7 +114,7 @@ const createStyledEdge = (
 export const useIsMobile = () => {
   const [isMobile, setIsMobile] = useState(false);
 
-  React.useEffect(() => {
+  useEffect(() => {
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 768);
     };
@@ -311,12 +308,9 @@ const CustomNode: React.FC<{ data: NodeData; selected: boolean }> = ({
 
 const nodeTypes = { custom: CustomNode };
 
-const getNodePosition = (
-  member: z.infer<typeof TreeMember>,
-  containerHeight: number
-) => ({
+const getNodePosition = (member: z.infer<typeof TreeMember>) => ({
   x: member.position_x ?? 0,
-  y: Math.min(member.position_y ?? 0, containerHeight - NODE_HEIGHT - PADDING)
+  y: member.position_y ?? 0
 });
 
 const findEmptySpace = (
@@ -325,8 +319,9 @@ const findEmptySpace = (
   containerWidth: number,
   containerHeight: number
 ) => {
-  let x = 0,
-    y = 0;
+  let x = PADDING,
+    y = PADDING;
+
   const isOverlapping = (testX: number, testY: number) =>
     nodes.some(
       (n) =>
@@ -336,7 +331,6 @@ const findEmptySpace = (
         testY < n.position.y + NODE_HEIGHT + PADDING &&
         testY + NODE_HEIGHT > n.position.y
     );
-
   const directions = [
     { dx: 1, dy: 0 },
     { dx: 0, dy: 1 },
@@ -355,16 +349,13 @@ const findEmptySpace = (
     x = Math.max(0, Math.min(x, containerWidth - NODE_WIDTH - PADDING));
     y = Math.max(0, Math.min(y, containerHeight - NODE_HEIGHT - PADDING));
   }
+  x = Math.max(PADDING, Math.min(x, containerWidth - NODE_WIDTH - PADDING));
+  y = Math.max(PADDING, Math.min(y, containerHeight - NODE_HEIGHT - PADDING));
 
-  return { x, y: Math.min(y, containerHeight - NODE_HEIGHT - PADDING) };
+  return { x, y };
 };
 
-const autoLayout = (
-  nodes: Node<NodeData>[],
-  edges: Edge[],
-  containerWidth: number,
-  containerHeight: number
-) => {
+const autoLayout = (nodes: Node<NodeData>[], edges: Edge[]) => {
   const bigToLittles = new Map<string, string[]>();
   const littleToBig = new Map<string, string>();
 
@@ -374,122 +365,77 @@ const autoLayout = (
     littleToBig.set(edge.target, edge.source);
   });
 
-  const orphanIds = nodes
-    .filter(
-      (node) =>
-        !bigToLittles.has(node.id) &&
-        !littleToBig.has(node.id) &&
-        edges.every((e) => e.source !== node.id && e.target !== node.id)
-    )
-    .map((node) => node.id);
-
-  const roots = nodes.filter(
-    (node) => !littleToBig.has(node.id) && !orphanIds.includes(node.id)
-  );
-
-  const subtreeWidths = new Map<string, number>();
-  const calculateSubtreeWidth = (nodeId: string): number => {
-    if (subtreeWidths.has(nodeId)) return subtreeWidths.get(nodeId)!;
-    const children = bigToLittles.get(nodeId) || [];
-    if (children.length === 0) {
-      subtreeWidths.set(nodeId, NODE_WIDTH);
-      return NODE_WIDTH;
-    }
-    const childrenWidths = children.map((childId) =>
-      calculateSubtreeWidth(childId)
-    );
-    const totalChildWidth =
-      childrenWidths.reduce((sum, width) => sum + width, 0) +
-      (children.length - 1) * PADDING;
-    const width = Math.max(NODE_WIDTH, totalChildWidth);
-    subtreeWidths.set(nodeId, width);
-    return width;
+  const calculateHorizontalOffset = (depth: number) => {
+    const baseOffset = 15;
+    return depth % 2 === 0 ? baseOffset : -baseOffset;
   };
-  roots.forEach((root) => calculateSubtreeWidth(root.id));
 
   const positions = new Map<string, { x: number; y: number }>();
-  const positionNode = (
-    nodeId: string,
-    x: number,
-    y: number,
-    availableWidth: number
-  ) => {
-    positions.set(nodeId, {
-      x: x + availableWidth / 2 - NODE_WIDTH / 2,
-      y
-    });
-    const children = bigToLittles.get(nodeId) || [];
-    if (children.length === 0) return;
 
-    const totalChildWidth =
-      children
-        .map((childId) => subtreeWidths.get(childId) || NODE_WIDTH)
-        .reduce((sum, width) => sum + width, 0) +
-      (children.length - 1) * PADDING;
-
-    let childX = x + (availableWidth - totalChildWidth) / 2;
-
-    children.forEach((childId, idx) => {
-      const childWidth = subtreeWidths.get(childId) || NODE_WIDTH;
-
-      let offsetX = 0;
-      const parentX = x + availableWidth / 2 - NODE_WIDTH / 2;
-      const childPlannedX = childX + childWidth / 2 - NODE_WIDTH / 2;
-      if (Math.abs(childPlannedX - parentX) < 10) {
-        offsetX = (idx % 2 === 0 ? 1 : -1) * 8;
-      }
-
-      positionNode(
-        childId,
-        childX + offsetX,
-        y + NODE_HEIGHT + VERTICAL_SPACING,
-        childWidth
-      );
-      childX += childWidth + PADDING;
-    });
-  };
-
+  const orphanedNodes = nodes.filter(
+    (node) => !littleToBig.has(node.id) && !bigToLittles.has(node.id)
+  );
   let orphanX = PADDING;
   const orphanY = PADDING;
-  orphanIds.forEach((id) => {
-    positions.set(id, { x: orphanX, y: orphanY });
-    orphanX += NODE_WIDTH + PADDING;
+  orphanedNodes.forEach((node) => {
+    positions.set(node.id, {
+      x: orphanX,
+      y: orphanY
+    });
+    orphanX += NODE_WIDTH + PADDING / 2;
   });
 
-  const treeStartY =
-    orphanY +
-    NODE_HEIGHT +
-    (orphanIds.length > 0 ? VERTICAL_SPACING * 2 : VERTICAL_SPACING);
-  let currentRootX = PADDING;
-  roots.forEach((root) => {
-    const rootWidth = subtreeWidths.get(root.id) || NODE_WIDTH;
-    positionNode(root.id, currentRootX, treeStartY, rootWidth);
-    currentRootX += rootWidth + PADDING * 2;
-  });
+  const currentY = orphanY + NODE_HEIGHT + VERTICAL_SPACING / 2;
+  let currentX = PADDING;
+  const roots = nodes.filter((node) => !littleToBig.has(node.id));
+  const connectedNodeIds = new Set(
+    nodes
+      .filter((node) => littleToBig.has(node.id) || bigToLittles.has(node.id))
+      .map((n) => n.id)
+  );
 
-  const allPositions = Array.from(positions.values());
-  const minX = Math.min(...allPositions.map((p) => p.x));
-  const maxX = Math.max(...allPositions.map((p) => p.x + NODE_WIDTH));
-  const totalLayoutWidth = maxX - minX;
-  const offsetX =
-    totalLayoutWidth < containerWidth
-      ? (containerWidth - totalLayoutWidth) / 2 - minX
-      : 0;
+  const layoutTree = (
+    nodeId: string,
+    startX: number,
+    availableWidth: number,
+    depth: number
+  ) => {
+    const node = nodes.find((n) => n.id === nodeId);
+    if (!node) return;
+
+    const horizontalOffset = calculateHorizontalOffset(depth);
+    const x = startX + availableWidth / 2 - NODE_WIDTH / 2 + horizontalOffset;
+    const y = currentY + depth * (NODE_HEIGHT + VERTICAL_SPACING);
+
+    positions.set(nodeId, { x, y });
+
+    const children = bigToLittles.get(nodeId) || [];
+    if (children.length > 0) {
+      const childWidths = children.map(() => NODE_WIDTH + PADDING / 2);
+      const totalChildrenWidth = childWidths.reduce((sum, w) => sum + w, 0);
+      let childX = startX + (availableWidth - totalChildrenWidth) / 2;
+
+      children.forEach((childId, index) => {
+        layoutTree(childId, childX, childWidths[index], depth + 1);
+        childX += childWidths[index];
+      });
+    }
+  };
+
+  roots
+    .filter((root) => connectedNodeIds.has(root.id))
+    .forEach((root) => {
+      const treeWidth = NODE_WIDTH * 3;
+      layoutTree(root.id, currentX, treeWidth, 0);
+      currentX += treeWidth + PADDING / 2;
+    });
 
   const updatedNodes = nodes.map((node) => {
-    const pos = positions.get(node.id) || { x: 0, y: 0 };
-    const x = Math.max(
-      PADDING,
-      Math.min(pos.x + offsetX, containerWidth - NODE_WIDTH - PADDING)
-    );
-    const y = Math.max(
-      PADDING,
-      Math.min(pos.y, containerHeight - NODE_HEIGHT - PADDING)
-    );
+    const pos = positions.get(node.id) || node.position;
     return {
       ...node,
-      position: { x, y },
-      data: { ...node.data, position_x: x, position_y: y }
+      position: { x: pos.x, y: pos.y },
+      data: { ...node.data, position_x: pos.x, position_y: pos.y }
     };
   });
 
@@ -585,7 +531,6 @@ const useFamilyTreeData = (
       setIsLoading(true);
       try {
         const members = await getFamilyTreeMembers(supabase, familyTreeId);
-        const { height } = getContainerSize();
         const nodes = members.map((member) => {
           const data: NodeData = {
             label: member.identifier,
@@ -603,7 +548,7 @@ const useFamilyTreeData = (
               ...data,
               label: `${getRoleIcon(data)} ${member.identifier}`
             },
-            position: getNodePosition(member, height),
+            position: getNodePosition(member),
             draggable: true,
             selectable: true
           };
@@ -729,7 +674,7 @@ const useFamilyTreeData = (
               ...data,
               label: `${getRoleIcon(data)} ${member.identifier}`
             },
-            position: getNodePosition(member, height),
+            position: getNodePosition(member),
             draggable: true,
             selectable: true
           };
@@ -911,6 +856,25 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
   const { fitView, getViewport } = useReactFlow();
 
   useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      const viewport = getViewport();
+      console.log('Viewport:', viewport);
+      console.log('Click position:', {
+        x: e.clientX,
+        y: e.clientY,
+        worldX: (e.clientX - viewport.x) / viewport.zoom,
+        worldY: (e.clientY - viewport.y) / viewport.zoom
+      });
+    };
+
+    const container = containerRef.current;
+    container?.addEventListener('click', handleClick);
+    return () => {
+      container?.removeEventListener('click', handleClick);
+    };
+  }, [getViewport]);
+
+  useEffect(() => {
     const hasSeenTutorial = localStorage.getItem('hasSeenFamilyTreeTutorial');
     if (!hasSeenTutorial) {
       setShowTutorial(true);
@@ -921,10 +885,17 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
   const getContainerSize = useCallback(() => {
     if (containerRef.current) {
       const { width, height } = containerRef.current.getBoundingClientRect();
-      return { width, height };
+      return {
+        width,
+        height: height - 20
+      };
     }
-    return { width: window.innerWidth, height: window.innerHeight };
+    return {
+      width: window.innerWidth,
+      height: window.innerHeight - 20
+    };
   }, []);
+
   const { refetchNewSubmissions, isLoading } = useFamilyTreeData(
     familyTreeId,
     setNodes,
@@ -980,6 +951,80 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
       }
     },
     [supabase, familyTreeId, setNodes, fitView, getContainerSize, nodes]
+  );
+
+  const onEdgeContextMenu = useCallback(
+    (event: React.MouseEvent, edge: Edge) => {
+      event.preventDefault();
+
+      const sourceNode = nodes.find((n) => n.id === edge.source);
+      const targetNode = nodes.find((n) => n.id === edge.target);
+
+      if (!sourceNode || !targetNode || !containerRef.current) return;
+
+      const viewport = getViewport();
+      const { x: panX, y: panY, zoom } = viewport;
+
+      // Calculate the midpoint between source and target node centers
+      const midX =
+        (sourceNode.position.x +
+          NODE_WIDTH / 2 +
+          targetNode.position.x +
+          NODE_WIDTH / 2) /
+        2;
+      const midY =
+        (sourceNode.position.y +
+          NODE_HEIGHT / 2 +
+          targetNode.position.y +
+          NODE_HEIGHT / 2) /
+        2;
+
+      // Convert to screen coordinates
+      const screenX = midX * zoom + panX;
+      const screenY = midY * zoom + panY;
+
+      const containerBounds = containerRef.current.getBoundingClientRect();
+      const menuX = Math.max(
+        10,
+        Math.min(screenX, containerBounds.width - 220)
+      );
+      const menuY = Math.max(
+        10,
+        Math.min(screenY, containerBounds.height - 100)
+      );
+
+      setContextMenu({
+        id: edge.id,
+        type: 'edge',
+        position: {
+          x: menuX,
+          y: menuY
+        }
+      });
+
+      setEdges((eds) =>
+        eds.map((e) => ({
+          ...e,
+          selected: e.id === edge.id
+        }))
+      );
+    },
+    [setEdges, nodes, getViewport]
+  );
+
+  const onNodeDragStop = useCallback(
+    async (_: React.MouseEvent, node: Node) => {
+      try {
+        const { x, y } = node.position;
+        await supabase
+          .from('tree_member')
+          .update({ position_x: x, position_y: y })
+          .eq('id', node.id);
+      } catch {
+        toast.error(`Failed to update position`);
+      }
+    },
+    [supabase]
   );
 
   const onConnect = useCallback(
@@ -1169,7 +1214,7 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
         );
       }
 
-      const updatedNodes = autoLayout(nodes, edges, width, height);
+      const updatedNodes = autoLayout(nodes, edges);
       if (!updatedNodes.length) {
         throw new Error('Auto-layout returned no nodes');
       }
@@ -1220,33 +1265,6 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
       );
     }
   }, [nodes, edges, setNodes, fitView, getContainerSize, supabase]);
-
-  const onNodeDragStop = useCallback(
-    async (_: React.MouseEvent, node: Node) => {
-      try {
-        const { x, y } = node.positionAbsolute ?? node.position;
-        const { height } = getContainerSize();
-        const constrainedY = Math.min(y, height - NODE_HEIGHT - PADDING);
-
-        await supabase
-          .from('tree_member')
-          .update({ position_x: x, position_y: constrainedY })
-          .eq('id', node.id);
-        setNodes((nds) =>
-          nds.map((n) =>
-            n.id === node.id ? { ...n, position: { x, y: constrainedY } } : n
-          )
-        );
-      } catch (err) {
-        toast(
-          `Failed to update position: ${
-            err instanceof Error ? err.message : 'Unknown error'
-          }`
-        );
-      }
-    },
-    [setNodes, supabase, getContainerSize]
-  );
 
   const handleSaveIdentifier = useCallback(
     async (nodeId: string, newIdentifier: string) => {
@@ -1418,7 +1436,6 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
           Tutorial
         </button>
       </div>
-
       <div
         className={`absolute ${
           isMobile
@@ -1529,7 +1546,6 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
           </div>
         </div>
       </div>
-
       {selectedSubmission && selectedSubmission.formId && !isMobile && (
         <div className="z-50">
           <SubmissionDetailsOverlay
@@ -1540,7 +1556,6 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
           />
         </div>
       )}
-
       {selectedSubmission && !selectedSubmission.formId && !isMobile && (
         <div className="z-50">
           <SubmissionDetailsLoadingSkeleton
@@ -1548,7 +1563,6 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
           />
         </div>
       )}
-
       {showTutorial && (
         <TutorialOverlay
           onComplete={() => {
@@ -1557,9 +1571,16 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
           }}
         />
       )}
-
       <div
         ref={containerRef}
+        style={{
+          width: '100%',
+          height: '100%',
+          position: 'absolute',
+          overflow: 'visible',
+          top: 0,
+          left: 0
+        }}
         className="react-flow-container"
         onClick={() => {
           setContextMenu(null);
@@ -1571,7 +1592,9 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
           onNodeDragStop={onNodeDragStop}
+          onEdgeContextMenu={onEdgeContextMenu}
           onConnect={onConnect}
+          edgeUpdaterRadius={20}
           onNodeContextMenu={(e, node) => {
             e.preventDefault();
             setNodes((nds) =>
@@ -1605,28 +1628,62 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
               position: { x: menuX, y: menuY }
             });
           }}
-          onEdgeContextMenu={(e, edge) => {
-            e.preventDefault();
-            setEdges((eds) =>
-              eds.map((e) => ({ ...e, selected: e.id === edge.id }))
-            );
-            setContextMenu({
-              id: edge.id,
-              type: 'edge',
-              position: { x: e.clientX, y: e.clientY }
-            });
-          }}
           onEdgeClick={(e, edge) => {
             e.preventDefault();
             e.stopPropagation();
-            setEdges((eds) =>
-              eds.map((e) => ({ ...e, selected: e.id === edge.id }))
+
+            const sourceNode = nodes.find((n) => n.id === edge.source);
+            const targetNode = nodes.find((n) => n.id === edge.target);
+
+            if (!sourceNode || !targetNode || !containerRef.current) return;
+
+            const viewport = getViewport();
+            const { x: panX, y: panY, zoom } = viewport;
+
+            // Calculate the midpoint between source and target node centers
+            const midX =
+              (sourceNode.position.x +
+                NODE_WIDTH / 2 +
+                targetNode.position.x +
+                NODE_WIDTH / 2) /
+              2;
+            const midY =
+              (sourceNode.position.y +
+                NODE_HEIGHT / 2 +
+                targetNode.position.y +
+                NODE_HEIGHT / 2) /
+              2;
+
+            // Convert to screen coordinates
+            const screenX = midX * zoom + panX;
+            const screenY = midY * zoom + panY;
+
+            const containerBounds =
+              containerRef.current.getBoundingClientRect();
+            const menuX = Math.max(
+              10,
+              Math.min(screenX, containerBounds.width - 220)
             );
+            const menuY = Math.max(
+              10,
+              Math.min(screenY, containerBounds.height - 100)
+            );
+
             setContextMenu({
               id: edge.id,
               type: 'edge',
-              position: { x: e.clientX, y: e.clientY }
+              position: {
+                x: menuX,
+                y: menuY
+              }
             });
+
+            setEdges((eds) =>
+              eds.map((e) => ({
+                ...e,
+                selected: e.id === edge.id
+              }))
+            );
           }}
           onNodeClick={handleNodeClick}
           onPaneClick={() => {
@@ -1640,11 +1697,22 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
           nodeTypes={nodeTypes}
           fitView
           fitViewOptions={{
-            padding: isMobile ? 0.2 : 0.4,
-            maxZoom: isMobile ? 2 : 1
+            padding: 0,
+            includeHiddenNodes: true,
+            duration: 0
           }}
-          minZoom={isMobile ? 0.1 : 0.2}
-          maxZoom={isMobile ? 6 : 4}
+          minZoom={0.01}
+          maxZoom={10}
+          translateExtent={[
+            [-Infinity, -Infinity],
+            [Infinity, Infinity]
+          ]}
+          nodeExtent={undefined}
+          style={{
+            background: 'transparent',
+            width: '100%',
+            height: '100%'
+          }}
           proOptions={proOptions}>
           <svg style={{ position: 'absolute', width: 0, height: 0 }}>
             <defs>
@@ -1687,14 +1755,12 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
         <div
           className={`absolute bg-white/95 backdrop-blur-md border border-gray-200/50 rounded-xl shadow-2xl py-3 z-[100] ${
             isMobile ? 'min-w-[160px] text-sm' : 'min-w-[200px]'
-          } animate-in fade-in-0 zoom-in-95 duration-150`}
+          }`}
           style={{
-            left: isMobile
-              ? Math.min(contextMenu.position.x, window.innerWidth - 170)
-              : contextMenu.position.x + 10,
-            top: contextMenu.position.y + 10,
-            transform: 'translate(0, 0)'
-          }}>
+            left: contextMenu.position.x,
+            top: contextMenu.position.y
+          }}
+          onClick={(e) => e.stopPropagation()}>
           <div className="px-4 py-2 border-b border-gray-100">
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 rounded-full bg-gradient-to-r from-blue-500 to-purple-600"></div>
