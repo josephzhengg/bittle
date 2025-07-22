@@ -29,7 +29,15 @@ import {
   PopoverTrigger,
   PopoverContent
 } from '@/components/ui/popover';
-import { TreePine, Plus, Search } from 'lucide-react';
+import {
+  Command,
+  CommandInput,
+  CommandEmpty,
+  CommandGroup,
+  CommandItem,
+  CommandList
+} from '@/components/ui/command';
+import { TreePine, Plus, Search, ChevronsUpDown, Check } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 
 export type FamilyTreesPageProps = {
@@ -49,9 +57,18 @@ export default function FamilyTreesPage({ user }: FamilyTreesPageProps) {
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
+  const [formPopoverOpen, setFormPopoverOpen] = useState(false);
+  const [questionPopoverOpen, setQuestionPopoverOpen] = useState(false);
+
   const handleFormSelect = (form: Form) => {
     setSelectedForm(form);
     setSelectedQuestion(null);
+    setFormPopoverOpen(false);
+  };
+
+  const handleQuestionSelect = (question: Question) => {
+    setSelectedQuestion(question);
+    setQuestionPopoverOpen(false);
   };
 
   const familyTrees = useQuery({
@@ -146,6 +163,12 @@ export default function FamilyTreesPage({ user }: FamilyTreesPageProps) {
         return a.title.localeCompare(b.title);
       }) || [];
 
+  const availableForms =
+    forms.data?.filter(
+      (form: Form) =>
+        !familyTrees.data?.some((tree) => tree.form_id === form.id)
+    ) || [];
+
   return (
     <DashBoardLayout user={user}>
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50/30">
@@ -174,7 +197,7 @@ export default function FamilyTreesPage({ user }: FamilyTreesPageProps) {
               </div>
               <div className="bg-white/70 backdrop-blur-sm border border-slate-200 rounded-lg p-4">
                 <div className="text-2xl font-bold text-blue-600">
-                  {forms.data?.length || 0}
+                  {availableForms.length}
                 </div>
                 <div className="text-sm text-slate-600">Available Forms</div>
               </div>
@@ -222,88 +245,167 @@ export default function FamilyTreesPage({ user }: FamilyTreesPageProps) {
                       className="bg-white/10 backdrop-blur-lg border border-white/20 text-white placeholder:text-white/50 focus:border-green-500/50 focus:ring-green-500/20"
                     />
 
-                    <Popover modal={true}>
+                    <Popover
+                      open={formPopoverOpen}
+                      onOpenChange={setFormPopoverOpen}
+                      modal={true}>
                       <PopoverTrigger asChild>
-                        <Button className="w-full bg-white/10 backdrop-blur-lg border border-white/20 text-white hover:bg-white/20">
-                          {selectedForm
-                            ? `Selected: ${selectedForm.title}`
-                            : 'Select Form'}
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          aria-expanded={formPopoverOpen}
+                          className="w-full justify-between text-left h-auto py-4 px-4 bg-white/10 backdrop-blur-lg border border-white/20 text-white hover:bg-white/20">
+                          <div className="flex items-center gap-2">
+                            <span className="truncate">
+                              {selectedForm
+                                ? selectedForm.title
+                                : 'Select Form'}
+                            </span>
+                          </div>
+                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                         </Button>
                       </PopoverTrigger>
-                      <PopoverContent className="w-full max-w-lg p-0 max-h-80 overflow-y-auto bg-gradient-to-br from-slate-900/95 to-green-900/95 backdrop-blur-xl border border-white/20 text-white rounded-lg shadow-lg">
-                        <div>
-                          {forms.data?.map((form: Form) => (
-                            <div
-                              key={form.id}
-                              className={`p-3 border-b border-white/20 cursor-pointer hover:bg-white/10 ${
-                                selectedForm?.id === form.id
-                                  ? 'bg-green-500/20 border-green-500/30'
-                                  : ''
-                              }`}
-                              onClick={() => handleFormSelect(form)}>
-                              <h3 className="font-semibold text-white">
-                                {form.title}
-                              </h3>
-                              <p className="text-sm text-white/70">
-                                {form.code}
-                              </p>
-                            </div>
-                          ))}
-                          {forms.isLoading && (
-                            <div className="p-4 text-center text-white/70">
-                              Loading forms...
-                            </div>
-                          )}
-                          {forms.error && (
-                            <div className="p-4 text-center text-red-400">
-                              Error loading forms
-                            </div>
-                          )}
-                        </div>
+                      <PopoverContent className="w-full p-0 bg-slate-900/95 backdrop-blur-lg border border-white/20">
+                        <Command className="bg-transparent">
+                          <CommandInput
+                            placeholder="Search forms..."
+                            className="text-white placeholder:text-white/60 border-b border-white/20"
+                          />
+                          <CommandEmpty className="text-white/80 py-6 text-center">
+                            No forms found.
+                          </CommandEmpty>
+                          <CommandGroup>
+                            <CommandList className="max-h-64 overflow-y-auto">
+                              <div
+                                className="overscroll-contain"
+                                style={{
+                                  scrollbarWidth: 'thin',
+                                  scrollbarColor:
+                                    'rgba(255,255,255,0.2) transparent'
+                                }}
+                                tabIndex={0}
+                                onFocus={(e) => e.currentTarget.focus()}>
+                                {forms.isLoading && (
+                                  <div className="p-4 text-center text-white/70">
+                                    Loading forms...
+                                  </div>
+                                )}
+                                {forms.error && (
+                                  <div className="p-4 text-center text-red-400">
+                                    Error loading forms
+                                  </div>
+                                )}
+                                {availableForms.map((form) => (
+                                  <CommandItem
+                                    key={form.id}
+                                    onSelect={() => handleFormSelect(form)}
+                                    className={`text-lg py-4 px-4 rounded-lg cursor-pointer transition-all duration-200 ${
+                                      selectedForm?.id === form.id
+                                        ? 'bg-gradient-to-r from-green-500/30 to-emerald-500/30 text-white border border-green-400/40 shadow-md'
+                                        : 'text-white/90 hover:bg-green-500/15 hover:text-white'
+                                    }`}>
+                                    <div className="flex items-center justify-between w-full">
+                                      <div>
+                                        <span className="font-semibold">
+                                          {form.title}
+                                        </span>
+                                        <p className="text-sm text-white/70">
+                                          {form.code}
+                                        </p>
+                                      </div>
+                                      {selectedForm?.id === form.id && (
+                                        <Check className="h-4 w-4 text-green-300" />
+                                      )}
+                                    </div>
+                                  </CommandItem>
+                                ))}
+                              </div>
+                            </CommandList>
+                          </CommandGroup>
+                        </Command>
                       </PopoverContent>
                     </Popover>
 
                     {selectedForm && (
-                      <Popover modal={true}>
+                      <Popover
+                        open={questionPopoverOpen}
+                        onOpenChange={setQuestionPopoverOpen}
+                        modal={true}>
                         <PopoverTrigger asChild>
-                          <Button className="w-full bg-white/10 backdrop-blur-lg border border-white/20 text-white hover:bg-white/20">
-                            {selectedQuestion
-                              ? `Selected: ${selectedQuestion.prompt}`
-                              : 'Select Question'}
+                          <Button
+                            variant="outline"
+                            role="combobox"
+                            aria-expanded={questionPopoverOpen}
+                            className="w-full justify-between text-left h-auto py-4 px-4 bg-white/10 backdrop-blur-lg border border-white/20 text-white hover:bg-white/20">
+                            <div className="flex items-center gap-2">
+                              <span className="truncate">
+                                {selectedQuestion
+                                  ? selectedQuestion.prompt
+                                  : 'Select Question'}
+                              </span>
+                            </div>
+                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                           </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-full max-w-lg p-0 max-h-80 overflow-y-auto bg-gradient-to-br from-slate-900/95 to-green-900/95 backdrop-blur-xl border border-white/20 text-white rounded-lg shadow-lg">
-                          <div>
-                            <div className="p-3 border-b border-white/20 bg-slate-900/50 sticky top-0 z-10">
-                              <h3 className="font-semibold text-white">
-                                {selectedForm.title}
-                              </h3>
-                            </div>
-                            {questions.data?.map((question: Question) => (
-                              <div
-                                key={question.id}
-                                className={`p-3 border-b border-white/20 cursor-pointer hover:bg-white/10 ${
-                                  selectedQuestion?.id === question.id
-                                    ? 'bg-green-500/20 border-green-500/30'
-                                    : ''
-                                }`}
-                                onClick={() => setSelectedQuestion(question)}>
-                                <span className="text-white">
-                                  {question.prompt}
-                                </span>
+                        <PopoverContent className="w-full p-0 bg-slate-900/95 backdrop-blur-lg border border-white/20">
+                          <Command className="bg-transparent">
+                            <CommandInput
+                              placeholder="Search questions..."
+                              className="text-white placeholder:text-white/60 border-b border-white/20"
+                            />
+                            <CommandEmpty className="text-white/80 py-6 text-center">
+                              No questions found.
+                            </CommandEmpty>
+                            <CommandGroup>
+                              <div className="p-3 border-b border-white/20 bg-slate-900/50 sticky top-0 z-10">
+                                <h3 className="font-semibold text-white">
+                                  {selectedForm.title}
+                                </h3>
                               </div>
-                            ))}
-                            {questions.isLoading && (
-                              <div className="p-4 text-center text-white/70">
-                                Loading questions...
-                              </div>
-                            )}
-                            {questions.error && (
-                              <div className="p-4 text-center text-red-400">
-                                Error loading questions
-                              </div>
-                            )}
-                          </div>
+                              <CommandList className="max-h-64 overflow-y-auto">
+                                <div
+                                  className="overscroll-contain"
+                                  style={{
+                                    scrollbarWidth: 'thin',
+                                    scrollbarColor:
+                                      'rgba(255,255,255,0.2) transparent'
+                                  }}
+                                  tabIndex={0}
+                                  onFocus={(e) => e.currentTarget.focus()}>
+                                  {questions.isLoading && (
+                                    <div className="p-4 text-center text-white/70">
+                                      Loading questions...
+                                    </div>
+                                  )}
+                                  {questions.error && (
+                                    <div className="p-4 text-center text-red-400">
+                                      Error loading questions
+                                    </div>
+                                  )}
+                                  {questions.data?.map((question) => (
+                                    <CommandItem
+                                      key={question.id}
+                                      onSelect={() =>
+                                        handleQuestionSelect(question)
+                                      }
+                                      className={`text-lg py-4 px-4 rounded-lg cursor-pointer transition-all duration-200 ${
+                                        selectedQuestion?.id === question.id
+                                          ? 'bg-gradient-to-r from-green-500/30 to-emerald-500/30 text-white border border-green-400/40 shadow-md'
+                                          : 'text-white/90 hover:bg-green-500/15 hover:text-white'
+                                      }`}>
+                                      <div className="flex items-center justify-between w-full">
+                                        <span>{question.prompt}</span>
+                                        {selectedQuestion?.id ===
+                                          question.id && (
+                                          <Check className="h-4 w-4 text-green-300" />
+                                        )}
+                                      </div>
+                                    </CommandItem>
+                                  ))}
+                                </div>
+                              </CommandList>
+                            </CommandGroup>
+                          </Command>
                         </PopoverContent>
                       </Popover>
                     )}
