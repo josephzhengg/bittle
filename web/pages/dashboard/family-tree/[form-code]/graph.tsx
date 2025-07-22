@@ -96,7 +96,9 @@ export default function GraphPage({
             </TabsTrigger>
             <TabsTrigger
               value="forms"
-              onClick={() => router.push(`/dashboard/current/form/${formCode}`)}
+              onClick={() =>
+                router.push(`/dashboard/family-tree/${formCode}/manage`)
+              }
               className="flex items-center gap-2 h-10 px-3 sm:px-6 rounded-md font-medium transition-all data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-slate-800 text-slate-600 hover:text-slate-800">
               <User2 className="w-4 h-4" />
               <span className="hidden xs:inline">Manage Tree</span>
