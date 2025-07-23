@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { FamilyTree } from '@/utils/supabase/models/family-tree';
 import { TreeMember } from '@/utils/supabase/models/tree-member';
 import { FormSubmission } from '@/utils/supabase/models/form-submission';
+import { Connections } from '../models/connection';
 
 const NODE_WIDTH = 172;
 const NODE_HEIGHT = 36;
@@ -33,6 +34,48 @@ const calculateMemberPositions = (
   });
 
   return positions;
+};
+
+export const getConnections = async (
+  supabase: SupabaseClient,
+  family_tree_id: string
+): Promise<z.infer<typeof Connections>[]> => {
+  const { data, error } = await supabase
+    .from('connections')
+    .select()
+    .eq('family_tree_id', family_tree_id);
+
+  if (!data || error) {
+    throw new Error(`Error fetching connections: ${error?.message}`);
+  }
+
+  return data;
+};
+
+export const getIdentifier = async (
+  supabase: SupabaseClient,
+  member_id: string
+): Promise<string> => {
+  const { data, error } = await supabase
+    .from('tree_member')
+    .select('id, identifier')
+    .eq('id', member_id)
+    .single();
+
+  if (error || !data) {
+    console.error(
+      `Error fetching identifier for member_id ${member_id}:`,
+      error,
+      data
+    );
+    throw new Error(`Error fetching identifier: ${error?.message}`);
+  }
+
+  if (!data.identifier) {
+    console.warn(`Identifier missing for member_id ${member_id}:`, data);
+  }
+
+  return data.identifier;
 };
 
 export async function createFamilyTree(
