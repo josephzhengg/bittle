@@ -32,7 +32,8 @@ import {
   toggleBig,
   getFamilyTreeMembers,
   createFamilyMember,
-  updateIdentifier
+  updateIdentifier,
+  deleteFamilyMember
 } from '@/utils/supabase/queries/family-tree';
 import { getQuestions, getOptions } from '@/utils/supabase/queries/question';
 import SubmissionDetailsOverlay from '@/components/family-tree-components/submission-details-overlay';
@@ -59,6 +60,7 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import DeleteMemberDialog from './delete-member-dialog';
 
 const layoutControlItems = [
   { title: 'Auto Layout', action: 'resetLayout', icon: Layout },
@@ -930,6 +932,18 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
   } | null>(null);
   const [addMemberDialog, setAddMemberDialog] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
+  const [deleteMemberDialog, setDeleteMemberDialog] = useState<{
+    isOpen: boolean;
+    nodeId: string;
+    identifier: string;
+    formSubmissionId?: string | null;
+  } | null>(null);
+  const [lastTap, setLastTap] = useState<{
+    time: number;
+    id: string;
+    x: number;
+    y: number;
+  } | null>(null); // State for double-tap detection
   const containerRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
   const { fitView, getViewport } = useReactFlow();
@@ -1107,7 +1121,10 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
   const onConnect = useCallback(
     async (connection: Connection) => {
       if (!connection.source || !connection.target) return;
-
+      if (connection.source === connection.target) {
+        toast.error('Cannot connect a member to themselves');
+        return;
+      }
       try {
         const result = await createConnection(
           supabase,
@@ -1213,16 +1230,35 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
     async (id: string, type: 'node' | 'edge') => {
       try {
         if (type === 'node') {
-          await supabase.from('tree_member').delete().eq('id', id);
-          setNodes((nds) => nds.filter((n) => n.id !== id));
+          const node = nodes.find((n) => n.id === id);
+          if (!node) {
+            throw new Error('Node not found');
+          }
+
+          // Extract the clean identifier (without role icon)
+          const cleanIdentifier = node.data.label.split(' ').slice(1).join(' ');
+
+          // Open the confirmation dialog instead of deleting immediately
+          setDeleteMemberDialog({
+            isOpen: true,
+            nodeId: id,
+            identifier: cleanIdentifier,
+            formSubmissionId: node.data.form_submission_id
+          });
+        } else {
+          // Handle edge deletion (unchanged)
+          const edge = edges.find((e) => e.id === id);
+          if (!edge) {
+            throw new Error('Edge not found');
+          }
+
+          await removeConnection(supabase, edge.target, edge.source);
+
           setEdges((eds) => {
-            const updatedEdges = eds.filter(
-              (e) => e.source !== id && e.target !== id
-            );
+            const updatedEdges = eds.filter((e) => e.id !== id);
             setTimeout(async () => {
-              const remainingNodes = nodes.filter((n) => n.id !== id);
               await updateNodeRoles(
-                remainingNodes,
+                nodes,
                 updatedEdges,
                 setNodes,
                 setEdges,
@@ -1231,38 +1267,73 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
             }, 0);
             return updatedEdges;
           });
-          toast.success('Member deleted');
-        } else {
-          const edge = edges.find((e) => e.id === id);
-          if (edge) {
-            await removeConnection(supabase, edge.target, edge.source);
-            setEdges((eds) => {
-              const updatedEdges = eds.filter((e) => e.id !== id);
-              setTimeout(async () => {
-                await updateNodeRoles(
-                  nodes,
-                  updatedEdges,
-                  setNodes,
-                  setEdges,
-                  supabase
-                );
-              }, 0);
-              return updatedEdges;
-            });
-            toast.success('Connection deleted');
-          }
+
+          toast.success('Connection deleted successfully');
         }
       } catch (err) {
+        console.error(`Error initiating deletion for ${type}:`, err);
         toast.error(
-          `Failed to delete: ${
+          `Failed to initiate deletion for ${
+            type === 'node' ? 'member' : 'connection'
+          }: ${err instanceof Error ? err.message : 'Unknown error'}`
+        );
+      }
+    },
+    [edges, nodes, setNodes, setEdges, supabase]
+  );
+
+  const handleConfirmDelete = useCallback(
+    async (
+      nodeId: string,
+      formSubmissionId?: string | null,
+      identifier?: string
+    ) => {
+      try {
+        // Perform the deletion
+        await deleteFamilyMember(
+          supabase,
+          familyTreeId,
+          formSubmissionId,
+          formSubmissionId ? undefined : identifier
+        );
+
+        // Update the UI
+        setNodes((nds) => nds.filter((n) => n.id !== nodeId));
+        setEdges((eds) => {
+          const updatedEdges = eds.filter(
+            (e) => e.source !== nodeId && e.target !== nodeId
+          );
+          setTimeout(async () => {
+            const remainingNodes = nodes.filter((n) => n.id !== nodeId);
+            await updateNodeRoles(
+              remainingNodes,
+              updatedEdges,
+              setNodes,
+              setEdges,
+              supabase
+            );
+          }, 0);
+          return updatedEdges;
+        });
+
+        toast.success(
+          formSubmissionId
+            ? 'Member deleted successfully'
+            : 'Manual member deleted successfully'
+        );
+      } catch (err) {
+        console.error('Error deleting member:', err);
+        toast.error(
+          `Failed to delete member: ${
             err instanceof Error ? err.message : 'Unknown error'
           }`
         );
       } finally {
+        setDeleteMemberDialog(null);
         setContextMenu(null);
       }
     },
-    [edges, setNodes, setEdges, supabase, nodes]
+    [nodes, setNodes, setEdges, supabase, familyTreeId]
   );
 
   const resetLayout = useCallback(async () => {
@@ -1375,22 +1446,59 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
   );
 
   const handleNodeClick = useCallback(
-    async (e: React.MouseEvent, node: Node<NodeData>) => {
+    async (e: React.MouseEvent | React.TouchEvent, node: Node<NodeData>) => {
       e.stopPropagation();
       setNodes((nds) => nds.map((n) => ({ ...n, selected: n.id === node.id })));
       setEdges((eds) => eds.map((e) => ({ ...e, selected: false })));
       setContextMenu(null);
 
-      if (e.detail === 2) {
-        const cleanIdentifier = node.data.label.split(' ').slice(1).join(' ');
-        setEditDialog({
-          isOpen: true,
-          nodeId: node.id,
-          currentIdentifier: cleanIdentifier
+      const isTouch = 'touches' in e;
+      const x = isTouch ? e.touches[0].clientX : e.clientX;
+      const y = isTouch ? e.touches[0].clientY : e.clientY;
+      const now = Date.now();
+      const DOUBLE_TAP_THRESHOLD = 300; // 300ms for double-tap
+      const TAP_TOLERANCE = 20; // Pixel tolerance for tap position
+
+      // Double-tap detection
+      if (
+        lastTap &&
+        lastTap.id === node.id &&
+        now - lastTap.time < DOUBLE_TAP_THRESHOLD &&
+        Math.abs(lastTap.x - x) < TAP_TOLERANCE &&
+        Math.abs(lastTap.y - y) < TAP_TOLERANCE
+      ) {
+        const containerBounds = containerRef.current?.getBoundingClientRect();
+        if (!containerBounds) return;
+
+        const viewport = getViewport();
+        const { x: panX, y: panY, zoom } = viewport;
+
+        const nodeScreenX = (node.position.x + NODE_WIDTH / 2) * zoom + panX;
+        const nodeScreenY = (node.position.y + NODE_HEIGHT / 2) * zoom + panY;
+
+        const menuX = Math.max(
+          10,
+          Math.min(nodeScreenX + 20, containerBounds.width - 220)
+        );
+        const menuY = Math.max(
+          10,
+          Math.min(nodeScreenY - 50, containerBounds.height - 200)
+        );
+
+        setContextMenu({
+          id: node.id,
+          type: 'node',
+          position: { x: menuX, y: menuY }
         });
+        setLastTap(null);
         return;
       }
 
+      // Record first tap
+      setLastTap({ time: now, id: node.id, x, y });
+      setTimeout(() => setLastTap(null), DOUBLE_TAP_THRESHOLD);
+
+      // Single tap/click opens SubmissionDetailsOverlay
       if (node.data.form_submission_id) {
         try {
           setSelectedSubmission({
@@ -1428,7 +1536,7 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
           });
         } catch (err) {
           setSelectedSubmission(null);
-          toast(
+          toast.error(
             `Failed to fetch submission details: ${
               err instanceof Error ? err.message : 'Unknown error'
             }`
@@ -1437,12 +1545,11 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
       } else {
         if (!isMobile) {
           toast.info('No submission details available for this member');
-        } else {
-          setSelectedSubmission(null);
         }
+        setSelectedSubmission(null);
       }
     },
-    [setNodes, setEdges, supabase, familyTreeId, isMobile]
+    [setNodes, setEdges, supabase, familyTreeId, isMobile, lastTap, getViewport]
   );
 
   if (isLoading)
@@ -1602,7 +1709,7 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
               }`}>
               {isMobile
                 ? 'Double-tap to edit members'
-                : 'Double-click nodes to edit • Right-click for options'}
+                : 'Double / right-click to edit members'}
             </div>
           </div>
         </div>
@@ -1830,7 +1937,6 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
               </span>
             </div>
           </div>
-
           <div className="py-2">
             {contextMenu.type === 'node' && (
               <>
@@ -1886,6 +1992,20 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
           </div>
         </div>
       )}
+      {nodes.map((node) => (
+        <div
+          key={node.id}
+          className={`react-flow__node ${
+            lastTap && lastTap.id === node.id ? 'double-tapping' : ''
+          }`}
+          style={{
+            position: 'absolute',
+            left: node.position.x,
+            top: node.position.y,
+            pointerEvents: 'none'
+          }}
+        />
+      ))}
       {editDialog && (
         <EditIdentifierDialog
           isOpen={editDialog.isOpen}
@@ -1901,6 +2021,20 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
           familyTreeId={familyTreeId}
           onSave={handleAddMember}
           onCancel={() => setAddMemberDialog(false)}
+        />
+      )}
+      {deleteMemberDialog && (
+        <DeleteMemberDialog
+          isOpen={deleteMemberDialog.isOpen}
+          identifier={deleteMemberDialog.identifier}
+          onConfirm={() =>
+            handleConfirmDelete(
+              deleteMemberDialog.nodeId,
+              deleteMemberDialog.formSubmissionId,
+              deleteMemberDialog.identifier
+            )
+          }
+          onCancel={() => setDeleteMemberDialog(null)}
         />
       )}
     </div>

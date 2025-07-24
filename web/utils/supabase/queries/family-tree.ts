@@ -381,7 +381,20 @@ export async function refetchSubmissions(
       `Error fetching form submissions: ${submissionError.message}`
     );
   }
-  return submissionData || [];
+
+  const { data: filterData, error: filterError } = await supabase
+    .from('deleted_member')
+    .select('submission_id')
+    .eq('family_tree_id', family_tree_id);
+
+  if (filterError) {
+    throw new Error(`Error fetching deleted members: ${filterError.message}`);
+  }
+
+  return submissionData.filter(
+    (submission) =>
+      !filterData.some((filter) => filter.submission_id === submission.id)
+  );
 }
 
 export async function toggleBig(
@@ -427,6 +440,137 @@ export async function updateIdentifier(
     throw new Error(`Error updating identifier: ${error.message}`);
   }
 }
+
+export const deleteFamilyMember = async (
+  supabase: SupabaseClient,
+  family_tree_id: string,
+  submission_id?: string | null,
+  identifier?: string
+): Promise<void> => {
+  if (!submission_id && !identifier) {
+    throw new Error('Either submission_id or identifier must be provided');
+  }
+
+  let memberQuery = supabase
+    .from('tree_member')
+    .select('id')
+    .eq('family_tree_id', family_tree_id);
+
+  if (submission_id) {
+    memberQuery = memberQuery.eq('form_submission_id', submission_id);
+  } else if (identifier) {
+    memberQuery = memberQuery.eq('identifier', identifier);
+  }
+
+  const { data: memberData, error: memberError } = await memberQuery.single();
+
+  if (memberError || !memberData) {
+    throw new Error(
+      `No tree_member found: ${memberError?.message || 'Unknown error'}`
+    );
+  }
+
+  const memberId = memberData.id;
+
+  let deleteQuery = supabase.from('tree_member').delete();
+
+  if (submission_id) {
+    deleteQuery = deleteQuery.eq('form_submission_id', submission_id);
+  } else if (identifier) {
+    deleteQuery = deleteQuery
+      .eq('identifier', identifier)
+      .eq('family_tree_id', family_tree_id);
+  }
+
+  const { error: deleteError } = await deleteQuery;
+
+  if (deleteError) {
+    throw new Error(`Error deleting family member: ${deleteError.message}`);
+  }
+
+  if (submission_id) {
+    const { data: submissionData, error: submissionError } = await supabase
+      .from('form_submission')
+      .select('id')
+      .eq('id', submission_id)
+      .single();
+
+    if (submissionError || !submissionData) {
+      console.warn(
+        `Submission ID ${submission_id} not found in form_submission, skipping deleted_member insertion:`,
+        submissionError?.message
+      );
+    } else {
+      const { error: insertError } = await supabase
+        .from('deleted_member')
+        .insert({
+          submission_id,
+          family_tree_id
+        });
+
+      if (insertError) {
+        throw new Error(
+          `Error inserting deleted member: ${insertError.message}`
+        );
+      }
+    }
+  } else {
+    console.warn(
+      `No submission_id provided for family_tree_id ${family_tree_id}, skipping deleted_member insertion`
+    );
+  }
+
+  const { error: connectionError } = await supabase
+    .from('connections')
+    .delete()
+    .eq('little_id', memberId)
+    .eq('family_tree_id', family_tree_id);
+
+  if (connectionError) {
+    throw new Error(`Error deleting connections: ${connectionError.message}`);
+  }
+
+  const { data: bigConnectionData, error: bigConnectionError } = await supabase
+    .from('connections')
+    .select('big_id')
+    .eq('little_id', memberId)
+    .eq('family_tree_id', family_tree_id)
+    .single();
+
+  if (bigConnectionError && bigConnectionError.code !== 'PGRST116') {
+    throw new Error(
+      `Error checking big connections: ${bigConnectionError.message}`
+    );
+  }
+
+  if (bigConnectionData?.big_id) {
+    const bigId = bigConnectionData.big_id;
+
+    const { data: remainingLittles, error: remainingLittlesError } =
+      await supabase
+        .from('connections')
+        .select('id')
+        .eq('big_id', bigId)
+        .eq('family_tree_id', family_tree_id);
+
+    if (remainingLittlesError) {
+      throw new Error(
+        `Error checking remaining littles: ${remainingLittlesError.message}`
+      );
+    }
+
+    if (!remainingLittles || remainingLittles.length === 0) {
+      const { error: updateError } = await supabase
+        .from('tree_member')
+        .update({ is_big: false })
+        .eq('id', bigId);
+
+      if (updateError) {
+        throw new Error(`Error updating big status: ${updateError.message}`);
+      }
+    }
+  }
+};
 
 export async function createFamilyMember(
   supabase: SupabaseClient,
