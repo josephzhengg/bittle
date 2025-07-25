@@ -997,25 +997,6 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
   const { fitView, getViewport } = useReactFlow();
 
   useEffect(() => {
-    const handleClick = (e: MouseEvent) => {
-      const viewport = getViewport();
-      console.log('Viewport:', viewport);
-      console.log('Click position:', {
-        x: e.clientX,
-        y: e.clientY,
-        worldX: (e.clientX - viewport.x) / viewport.zoom,
-        worldY: (e.clientY - viewport.y) / viewport.zoom
-      });
-    };
-
-    const container = containerRef.current;
-    container?.addEventListener('click', handleClick);
-    return () => {
-      container?.removeEventListener('click', handleClick);
-    };
-  }, [getViewport]);
-
-  useEffect(() => {
     const hasSeenTutorial = localStorage.getItem('hasSeenFamilyTreeTutorial');
     if (!hasSeenTutorial) {
       setShowTutorial(true);
