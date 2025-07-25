@@ -114,17 +114,39 @@ const createStyledEdge = (
 ): Edge => {
   const sourceNode = nodes.find((n) => n.id === source);
   const targetNode = nodes.find((n) => n.id === target);
-  const isBigToLittle = sourceNode?.data.is_big && targetNode?.data.hasBig;
 
-  const sourceX = sourceNode?.position?.x ?? 0;
-  const targetX = targetNode?.position?.x ?? 0;
+  if (!sourceNode || !targetNode) {
+    console.error('Invalid edge - missing source or target node');
+    return {
+      id: edgeId,
+      source,
+      target,
+      type: 'straight',
+      style: { stroke: '#ccc' }
+    };
+  }
+
+  // Ensure positions are valid numbers
+  const sourceX = Number.isFinite(sourceNode.position?.x)
+    ? sourceNode.position.x
+    : 0;
+  const sourceY = Number.isFinite(sourceNode.position?.y)
+    ? sourceNode.position.y
+    : 0;
+  const targetX = Number.isFinite(targetNode.position?.x)
+    ? targetNode.position.x
+    : 0;
+  const targetY = Number.isFinite(targetNode.position?.y)
+    ? targetNode.position.y
+    : 0;
+
+  const isBigToLittle = sourceNode?.data.is_big && targetNode?.data.hasBig;
   const isVertical = Math.abs(sourceX - targetX) < 10;
 
   return {
     id: edgeId,
     source,
     target,
-
     type: isVertical ? 'straight' : 'smoothstep',
     sourceHandle: isVertical ? 'bottom' : undefined,
     targetHandle: isVertical ? 'top' : undefined,
@@ -336,8 +358,8 @@ const CustomNode: React.FC<{ data: NodeData; selected: boolean }> = ({
 const nodeTypes = { custom: CustomNode };
 
 const getNodePosition = (member: z.infer<typeof TreeMember>) => ({
-  x: member.position_x ?? 0,
-  y: member.position_y ?? 0
+  x: Number.isFinite(member.position_x) ? member.position_x! : 0,
+  y: Number.isFinite(member.position_y) ? member.position_y! : 0
 });
 
 const findEmptySpace = (
@@ -346,47 +368,97 @@ const findEmptySpace = (
   containerWidth: number,
   containerHeight: number
 ) => {
-  let x = PADDING,
-    y = PADDING;
+  // Validate container dimensions
+  const safeWidth =
+    Number.isFinite(containerWidth) && containerWidth > 0
+      ? containerWidth
+      : 1200;
+  const safeHeight =
+    Number.isFinite(containerHeight) && containerHeight > 0
+      ? containerHeight
+      : 800;
 
-  const isOverlapping = (testX: number, testY: number) =>
-    nodes.some(
+  let x = PADDING;
+  let y = PADDING;
+
+  const isOverlapping = (testX: number, testY: number) => {
+    if (!Number.isFinite(testX) || !Number.isFinite(testY)) {
+      console.warn(`Invalid test position: x=${testX}, y=${testY}`);
+      return true;
+    }
+
+    return nodes.some(
       (n) =>
         n.id !== targetId &&
+        Number.isFinite(n.position.x) &&
+        Number.isFinite(n.position.y) &&
         testX < n.position.x + NODE_WIDTH + PADDING &&
         testX + NODE_WIDTH > n.position.x &&
         testY < n.position.y + NODE_HEIGHT + PADDING &&
         testY + NODE_HEIGHT > n.position.y
     );
+  };
+
   const directions = [
     { dx: 1, dy: 0 },
     { dx: 0, dy: 1 },
     { dx: -1, dy: 0 },
     { dx: 0, dy: -1 }
   ];
-  let attempt = 0,
-    directionIndex = 0;
+
+  let attempt = 0;
+  let directionIndex = 0;
 
   while (isOverlapping(x, y) && attempt < 100) {
     const { dx, dy } = directions[directionIndex % directions.length];
-    x += dx * 50;
-    y += dy * 50;
+    const stepSize = 50;
+    x += dx * stepSize;
+    y += dy * stepSize;
     directionIndex++;
     attempt++;
-    x = Math.max(0, Math.min(x, containerWidth - NODE_WIDTH - PADDING));
-    y = Math.max(0, Math.min(y, containerHeight - NODE_HEIGHT - PADDING));
-  }
-  x = Math.max(PADDING, Math.min(x, containerWidth - NODE_WIDTH - PADDING));
-  y = Math.max(PADDING, Math.min(y, containerHeight - NODE_HEIGHT - PADDING));
 
-  return { x, y };
+    // Bound positions
+    x = Math.max(PADDING, Math.min(x, safeWidth - NODE_WIDTH - PADDING));
+    y = Math.max(PADDING, Math.min(y, safeHeight - NODE_HEIGHT - PADDING));
+
+    // Prevent NaN
+    if (!Number.isFinite(x)) {
+      console.warn(
+        `NaN detected for x in findEmptySpace, resetting to ${PADDING}`
+      );
+      x = PADDING;
+    }
+    if (!Number.isFinite(y)) {
+      console.warn(
+        `NaN detected for y in findEmptySpace, resetting to ${PADDING}`
+      );
+      y = PADDING;
+    }
+  }
+
+  // Final validation
+  const finalX = Number.isFinite(x)
+    ? Math.max(PADDING, Math.min(x, safeWidth - NODE_WIDTH - PADDING))
+    : PADDING;
+  const finalY = Number.isFinite(y)
+    ? Math.max(PADDING, Math.min(y, safeHeight - NODE_HEIGHT - PADDING))
+    : PADDING;
+
+  return { x: finalX, y: finalY };
 };
 
 const autoLayout = (nodes: Node<NodeData>[], edges: Edge[]) => {
+  // Validate input
+  if (!nodes || !edges) {
+    console.error('Invalid input to autoLayout');
+    return nodes;
+  }
+
   const bigToLittles = new Map<string, string[]>();
   const littleToBig = new Map<string, string>();
 
   edges.forEach((edge) => {
+    if (!edge.source || !edge.target) return;
     if (!bigToLittles.has(edge.source)) bigToLittles.set(edge.source, []);
     bigToLittles.get(edge.source)?.push(edge.target);
     littleToBig.set(edge.target, edge.source);
@@ -905,18 +977,64 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
 
   const styledInitialNodes = useMemo(
     () =>
-      initialNodes.map((node) => ({
-        ...node,
-        position: {
-          x: node.data.position_x ?? 0,
-          y: node.data.position_y ?? 0
-        }
-      })),
+      initialNodes.map((node) => {
+        const x = Number.isFinite(node.data.position_x)
+          ? node.data.position_x!
+          : 0;
+        const y = Number.isFinite(node.data.position_y)
+          ? node.data.position_y!
+          : 0;
+        return {
+          ...node,
+          position: { x, y },
+          data: {
+            ...node.data,
+            position_x: x,
+            position_y: y
+          }
+        };
+      }),
     [initialNodes]
   );
+  const validateNodes = (nodes: Node<NodeData>[]) => {
+    return nodes.map((node) => {
+      // Ensure positions are valid numbers
+      const x = Number.isFinite(node.position.x) ? node.position.x : 0;
+      const y = Number.isFinite(node.position.y) ? node.position.y : 0;
 
-  const [nodes, setNodes, onNodesChange] =
-    useNodesState<NodeData>(styledInitialNodes);
+      return {
+        ...node,
+        position: { x, y },
+        data: {
+          ...node.data,
+          position_x: x,
+          position_y: y
+        }
+      };
+    });
+  };
+
+  // Use this when setting nodes
+  const [nodes, setNodes, onNodesChange] = useNodesState<NodeData>(
+    validateNodes(styledInitialNodes)
+  );
+
+  const validateEdges = (edges: Edge[], nodes: Node<NodeData>[]) => {
+    return edges.filter((edge) => {
+      const sourceNode = nodes.find((n) => n.id === edge.source);
+      const targetNode = nodes.find((n) => n.id === edge.target);
+
+      return (
+        sourceNode &&
+        targetNode &&
+        Number.isFinite(sourceNode.position.x) &&
+        Number.isFinite(sourceNode.position.y) &&
+        Number.isFinite(targetNode.position.x) &&
+        Number.isFinite(targetNode.position.y)
+      );
+    });
+  };
+
   const [edges, setEdges, onEdgesChange] =
     useEdgesState<Edge>(styledInitialEdges);
   const [contextMenu, setContextMenu] = useState<ContextMenuData | null>(null);
@@ -975,6 +1093,29 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
     }
   }, []);
 
+  // Add this useEffect hook to your component to monitor node and edge changes
+  useEffect(() => {
+    console.log(
+      'Current nodes:',
+      nodes.map((n) => ({
+        id: n.id,
+        x: n.position.x,
+        y: n.position.y,
+        isValid: Number.isFinite(n.position.x) && Number.isFinite(n.position.y)
+      }))
+    );
+
+    console.log(
+      'Current edges:',
+      edges.map((e) => ({
+        id: e.id,
+        source: e.source,
+        target: e.target,
+        sourceNode: nodes.find((n) => n.id === e.source)?.position,
+        targetNode: nodes.find((n) => n.id === e.target)?.position
+      }))
+    );
+  }, [nodes, edges]);
   const getContainerSize = useCallback(() => {
     if (containerRef.current) {
       const { width, height } = containerRef.current.getBoundingClientRect();
@@ -1045,6 +1186,27 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
     },
     [supabase, familyTreeId, setNodes, getContainerSize, nodes]
   );
+
+  useEffect(() => {
+    // Check for NaN in nodes
+    nodes.forEach((node) => {
+      if (
+        !Number.isFinite(node.position.x) ||
+        !Number.isFinite(node.position.y)
+      ) {
+        console.warn('Invalid node position:', node);
+      }
+    });
+
+    // Check for NaN in edges
+    edges.forEach((edge) => {
+      const sourceNode = nodes.find((n) => n.id === edge.source);
+      const targetNode = nodes.find((n) => n.id === edge.target);
+      if (!sourceNode || !targetNode) {
+        console.warn('Edge references missing node:', edge);
+      }
+    });
+  }, [nodes, edges]);
 
   const onEdgeContextMenu = useCallback(
     (event: React.MouseEvent, edge: Edge) => {
@@ -1755,8 +1917,8 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
           setSelectedSubmission(null);
         }}>
         <ReactFlow
-          nodes={nodes}
-          edges={edges}
+          nodes={validateNodes(nodes)}
+          edges={validateEdges(edges, nodes)}
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
           onNodeDragStop={onNodeDragStop}
@@ -1775,6 +1937,19 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
 
             const viewport = getViewport();
             const { x: panX, y: panY, zoom } = viewport;
+
+            // Validate viewport values
+            if (
+              !Number.isFinite(panX) ||
+              !Number.isFinite(panY) ||
+              !Number.isFinite(zoom) ||
+              zoom <= 0
+            ) {
+              console.warn(
+                `Invalid viewport: x=${panX}, y=${panY}, zoom=${zoom}`
+              );
+              return;
+            }
 
             const nodeScreenX =
               (node.position.x + NODE_WIDTH / 2) * zoom + panX;
@@ -1909,10 +2084,6 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
             showZoom={!isMobile}
             showFitView={true}
             showInteractive={!isMobile}
-          />
-          <Background
-            variant={BackgroundVariant.Dots}
-            gap={isMobile ? 15 : 20}
           />
         </ReactFlow>
       </div>
