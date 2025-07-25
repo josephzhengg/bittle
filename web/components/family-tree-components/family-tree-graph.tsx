@@ -115,30 +115,40 @@ const createStyledEdge = (
   const sourceNode = nodes.find((n) => n.id === source);
   const targetNode = nodes.find((n) => n.id === target);
 
+  // Validate node existence and positions
   if (!sourceNode || !targetNode) {
-    console.error('Invalid edge - missing source or target node');
+    console.warn(
+      `Missing node for edge ${edgeId}: source=${source}, target=${target}`
+    );
     return {
       id: edgeId,
       source,
       target,
-      type: 'straight',
-      style: { stroke: '#ccc' }
+      type: 'smoothstep',
+      style: { stroke: '#64748b', strokeWidth: 2.5 },
+      animated: false,
+      markerEnd: getCustomMarker('general')
     };
   }
 
-  // Ensure positions are valid numbers
-  const sourceX = Number.isFinite(sourceNode.position?.x)
-    ? sourceNode.position.x
-    : 0;
-  const sourceY = Number.isFinite(sourceNode.position?.y)
-    ? sourceNode.position.y
-    : 0;
-  const targetX = Number.isFinite(targetNode.position?.x)
-    ? targetNode.position.x
-    : 0;
-  const targetY = Number.isFinite(targetNode.position?.y)
-    ? targetNode.position.y
-    : 0;
+  const sourceX = sourceNode.position?.x ?? 0;
+  const targetX = targetNode.position?.x ?? 0;
+
+  // Validate position values
+  if (isNaN(sourceX) || isNaN(targetX)) {
+    console.warn(
+      `Invalid positions for edge ${edgeId}: sourceX=${sourceX}, targetX=${targetX}`
+    );
+    return {
+      id: edgeId,
+      source,
+      target,
+      type: 'smoothstep',
+      style: { stroke: '#64748b', strokeWidth: 2.5 },
+      animated: false,
+      markerEnd: getCustomMarker('general')
+    };
+  }
 
   const isBigToLittle = sourceNode?.data.is_big && targetNode?.data.hasBig;
   const isVertical = Math.abs(sourceX - targetX) < 10;
@@ -358,8 +368,8 @@ const CustomNode: React.FC<{ data: NodeData; selected: boolean }> = ({
 const nodeTypes = { custom: CustomNode };
 
 const getNodePosition = (member: z.infer<typeof TreeMember>) => ({
-  x: Number.isFinite(member.position_x) ? member.position_x! : 0,
-  y: Number.isFinite(member.position_y) ? member.position_y! : 0
+  x: member.position_x ?? 0,
+  y: member.position_y ?? 0
 });
 
 const findEmptySpace = (
@@ -368,97 +378,51 @@ const findEmptySpace = (
   containerWidth: number,
   containerHeight: number
 ) => {
-  // Validate container dimensions
-  const safeWidth =
-    Number.isFinite(containerWidth) && containerWidth > 0
-      ? containerWidth
-      : 1200;
-  const safeHeight =
-    Number.isFinite(containerHeight) && containerHeight > 0
-      ? containerHeight
-      : 800;
+  let x = PADDING,
+    y = PADDING;
 
-  let x = PADDING;
-  let y = PADDING;
-
-  const isOverlapping = (testX: number, testY: number) => {
-    if (!Number.isFinite(testX) || !Number.isFinite(testY)) {
-      console.warn(`Invalid test position: x=${testX}, y=${testY}`);
-      return true;
-    }
-
-    return nodes.some(
+  const isOverlapping = (testX: number, testY: number) =>
+    nodes.some(
       (n) =>
         n.id !== targetId &&
-        Number.isFinite(n.position.x) &&
-        Number.isFinite(n.position.y) &&
         testX < n.position.x + NODE_WIDTH + PADDING &&
         testX + NODE_WIDTH > n.position.x &&
         testY < n.position.y + NODE_HEIGHT + PADDING &&
         testY + NODE_HEIGHT > n.position.y
     );
-  };
-
   const directions = [
     { dx: 1, dy: 0 },
     { dx: 0, dy: 1 },
     { dx: -1, dy: 0 },
     { dx: 0, dy: -1 }
   ];
-
-  let attempt = 0;
-  let directionIndex = 0;
+  let attempt = 0,
+    directionIndex = 0;
 
   while (isOverlapping(x, y) && attempt < 100) {
     const { dx, dy } = directions[directionIndex % directions.length];
-    const stepSize = 50;
-    x += dx * stepSize;
-    y += dy * stepSize;
+    x += dx * 50;
+    y += dy * 50;
     directionIndex++;
     attempt++;
-
-    // Bound positions
-    x = Math.max(PADDING, Math.min(x, safeWidth - NODE_WIDTH - PADDING));
-    y = Math.max(PADDING, Math.min(y, safeHeight - NODE_HEIGHT - PADDING));
-
-    // Prevent NaN
-    if (!Number.isFinite(x)) {
-      console.warn(
-        `NaN detected for x in findEmptySpace, resetting to ${PADDING}`
-      );
-      x = PADDING;
-    }
-    if (!Number.isFinite(y)) {
-      console.warn(
-        `NaN detected for y in findEmptySpace, resetting to ${PADDING}`
-      );
-      y = PADDING;
-    }
+    x = Math.max(0, Math.min(x, containerWidth - NODE_WIDTH - PADDING));
+    y = Math.max(0, Math.min(y, containerHeight - NODE_HEIGHT - PADDING));
   }
+  x = Math.max(PADDING, Math.min(x, containerWidth - NODE_WIDTH - PADDING));
+  y = Math.max(PADDING, Math.min(y, containerHeight - NODE_HEIGHT - PADDING));
 
-  // Final validation
-  const finalX = Number.isFinite(x)
-    ? Math.max(PADDING, Math.min(x, safeWidth - NODE_WIDTH - PADDING))
-    : PADDING;
-  const finalY = Number.isFinite(y)
-    ? Math.max(PADDING, Math.min(y, safeHeight - NODE_HEIGHT - PADDING))
-    : PADDING;
-
-  return { x: finalX, y: finalY };
+  return { x, y };
 };
 
-const autoLayout = (nodes: Node<NodeData>[], edges: Edge[]) => {
-  // Validate input
-  if (!nodes || !edges) {
-    console.error('Invalid input to autoLayout');
-    return nodes;
-  }
-
+const autoLayout = (
+  nodes: Node<NodeData>[],
+  edges: Edge[],
+  isMobile: boolean
+) => {
   const bigToLittles = new Map<string, string[]>();
   const littleToBig = new Map<string, string>();
 
   edges.forEach((edge) => {
-    if (!edge.source || !edge.target) return;
     if (!bigToLittles.has(edge.source)) bigToLittles.set(edge.source, []);
     bigToLittles.get(edge.source)?.push(edge.target);
     littleToBig.set(edge.target, edge.source);
@@ -482,9 +446,14 @@ const autoLayout = (nodes: Node<NodeData>[], edges: Edge[]) => {
       .map((n) => n.id)
   );
 
-  let currentX = PADDING;
-  const orphanY = PADDING;
-  const currentY = orphanY + NODE_HEIGHT + VERTICAL_SPACING / 2;
+  const nodeWidth = isMobile ? MOBILE_NODE_WIDTH : NODE_WIDTH;
+  const nodeHeight = isMobile ? MOBILE_NODE_HEIGHT : NODE_HEIGHT;
+  const padding = isMobile ? MOBILE_PADDING : PADDING;
+  const verticalSpacing = isMobile ? MOBILE_VERTICAL_SPACING : VERTICAL_SPACING;
+
+  let currentX = padding;
+  const orphanY = padding;
+  const currentY = orphanY + nodeHeight + verticalSpacing / 2;
 
   const layoutTree = (
     nodeId: string,
@@ -496,14 +465,14 @@ const autoLayout = (nodes: Node<NodeData>[], edges: Edge[]) => {
     if (!node) return;
 
     const horizontalOffset = calculateHorizontalOffset(depth);
-    const x = startX + availableWidth / 2 - NODE_WIDTH / 2 + horizontalOffset;
-    const y = currentY + depth * (NODE_HEIGHT + VERTICAL_SPACING);
+    const x = startX + availableWidth / 2 - nodeWidth / 2 + horizontalOffset;
+    const y = currentY + depth * (nodeHeight + verticalSpacing);
 
     positions.set(nodeId, { x, y });
 
     const children = bigToLittles.get(nodeId) || [];
     if (children.length > 0) {
-      const childWidths = children.map(() => NODE_WIDTH + PADDING / 2);
+      const childWidths = children.map(() => nodeWidth + padding / 2);
       const totalChildrenWidth = childWidths.reduce((sum, w) => sum + w, 0);
       let childX = startX + (availableWidth - totalChildrenWidth) / 2;
 
@@ -517,26 +486,26 @@ const autoLayout = (nodes: Node<NodeData>[], edges: Edge[]) => {
   roots
     .filter((root) => connectedNodeIds.has(root.id))
     .forEach((root) => {
-      const treeWidth = NODE_WIDTH * 3;
+      const treeWidth = nodeWidth * 3;
       layoutTree(root.id, currentX, treeWidth, 0);
-      currentX += treeWidth + PADDING / 2;
+      currentX += treeWidth + padding / 2;
     });
 
   if (orphanedNodes.length > 0) {
     const totalOrphansWidth =
-      orphanedNodes.length * NODE_WIDTH +
-      (orphanedNodes.length - 1) * (PADDING / 2);
+      orphanedNodes.length * nodeWidth +
+      (orphanedNodes.length - 1) * (padding / 2);
 
-    let minX = PADDING;
+    let minX = padding;
     let maxX = currentX;
     if (positions.size > 0) {
       const xs = Array.from(positions.values()).map((pos) => pos.x);
       minX = Math.min(...xs);
-      maxX = Math.max(...xs) + NODE_WIDTH;
+      maxX = Math.max(...xs) + nodeWidth;
     }
     const availableWidth = Math.max(
       maxX - minX,
-      totalOrphansWidth + PADDING * 2
+      totalOrphansWidth + padding * 2
     );
 
     let orphanX = minX + (availableWidth - totalOrphansWidth) / 2;
@@ -546,16 +515,19 @@ const autoLayout = (nodes: Node<NodeData>[], edges: Edge[]) => {
         x: orphanX,
         y: orphanY
       });
-      orphanX += NODE_WIDTH + PADDING / 2;
+      orphanX += nodeWidth + padding / 2;
     });
   }
 
   const updatedNodes = nodes.map((node) => {
     const pos = positions.get(node.id) || node.position;
+    // Validate positions
+    const x = isNaN(pos.x) ? 0 : pos.x;
+    const y = isNaN(pos.y) ? 0 : pos.y;
     return {
       ...node,
-      position: { x: pos.x, y: pos.y },
-      data: { ...node.data, position_x: pos.x, position_y: pos.y }
+      position: { x, y },
+      data: { ...node.data, position_x: x, position_y: y }
     };
   });
 
@@ -605,7 +577,6 @@ const AddMemberDialog: React.FC<{
 
   return (
     <>
-      {/* Custom overlay for extra blur coverage */}
       {isOpen && (
         <div
           className="fixed inset-0 bg-black/20 backdrop-blur-sm z-[9998]"
@@ -613,7 +584,6 @@ const AddMemberDialog: React.FC<{
           onClick={onCancel}
         />
       )}
-
       <Dialog open={isOpen} onOpenChange={(open) => !open && onCancel()}>
         <DialogContent
           className="w-[95vw] max-w-md mx-auto rounded-lg sm:w-full sm:max-w-lg z-[9999] fixed"
@@ -623,7 +593,6 @@ const AddMemberDialog: React.FC<{
               Add New Member
             </DialogTitle>
           </DialogHeader>
-
           <div className="space-y-6">
             <div className="space-y-3">
               <Label
@@ -645,7 +614,6 @@ const AddMemberDialog: React.FC<{
                 disabled={isSubmitting}
               />
             </div>
-
             <DialogFooter className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end sm:gap-2">
               <Button
                 type="button"
@@ -676,7 +644,8 @@ const useFamilyTreeData = (
   setEdges: React.Dispatch<React.SetStateAction<Edge[]>>,
   fitView: (options?: import('reactflow').FitViewOptions) => void,
   getContainerSize: () => { width: number; height: number },
-  initialEdges: Edge[]
+  initialEdges: Edge[],
+  isMobile: boolean
 ) => {
   const supabase = useSupabase();
   const [isLoading, setIsLoading] = useState(false);
@@ -716,6 +685,9 @@ const useFamilyTreeData = (
           setEdges,
           supabase
         );
+        setTimeout(() => {
+          fitView({ padding: isMobile ? 0.1 : 0.4 });
+        }, 100);
       } catch (err) {
         toast.error(
           `Failed to load members: ${
@@ -734,7 +706,8 @@ const useFamilyTreeData = (
     setEdges,
     fitView,
     getContainerSize,
-    initialEdges
+    initialEdges,
+    isMobile
   ]);
 
   const refetchNewSubmissions = useCallback(async () => {
@@ -835,6 +808,9 @@ const useFamilyTreeData = (
         });
 
       setNodes((nds: Node[]) => [...nds, ...newNodes]);
+      setTimeout(() => {
+        fitView({ padding: isMobile ? 0.1 : 0.4 });
+      }, 100);
       toast.success(`Added ${newMembers.length} new members`);
     } catch (err) {
       toast.error(
@@ -845,7 +821,7 @@ const useFamilyTreeData = (
     } finally {
       setIsLoading(false);
     }
-  }, [familyTreeId, supabase, setNodes, getContainerSize]);
+  }, [familyTreeId, supabase, setNodes, getContainerSize, fitView, isMobile]);
 
   return { refetchNewSubmissions, isLoading };
 };
@@ -952,6 +928,7 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
   initialEdges
 }) => {
   const supabase = useSupabase();
+  const isMobile = useIsMobile();
   const styledInitialEdges = useMemo(
     () =>
       initialEdges.map((edge) => {
@@ -977,64 +954,18 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
 
   const styledInitialNodes = useMemo(
     () =>
-      initialNodes.map((node) => {
-        const x = Number.isFinite(node.data.position_x)
-          ? node.data.position_x!
-          : 0;
-        const y = Number.isFinite(node.data.position_y)
-          ? node.data.position_y!
-          : 0;
-        return {
-          ...node,
-          position: { x, y },
-          data: {
-            ...node.data,
-            position_x: x,
-            position_y: y
-          }
-        };
-      }),
+      initialNodes.map((node) => ({
+        ...node,
+        position: {
+          x: node.data.position_x ?? 0,
+          y: node.data.position_y ?? 0
+        }
+      })),
     [initialNodes]
   );
-  const validateNodes = (nodes: Node<NodeData>[]) => {
-    return nodes.map((node) => {
-      // Ensure positions are valid numbers
-      const x = Number.isFinite(node.position.x) ? node.position.x : 0;
-      const y = Number.isFinite(node.position.y) ? node.position.y : 0;
 
-      return {
-        ...node,
-        position: { x, y },
-        data: {
-          ...node.data,
-          position_x: x,
-          position_y: y
-        }
-      };
-    });
-  };
-
-  // Use this when setting nodes
-  const [nodes, setNodes, onNodesChange] = useNodesState<NodeData>(
-    validateNodes(styledInitialNodes)
-  );
-
-  const validateEdges = (edges: Edge[], nodes: Node<NodeData>[]) => {
-    return edges.filter((edge) => {
-      const sourceNode = nodes.find((n) => n.id === edge.source);
-      const targetNode = nodes.find((n) => n.id === edge.target);
-
-      return (
-        sourceNode &&
-        targetNode &&
-        Number.isFinite(sourceNode.position.x) &&
-        Number.isFinite(sourceNode.position.y) &&
-        Number.isFinite(targetNode.position.x) &&
-        Number.isFinite(targetNode.position.y)
-      );
-    });
-  };
-
+  const [nodes, setNodes, onNodesChange] =
+    useNodesState<NodeData>(styledInitialNodes);
   const [edges, setEdges, onEdgesChange] =
     useEdgesState<Edge>(styledInitialEdges);
   const [contextMenu, setContextMenu] = useState<ContextMenuData | null>(null);
@@ -1061,9 +992,8 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
     id: string;
     x: number;
     y: number;
-  } | null>(null); // State for double-tap detection
+  } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const isMobile = useIsMobile();
   const { fitView, getViewport } = useReactFlow();
 
   useEffect(() => {
@@ -1093,35 +1023,12 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
     }
   }, []);
 
-  // Add this useEffect hook to your component to monitor node and edge changes
-  useEffect(() => {
-    console.log(
-      'Current nodes:',
-      nodes.map((n) => ({
-        id: n.id,
-        x: n.position.x,
-        y: n.position.y,
-        isValid: Number.isFinite(n.position.x) && Number.isFinite(n.position.y)
-      }))
-    );
-
-    console.log(
-      'Current edges:',
-      edges.map((e) => ({
-        id: e.id,
-        source: e.source,
-        target: e.target,
-        sourceNode: nodes.find((n) => n.id === e.source)?.position,
-        targetNode: nodes.find((n) => n.id === e.target)?.position
-      }))
-    );
-  }, [nodes, edges]);
   const getContainerSize = useCallback(() => {
     if (containerRef.current) {
       const { width, height } = containerRef.current.getBoundingClientRect();
       return {
-        width,
-        height: height - 20
+        width: Math.max(width, window.innerWidth),
+        height: Math.max(height - 20, window.innerHeight - 20)
       };
     }
     return {
@@ -1136,7 +1043,8 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
     setEdges,
     fitView,
     getContainerSize,
-    styledInitialEdges
+    styledInitialEdges,
+    isMobile
   );
 
   const handleAddMember = useCallback(
@@ -1174,7 +1082,9 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
 
         setNodes((nds) => [...nds, newNode]);
         setAddMemberDialog(false);
-
+        setTimeout(() => {
+          fitView({ padding: isMobile ? 0.1 : 0.4 });
+        }, 100);
         toast.success('New member added successfully');
       } catch (err) {
         toast.error(
@@ -1184,29 +1094,16 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
         );
       }
     },
-    [supabase, familyTreeId, setNodes, getContainerSize, nodes]
+    [
+      supabase,
+      familyTreeId,
+      setNodes,
+      getContainerSize,
+      nodes,
+      fitView,
+      isMobile
+    ]
   );
-
-  useEffect(() => {
-    // Check for NaN in nodes
-    nodes.forEach((node) => {
-      if (
-        !Number.isFinite(node.position.x) ||
-        !Number.isFinite(node.position.y)
-      ) {
-        console.warn('Invalid node position:', node);
-      }
-    });
-
-    // Check for NaN in edges
-    edges.forEach((edge) => {
-      const sourceNode = nodes.find((n) => n.id === edge.source);
-      const targetNode = nodes.find((n) => n.id === edge.target);
-      if (!sourceNode || !targetNode) {
-        console.warn('Edge references missing node:', edge);
-      }
-    });
-  }, [nodes, edges]);
 
   const onEdgeContextMenu = useCallback(
     (event: React.MouseEvent, edge: Edge) => {
@@ -1397,10 +1294,8 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
             throw new Error('Node not found');
           }
 
-          // Extract the clean identifier (without role icon)
           const cleanIdentifier = node.data.label.split(' ').slice(1).join(' ');
 
-          // Open the confirmation dialog instead of deleting immediately
           setDeleteMemberDialog({
             isOpen: true,
             nodeId: id,
@@ -1408,7 +1303,6 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
             formSubmissionId: node.data.form_submission_id
           });
         } else {
-          // Handle edge deletion (unchanged)
           const edge = edges.find((e) => e.id === id);
           if (!edge) {
             throw new Error('Edge not found');
@@ -1451,7 +1345,6 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
       identifier?: string
     ) => {
       try {
-        // Perform the deletion
         await deleteFamilyMember(
           supabase,
           familyTreeId,
@@ -1459,7 +1352,6 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
           formSubmissionId ? undefined : identifier
         );
 
-        // Update the UI
         setNodes((nds) => nds.filter((n) => n.id !== nodeId));
         setEdges((eds) => {
           const updatedEdges = eds.filter(
@@ -1524,7 +1416,7 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
         );
       }
 
-      const updatedNodes = autoLayout(nodes, edges);
+      const updatedNodes = autoLayout(nodes, edges, isMobile);
       if (!updatedNodes.length) {
         throw new Error('Auto-layout returned no nodes');
       }
@@ -1564,6 +1456,9 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
       }
 
       setNodes(updatedNodes);
+      setTimeout(() => {
+        fitView({ padding: isMobile ? 0.1 : 0.4 });
+      }, 100);
       toast.success('Layout reset and positions saved');
     } catch (err) {
       console.error('Reset layout error:', err);
@@ -1573,7 +1468,7 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
         }`
       );
     }
-  }, [nodes, edges, setNodes, getContainerSize, supabase]);
+  }, [nodes, edges, setNodes, getContainerSize, supabase, fitView, isMobile]);
 
   const handleSaveIdentifier = useCallback(
     async (nodeId: string, newIdentifier: string) => {
@@ -1618,10 +1513,9 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
       const x = isTouch ? e.touches[0].clientX : e.clientX;
       const y = isTouch ? e.touches[0].clientY : e.clientY;
       const now = Date.now();
-      const DOUBLE_TAP_THRESHOLD = 300; // 300ms for double-tap
-      const TAP_TOLERANCE = 20; // Pixel tolerance for tap position
+      const DOUBLE_TAP_THRESHOLD = 300;
+      const TAP_TOLERANCE = 20;
 
-      // Double-tap detection
       if (
         lastTap &&
         lastTap.id === node.id &&
@@ -1656,11 +1550,9 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
         return;
       }
 
-      // Record first tap
       setLastTap({ time: now, id: node.id, x, y });
       setTimeout(() => setLastTap(null), DOUBLE_TAP_THRESHOLD);
 
-      // Single tap/click opens SubmissionDetailsOverlay
       if (node.data.form_submission_id) {
         try {
           setSelectedSubmission({
@@ -1917,8 +1809,8 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
           setSelectedSubmission(null);
         }}>
         <ReactFlow
-          nodes={validateNodes(nodes)}
-          edges={validateEdges(edges, nodes)}
+          nodes={nodes}
+          edges={edges}
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
           onNodeDragStop={onNodeDragStop}
@@ -1937,19 +1829,6 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
 
             const viewport = getViewport();
             const { x: panX, y: panY, zoom } = viewport;
-
-            // Validate viewport values
-            if (
-              !Number.isFinite(panX) ||
-              !Number.isFinite(panY) ||
-              !Number.isFinite(zoom) ||
-              zoom <= 0
-            ) {
-              console.warn(
-                `Invalid viewport: x=${panX}, y=${panY}, zoom=${zoom}`
-              );
-              return;
-            }
 
             const nodeScreenX =
               (node.position.x + NODE_WIDTH / 2) * zoom + panX;
@@ -2038,8 +1917,8 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
           nodeTypes={nodeTypes}
           fitView
           fitViewOptions={{
-            padding: 0.5,
-            duration: 500,
+            padding: isMobile ? 0.1 : 0.4,
+            duration: 0,
             includeHiddenNodes: true
           }}
           minZoom={0.01}
@@ -2085,9 +1964,12 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
             showFitView={true}
             showInteractive={!isMobile}
           />
+          <Background
+            variant={BackgroundVariant.Dots}
+            gap={isMobile ? 15 : 20}
+          />
         </ReactFlow>
       </div>
-
       {contextMenu && (
         <div
           className={`absolute bg-white/95 backdrop-blur-md border border-gray-200/50 rounded-xl shadow-2xl py-3 z-[100] ${
