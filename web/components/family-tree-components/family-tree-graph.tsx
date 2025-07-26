@@ -1306,6 +1306,7 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
           });
 
           toast.success('Connection deleted successfully');
+          setContextMenu(null);
         }
       } catch (err) {
         console.error(`Error initiating deletion for ${type}:`, err);

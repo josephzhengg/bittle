@@ -472,17 +472,36 @@ export default function ManageFamilyTreePage({
                               type="time"
                               value={
                                 deadline
-                                  ? deadline.toISOString().substring(11, 16)
+                                  ? `${deadline
+                                      .getHours()
+                                      .toString()
+                                      .padStart(2, '0')}:${deadline
+                                      .getMinutes()
+                                      .toString()
+                                      .padStart(2, '0')}`
                                   : ''
                               }
                               onChange={(e) => {
                                 if (deadline) {
-                                  const [hours, minutes] = e.target.value
-                                    .split(':')
-                                    .map(Number);
-                                  const newDate = new Date(deadline);
-                                  newDate.setHours(hours, minutes, 0, 0);
-                                  setDeadline(newDate);
+                                  const value = e.target.value;
+                                  if (/^\d{2}:\d{2}$/.test(value)) {
+                                    const [hours, minutes] = value
+                                      .split(':')
+                                      .map(Number);
+                                    const newDate = new Date(deadline);
+                                    newDate.setHours(hours, minutes, 0, 0);
+                                    setDeadline(newDate);
+                                  }
+                                } else {
+                                  const value = e.target.value;
+                                  if (/^\d{2}:\d{2}$/.test(value)) {
+                                    const [hours, minutes] = value
+                                      .split(':')
+                                      .map(Number);
+                                    const newDate = new Date();
+                                    newDate.setHours(hours, minutes, 0, 0);
+                                    setDeadline(newDate);
+                                  }
                                 }
                               }}
                               className="bg-white border-gray-300 h-10"
@@ -660,17 +679,36 @@ export default function ManageFamilyTreePage({
                             type="time"
                             value={
                               deadline
-                                ? deadline.toISOString().substring(11, 16)
+                                ? `${deadline
+                                    .getHours()
+                                    .toString()
+                                    .padStart(2, '0')}:${deadline
+                                    .getMinutes()
+                                    .toString()
+                                    .padStart(2, '0')}`
                                 : ''
                             }
                             onChange={(e) => {
                               if (deadline) {
-                                const [hours, minutes] = e.target.value
-                                  .split(':')
-                                  .map(Number);
-                                const newDate = new Date(deadline);
-                                newDate.setHours(hours, minutes, 0, 0);
-                                setDeadline(newDate);
+                                const value = e.target.value;
+                                if (/^\d{2}:\d{2}$/.test(value)) {
+                                  const [hours, minutes] = value
+                                    .split(':')
+                                    .map(Number);
+                                  const newDate = new Date(deadline);
+                                  newDate.setHours(hours, minutes, 0, 0);
+                                  setDeadline(newDate);
+                                }
+                              } else {
+                                const value = e.target.value;
+                                if (/^\d{2}:\d{2}$/.test(value)) {
+                                  const [hours, minutes] = value
+                                    .split(':')
+                                    .map(Number);
+                                  const newDate = new Date();
+                                  newDate.setHours(hours, minutes, 0, 0);
+                                  setDeadline(newDate);
+                                }
                               }
                             }}
                             className="bg-white border-gray-300 h-10"
