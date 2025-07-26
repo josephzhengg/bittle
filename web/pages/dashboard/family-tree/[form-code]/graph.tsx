@@ -85,42 +85,50 @@ export default function GraphPage({
 
   return (
     <DashboardLayout user={user}>
-      <div className="bg-white/60 backdrop-blur-sm rounded-xl border border-slate-200 p-1 mb-4">
-        <Tabs className="w-full" defaultValue="family-tree">
-          <TabsList className="h-12 p-1 bg-transparent rounded-lg w-full grid grid-cols-2">
-            <TabsTrigger
-              value="family-tree"
-              className="flex items-center gap-2 h-10 px-3 sm:px-6 rounded-md font-medium transition-all data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-slate-800 text-slate-600 hover:text-slate-800">
-              <TreeDeciduous className="w-4 h-4" />
-              <span className="hidden xs:inline">Family Tree</span>
-            </TabsTrigger>
-            <TabsTrigger
-              value="forms"
-              onClick={() =>
-                router.push(`/dashboard/family-tree/${formCode}/manage`)
-              }
-              className="flex items-center gap-2 h-10 px-3 sm:px-6 rounded-md font-medium transition-all data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-slate-800 text-slate-600 hover:text-slate-800">
-              <User2 className="w-4 h-4" />
-              <span className="hidden xs:inline">Manage Tree</span>
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
-      </div>
+      <div>
+        <div className="max-w-10xl mx-auto p-3 sm:p-6 space-y-4 sm:space-y-6">
+          <div className="bg-white/60 backdrop-blur-sm rounded-xl border border-slate-200 p-1 mb-4">
+            <Tabs className="w-full" defaultValue="family-tree">
+              <TabsList className="h-10 sm:h-12 p-1 bg-transparent rounded-lg w-full grid grid-cols-2">
+                <TabsTrigger
+                  value="family-tree"
+                  className="flex items-center gap-1 sm:gap-2 h-8 sm:h-10 px-2 sm:px-6 rounded-md font-medium transition-all data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-slate-800 text-slate-600 hover:text-slate-800 text-xs sm:text-sm">
+                  <TreeDeciduous className="w-3 h-3 sm:w-4 sm:h-4" />
+                  <span className="hidden xs:inline">Family Tree</span>
+                  <span className="xs:hidden text-xs">Tree</span>
+                </TabsTrigger>
+                <TabsTrigger
+                  value="manage"
+                  onClick={() =>
+                    router.push(`/dashboard/family-tree/${formCode}/manage`)
+                  }
+                  className="flex items-center gap-1 sm:gap-2 h-8 sm:h-10 px-2 sm:px-6 rounded-md font-medium transition-all data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-slate-800 text-slate-600 hover:text-slate-800 text-xs sm:text-sm">
+                  <User2 className="w-3 h-3 sm:w-4 sm:h-4" />
+                  <span className="hidden xs:inline">Manage Tree</span>
+                  <span className="xs:hidden text-xs">Manage</span>
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </div>
+        </div>
 
-      <div
-        style={{
-          width: '100%',
-          height: `${isMobile ? '70vh' : '80vh'}`,
-          position: 'relative',
-          overflow: 'hidden'
-        }}>
-        <ReactFlowProvider>
-          <FamilyTreeFlow
-            familyTreeId={familyTreeId}
-            initialNodes={initialNodes}
-            initialEdges={initialEdges}
-          />
-        </ReactFlowProvider>
+        <div className="bg-white/90 shadow-lg rounded-xl border border-gray-100 overflow-hidden">
+          <div
+            style={{
+              width: '100%',
+              height: `${isMobile ? '70vh' : '80vh'}`,
+              position: 'relative',
+              overflow: 'hidden'
+            }}>
+            <ReactFlowProvider>
+              <FamilyTreeFlow
+                familyTreeId={familyTreeId}
+                initialNodes={initialNodes}
+                initialEdges={initialEdges}
+              />
+            </ReactFlowProvider>
+          </div>
+        </div>
       </div>
     </DashboardLayout>
   );
@@ -206,7 +214,7 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
         data: { ...data, label: `${getRoleIcon(data)} ${member.identifier}` },
         position: {
           x: member.position_x ?? 0,
-          y: member.position_y ?? 0 // Remove server-side y constraint
+          y: member.position_y ?? 0
         },
         draggable: true,
         selectable: true

@@ -42,7 +42,9 @@ import {
   Users,
   CheckCircle2,
   Clock,
-  Target
+  Target,
+  ArrowRight,
+  User
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
@@ -358,7 +360,7 @@ export default function ChallengeCard({
                 <Label className="text-xs sm:text-sm font-medium text-gray-700">
                   Select Connection Pair
                 </Label>
-                <Popover>
+                <Popover modal={true}>
                   <PopoverTrigger asChild>
                     <Button
                       variant="outline"
@@ -395,7 +397,7 @@ export default function ChallengeCard({
                       )}
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-[90vw] max-w-[320px] sm:max-w-[360px] bg-white/98 backdrop-blur-sm border-0 shadow-xl p-0">
+                  <PopoverContent className="w-[90vw] max-w-[320px] sm:max-w-[360px] bg-white/98 backdrop-blur-sm border-0 shadow-xl p-1">
                     <Command>
                       <CommandList className="max-h-[200px] sm:max-h-[240px] overflow-y-auto">
                         {connections.map((connection) => {
@@ -414,33 +416,79 @@ export default function ChallengeCard({
                                   setSelectedConnection(connection);
                                 }
                               }}
-                              className="p-3 sm:p-4 cursor-pointer hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed min-h-[3rem] sm:min-h-[3.5rem] flex items-center text-xs sm:text-sm">
-                              <div className="flex items-center justify-between w-full gap-2">
-                                <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
-                                  <div className="flex items-center gap-1 sm:gap-2 flex-1 min-w-0">
-                                    <div className="w-2 h-2 sm:w-3 sm:h-3 bg-purple-500 rounded-full flex-shrink-0" />
-                                    <span className="font-medium text-gray-900 truncate">
-                                      {pairing?.big}
-                                    </span>
+                              className={`
+                                relative m-1 p-3 sm:p-4 rounded-lg cursor-pointer transition-all duration-200
+                                ${
+                                  hasSubmitted
+                                    ? 'opacity-50 cursor-not-allowed bg-gray-50/80'
+                                    : 'hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 hover:shadow-md hover:border-blue-200 active:scale-[0.98]'
+                                }
+                                ${
+                                  selectedConnection?.id === connection.id
+                                    ? 'bg-gradient-to-r from-blue-100 to-indigo-100 border-2 border-blue-300 shadow-sm'
+                                    : 'border border-gray-100 bg-white/80 hover:border-blue-200'
+                                }
+                              `}>
+                              <div className="flex items-center justify-between w-full">
+                                <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
+                                  <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+                                    <div className="relative">
+                                      <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center shadow-sm">
+                                        <User className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+                                      </div>
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <div className="text-[10px] sm:text-xs text-purple-600 uppercase tracking-wider font-bold mb-0.5">
+                                        Big
+                                      </div>
+                                      <div className="font-semibold text-gray-900 text-sm sm:text-base truncate">
+                                        {pairing?.big || 'Unknown'}
+                                      </div>
+                                    </div>
                                   </div>
-                                  <span className="text-gray-400 flex-shrink-0 mx-1 sm:mx-2">
-                                    →
-                                  </span>
-                                  <div className="flex items-center gap-1 sm:gap-2 flex-1 min-w-0">
-                                    <div className="w-2 h-2 sm:w-3 sm:h-3 bg-green-500 rounded-full flex-shrink-0" />
-                                    <span className="font-medium text-gray-900 truncate">
-                                      {pairing?.little}
-                                    </span>
+
+                                  <div className="flex-shrink-0 mx-1 sm:mx-2">
+                                    <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gradient-to-r from-gray-100 to-gray-200 flex items-center justify-center">
+                                      <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600" />
+                                    </div>
+                                  </div>
+
+                                  <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+                                    <div className="relative">
+                                      <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center shadow-sm">
+                                        <User className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+                                      </div>
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <div className="text-[10px] sm:text-xs text-green-600 uppercase tracking-wider font-bold mb-0.5">
+                                        Little
+                                      </div>
+                                      <div className="font-semibold text-gray-900 text-sm sm:text-base truncate">
+                                        {pairing?.little || 'Unknown'}
+                                      </div>
+                                    </div>
                                   </div>
                                 </div>
-                                {hasSubmitted && (
-                                  <Badge
-                                    variant="secondary"
-                                    className="text-xs bg-gray-100 text-gray-600 ml-1 sm:ml-2 flex-shrink-0">
-                                    Completed
-                                  </Badge>
-                                )}
+
+                                <div className="flex-shrink-0 ml-3 sm:ml-4">
+                                  {hasSubmitted ? (
+                                    <Badge
+                                      variant="secondary"
+                                      className="bg-green-100 text-green-700 border-green-200 text-xs px-2 py-1">
+                                      <CheckCircle2 className="w-3 h-3 mr-1" />
+                                      Done
+                                    </Badge>
+                                  ) : (
+                                    <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full border-2 border-gray-300 flex items-center justify-center">
+                                      <div className="w-2 h-2 sm:w-3 sm:h-3 rounded-full bg-gray-300" />
+                                    </div>
+                                  )}
+                                </div>
                               </div>
+
+                              {selectedConnection?.id === connection.id && (
+                                <div className="absolute inset-0 rounded-lg border-2 border-blue-400 pointer-events-none" />
+                              )}
                             </CommandItem>
                           );
                         })}

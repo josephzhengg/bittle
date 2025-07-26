@@ -110,7 +110,7 @@ export const createPointSubmissionWithChallenge = async (
 
     // Insert point submission
     const { error: insertError } = await supabase
-      .from('point_submission') // Changed from 'point_submission' to 'point_submission'
+      .from('point_submission')
       .insert({
         connection_id,
         prompt: challenge.prompt,
@@ -125,7 +125,6 @@ export const createPointSubmissionWithChallenge = async (
       );
     }
 
-    // Fetch connection
     const { data: connection, error: connectionError } = await supabase
       .from('connections')
       .select('points')
@@ -140,7 +139,6 @@ export const createPointSubmissionWithChallenge = async (
       throw new Error(errorMessage);
     }
 
-    // Update connection points
     const { error: updateError } = await supabase
       .from('connections')
       .update({
@@ -159,7 +157,7 @@ export const createPointSubmissionWithChallenge = async (
       'Unexpected error in createPointSubmissionWithChallenge:',
       error
     );
-    throw error; // Re-throw to be caught by the caller
+    throw error;
   }
 };
 
@@ -168,7 +166,7 @@ export const deletePointSubmission = async (
   submission_id: string
 ): Promise<void> => {
   const { data: submission, error: submissionError } = await supabase
-    .from('point_submission') // Changed from 'point_submission' to 'point_submission'
+    .from('point_submission')
     .select('connection_id, point')
     .eq('id', submission_id)
     .single();
@@ -200,7 +198,7 @@ export const deletePointSubmission = async (
   }
 
   const { error: deleteError } = await supabase
-    .from('point_submission') // Keep consistent with 'point_submission'
+    .from('point_submission')
     .delete()
     .eq('id', submission_id);
 

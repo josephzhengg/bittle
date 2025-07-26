@@ -345,10 +345,9 @@ export default function ManageFamilyTreePage({
 
   return (
     <DashBoardLayout user={user}>
-      <div className="max-w-7xl mx-auto p-3 sm:p-6 space-y-4 sm:space-y-6">
-        {/* Mobile-Optimized Tabs Navigation */}
+      <div className="max-w-10xl mx-auto p-3 sm:p-6 space-y-4 sm:space-y-6">
         <div className="bg-white/60 backdrop-blur-sm rounded-xl border border-slate-200 p-1 mb-4">
-          <Tabs className="w-full" defaultValue="forms">
+          <Tabs className="w-full" defaultValue="manage">
             <TabsList className="h-10 sm:h-12 p-1 bg-transparent rounded-lg w-full grid grid-cols-2">
               <TabsTrigger
                 value="family-tree"
@@ -361,7 +360,7 @@ export default function ManageFamilyTreePage({
                 <span className="xs:hidden text-xs">Tree</span>
               </TabsTrigger>
               <TabsTrigger
-                value="forms"
+                value="manage"
                 className="flex items-center gap-1 sm:gap-2 h-8 sm:h-10 px-2 sm:px-6 rounded-md font-medium transition-all data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-slate-800 text-slate-600 hover:text-slate-800 text-xs sm:text-sm">
                 <User2 className="w-3 h-3 sm:w-4 sm:h-4" />
                 <span className="hidden xs:inline">Manage Tree</span>
@@ -371,7 +370,6 @@ export default function ManageFamilyTreePage({
           </Tabs>
         </div>
 
-        {/* Mobile Actions Section with Floating Action Button Style */}
         <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
           <Dialog open={challengeOpen} onOpenChange={setChallengeOpen}>
             <DialogTrigger asChild>
@@ -538,7 +536,6 @@ export default function ManageFamilyTreePage({
           </Dialog>
         </div>
 
-        {/* Mobile-Optimized Challenges Section - Horizontally Scrollable */}
         <div className="bg-white/90 shadow-lg rounded-xl border border-gray-100 p-4 sm:p-6">
           <h2 className="text-lg sm:text-xl font-semibold text-gray-800 mb-4">
             Challenges
@@ -556,26 +553,34 @@ export default function ManageFamilyTreePage({
             </div>
           ) : (
             <div className="flex overflow-x-auto space-x-3 sm:space-x-4 pb-4 snap-x snap-mandatory scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
-              {challenges.map((challenge) => (
-                <div
-                  key={challenge.id}
-                  className="flex-shrink-0 w-[280px] sm:w-[320px] snap-start">
-                  <ChallengeCard
-                    challenge={challenge}
-                    family_id={familyTree?.id ?? ''}
-                    onEdit={() => {
-                      setSelectedChallengeId(challenge.id);
-                      setPrompt(challenge.prompt);
-                      setPoint(challenge.point_value ?? null);
-                      setDeadline(
-                        challenge.deadline ? new Date(challenge.deadline) : null
-                      );
-                      setEditChallengeOpen(true);
-                    }}
-                    onDelete={() => handleDeleteChallenge(challenge.id)}
-                  />
-                </div>
-              ))}
+              {[...challenges]
+                .sort(
+                  (a, b) =>
+                    new Date(b.created_at).getTime() -
+                    new Date(a.created_at).getTime()
+                )
+                .map((challenge) => (
+                  <div
+                    key={challenge.id}
+                    className="flex-shrink-0 w-[280px] sm:w-[320px] snap-start">
+                    <ChallengeCard
+                      challenge={challenge}
+                      family_id={familyTree?.id ?? ''}
+                      onEdit={() => {
+                        setSelectedChallengeId(challenge.id);
+                        setPrompt(challenge.prompt);
+                        setPoint(challenge.point_value ?? null);
+                        setDeadline(
+                          challenge.deadline
+                            ? new Date(challenge.deadline)
+                            : null
+                        );
+                        setEditChallengeOpen(true);
+                      }}
+                      onDelete={() => handleDeleteChallenge(challenge.id)}
+                    />
+                  </div>
+                ))}
             </div>
           )}
           {challengesError && (
@@ -882,9 +887,7 @@ export default function ManageFamilyTreePage({
                         </div>
                       </div>
 
-                      {/* Mobile-Optimized Action Buttons */}
                       <div className="space-y-2 sm:space-y-3">
-                        {/* Primary Action - Challenge Submission */}
                         <Dialog
                           open={
                             submitChallengeOpen &&
@@ -920,7 +923,7 @@ export default function ManageFamilyTreePage({
                                 {`${pairing.big} & ${pairing.little}`}
                               </p>
                             </DialogHeader>
-                            <Popover>
+                            <Popover modal={true}>
                               <PopoverTrigger asChild>
                                 <Button
                                   variant="outline"
@@ -989,9 +992,7 @@ export default function ManageFamilyTreePage({
                           </DialogContent>
                         </Dialog>
 
-                        {/* Secondary Actions - Mobile Stacked Layout */}
                         <div className="grid grid-cols-2 gap-2 sm:gap-3">
-                          {/* Custom Points */}
                           <Dialog
                             open={
                               customPointOpen &&
@@ -1098,7 +1099,6 @@ export default function ManageFamilyTreePage({
                             </DialogContent>
                           </Dialog>
 
-                          {/* Submission Logs */}
                           <Sheet
                             open={
                               submissionLogsOpen &&
@@ -1130,16 +1130,22 @@ export default function ManageFamilyTreePage({
                             </SheetTrigger>
                             <SheetContent
                               side="bottom"
-                              className="h-[80vh] bg-white/95 backdrop-blur-sm">
-                              <SheetHeader className="pb-4">
-                                <SheetTitle className="text-base sm:text-lg">
-                                  Submission History
+                              className="h-[85vh] bg-white/98 backdrop-blur-sm border-t-2 border-gray-200">
+                              <SheetHeader className="pb-6 border-b border-gray-200">
+                                <SheetTitle className="text-lg sm:text-xl font-bold text-gray-900 flex items-center gap-2">
+                                  <FileText className="w-5 h-5 text-blue-600" />
+                                  Point History
                                 </SheetTitle>
-                                <SheetDescription className="text-sm">
-                                  {`${pairing.big} & ${pairing.little}`}
+                                <SheetDescription className="text-sm text-gray-600">
+                                  <div className="flex items-center justify-between">
+                                    <span>{`${pairing.big} & ${pairing.little}`}</span>
+                                    <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full font-medium">
+                                      Total: {points} points
+                                    </span>
+                                  </div>
                                 </SheetDescription>
                               </SheetHeader>
-                              <div className="h-full overflow-y-auto pb-16">
+                              <div className="h-full overflow-y-auto pb-20 pt-6">
                                 <PairingSubmissionLogs
                                   connectionId={pairing.id}
                                   familyTreeId={familyTree?.id}
