@@ -5,12 +5,12 @@ import { z } from 'zod';
 
 export const getPointSubmissions = async (
   supabase: SupabaseClient,
-  challenge_id: string
+  connection_id: string
 ): Promise<z.infer<typeof PointSubmission>[]> => {
   const { data, error } = await supabase
     .from('point_submission')
     .select('*')
-    .eq('challenge_id', challenge_id);
+    .eq('connection_id', connection_id);
 
   if (error) {
     throw new Error(`Error fetching point submissions: ${error.message}`);
@@ -54,12 +54,11 @@ export const createPointSubmission = async (
   supabase: SupabaseClient,
   connection_id: string,
   prompt: string | null,
-  point: number | null,
-  challenge_id: string
+  point: number | null
 ): Promise<void> => {
   const { error: insertError } = await supabase
-    .from('point_submission') // Changed from 'point_submission' to 'point_submission'
-    .insert({ connection_id, prompt, point, challenge_id });
+    .from('point_submission')
+    .insert({ connection_id, prompt, point, challenge_id: null });
 
   if (insertError) {
     console.error('Insert error details:', insertError);
@@ -239,4 +238,22 @@ export const deleteChallenge = async (
   if (deleteError) {
     throw new Error(`Error deleting challenge: ${deleteError.message}`);
   }
+};
+
+export const getPointSubmissionsForChallenge = async (
+  supabase: SupabaseClient,
+  challenge_id: string
+): Promise<z.infer<typeof PointSubmission>[]> => {
+  const { data, error } = await supabase
+    .from('point_submission')
+    .select('*')
+    .eq('challenge_id', challenge_id);
+
+  if (error) {
+    throw new Error(
+      `Error fetching point submissions for challenge: ${error.message}`
+    );
+  }
+
+  return data;
 };
