@@ -41,10 +41,10 @@ export default function ForgotPassword() {
       console.error('OTP send error:', error);
       toast.error(error.message || 'Error sending OTP. Please try again.');
     } else {
-      toast.success('OTP sent! Check your email to reset your password.');
-      setTimeout(() => {
-        router.push(`/reset-password?email=${encodeURIComponent(email)}`);
-      }, 2000);
+      toast.success(
+        'OTP sent! Check your email to reset your password. If you do not see it, please check your spam.'
+      );
+      router.push(`/reset-password?email=${encodeURIComponent(email)}`);
     }
   };
 

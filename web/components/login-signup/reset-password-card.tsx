@@ -163,7 +163,9 @@ export default function ResetPasswordCard({
       console.error('OTP resend error:', error);
       toast.error(error.message || 'Error resending OTP. Please try again.');
     } else {
-      toast.success('New OTP sent! Check your email.');
+      toast.success(
+        'New OTP sent! Check your email. If you do not see, please check your spam.'
+      );
     }
   };
 
