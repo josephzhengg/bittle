@@ -7,7 +7,7 @@ import { User } from '@supabase/supabase-js';
 import { useSupabase } from '@/lib/supabase';
 import { ThemeProvider } from '@/components/theme/theme-provider';
 import { Toaster } from 'sonner';
-import { Analytics } from '@vercel/Analytics/react';
+import { Analytics } from '@vercel/analytics/next';
 
 const queryClient = new QueryClient();
 
