@@ -10,25 +10,6 @@ import { Toaster } from 'sonner';
 
 const queryClient = new QueryClient();
 
-// Simple auth required component - no glassmorphic container
-const AuthRequired = () => {
-  const router = useRouter();
-
-  return (
-    <div className="min-h-screen flex items-center justify-center p-4">
-      <div className="text-center space-y-4">
-        <h2 className="text-2xl font-semibold">Authentication Required</h2>
-        <p className="text-muted-foreground">Please log in to continue</p>
-        <button
-          onClick={() => router.push('/login')}
-          className="px-6 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors">
-          Go to Login
-        </button>
-      </div>
-    </div>
-  );
-};
-
 export default function App({ Component, pageProps }: AppProps) {
   const router = useRouter();
   const excludedRoutes = ['/login', '/signup', '/input-code'];
