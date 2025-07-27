@@ -7,6 +7,7 @@ import { User } from '@supabase/supabase-js';
 import { useSupabase } from '@/lib/supabase';
 import { ThemeProvider } from '@/components/theme/theme-provider';
 import { Toaster } from 'sonner';
+import { Analytics } from '@vercel/Analytics/react';
 
 const queryClient = new QueryClient();
 
@@ -55,6 +56,7 @@ export default function App({ Component, pageProps }: AppProps) {
           <Toaster />
           <Component {...pageProps} />
         </ThemeProvider>
+        <Analytics />
       </QueryClientProvider>
     );
   }
@@ -70,6 +72,7 @@ export default function App({ Component, pageProps }: AppProps) {
         themes={['light', 'dark']}>
         <Toaster />
         {/* <AuthRequired /> */}
+        <Analytics />
       </ThemeProvider>
     );
   }
@@ -91,6 +94,7 @@ export default function App({ Component, pageProps }: AppProps) {
         <Toaster />
         <Component {...pageProps} />
       </ThemeProvider>
+      <Analytics />
     </QueryClientProvider>
   );
 }
