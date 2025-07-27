@@ -30,7 +30,13 @@ const queryClient = new QueryClient();
 
 export default function App({ Component, pageProps }: AppProps) {
   const router = useRouter();
-  const excludedRoutes = ['/login', '/signup', '/input-code'];
+  const excludedRoutes = [
+    '/login',
+    '/signup',
+    '/input-code',
+    '/reset-password',
+    '/forgot-password'
+  ];
   const [user, setUser] = useState<User | null>(null);
   const [authInitialized, setAuthInitialized] = useState(false);
   const supabase = useSupabase();

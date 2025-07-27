@@ -27,15 +27,24 @@ export default function LoginCard({ supabase, router }: LoginCardProps) {
   const [isLoading, setIsLoading] = useState(false);
 
   const logIn = async () => {
+    if (!email || !password) {
+      toast.error('Please fill in all fields.');
+      return;
+    }
+
     setIsLoading(true);
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password
     });
     setIsLoading(false);
+
     if (error) {
-      toast('Invalid email or password. Please try again.');
+      toast.error(
+        error.message || 'Invalid email or password. Please try again.'
+      );
     } else {
+      toast.success('Logged in successfully!');
       router.push('/');
     }
   };
@@ -49,9 +58,7 @@ export default function LoginCard({ supabase, router }: LoginCardProps) {
   return (
     <div className="flex-1 w-full max-w-md">
       <Card className="bg-white shadow-2xl rounded-3xl border border-gray-200 overflow-hidden">
-        {/* Decorative top border */}
         <div className="h-1 bg-gradient-to-r from-pink-500 via-purple-500 to-blue-500"></div>
-
         <CardHeader className="pb-6">
           <CardTitle className="text-4xl lg:text-5xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
             Welcome to Bittle!
@@ -60,9 +67,7 @@ export default function LoginCard({ supabase, router }: LoginCardProps) {
             Enter your information to log in below.
           </CardDescription>
         </CardHeader>
-
         <CardContent className="space-y-6 px-6 pb-6">
-          {/* Email Field */}
           <div className="space-y-2">
             <Label className="text-lg font-semibold text-gray-800 flex items-center gap-2">
               <Mail className="w-5 h-5" />
@@ -76,11 +81,10 @@ export default function LoginCard({ supabase, router }: LoginCardProps) {
                 onChange={(e) => setEmail(e.target.value)}
                 onKeyPress={handleKeyPress}
                 className="h-14 text-lg bg-gray-50 border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:bg-white transition-all duration-200 px-4"
+                disabled={isLoading}
               />
             </div>
           </div>
-
-          {/* Password Field */}
           <div className="space-y-2">
             <Label className="text-lg font-semibold text-gray-800 flex items-center gap-2">
               <Lock className="w-5 h-5" />
@@ -94,13 +98,15 @@ export default function LoginCard({ supabase, router }: LoginCardProps) {
                 onChange={(e) => setPassword(e.target.value)}
                 onKeyPress={handleKeyPress}
                 className="h-14 pr-14 text-lg bg-gray-50 border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:bg-white transition-all duration-200 px-4"
+                disabled={isLoading}
               />
               <Button
                 type="button"
                 variant="ghost"
                 size="sm"
                 className="absolute right-2 top-1/2 -translate-y-1/2 h-10 w-10 hover:bg-gray-200 rounded-lg"
-                onClick={() => setShowPassword((prev) => !prev)}>
+                onClick={() => setShowPassword((prev) => !prev)}
+                disabled={isLoading}>
                 {showPassword ? (
                   <EyeOff className="w-5 h-5" />
                 ) : (
@@ -109,12 +115,10 @@ export default function LoginCard({ supabase, router }: LoginCardProps) {
               </Button>
             </div>
           </div>
-
-          {/* Login Button */}
           <Button
             className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-bold h-14 rounded-xl text-lg shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center gap-2 mt-6"
             onClick={logIn}
-            disabled={isLoading}
+            disabled={isLoading || !email || !password}
             name="login-button">
             {isLoading ? (
               <>
@@ -128,8 +132,15 @@ export default function LoginCard({ supabase, router }: LoginCardProps) {
               </>
             )}
           </Button>
-
-          {/* Sign Up Link */}
+          <div className="flex justify-center">
+            <Button
+              type="button"
+              variant="ghost"
+              className="text-purple-600 hover:text-purple-800 hover:bg-purple-50 p-0 h-auto font-medium text-sm"
+              onClick={() => router.push('/forgot-password')}>
+              Forgot password?
+            </Button>
+          </div>
           <div className="text-center pt-6 border-t border-gray-100">
             <p className="text-gray-600 mb-2">Don&apos;t have an account?</p>
             <Link
