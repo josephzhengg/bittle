@@ -686,7 +686,20 @@ const useFamilyTreeData = (
           supabase
         );
         setTimeout(() => {
-          fitView({ padding: isMobile ? 0.1 : 0.4 });
+          if (nodes.length > 1) {
+            fitView({
+              padding: isMobile ? 0.1 : 0.4,
+              maxZoom: 1,
+              duration: 300
+            });
+          } else {
+            fitView({
+              padding: isMobile ? 0.1 : 0.4,
+              maxZoom: 1,
+              minZoom: 1,
+              duration: 300
+            });
+          }
         }, 100);
       } catch (err) {
         toast.error(

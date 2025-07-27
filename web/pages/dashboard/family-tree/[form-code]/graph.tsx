@@ -11,6 +11,7 @@ import {
   getFamilyTreeMembers
 } from '@/utils/supabase/queries/family-tree';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
 import { User2, TreeDeciduous } from 'lucide-react';
 import { useRouter } from 'next/router';
 
@@ -29,6 +30,14 @@ interface GraphPageProps {
   initialNodes: Node<NodeData>[];
   initialEdges: Edge[];
   familyTreeId: string;
+  familyTreeData: {
+    title: string;
+    description?: string;
+    code: string;
+    totalMembers: number;
+    bigCount: number;
+    littleCount: number;
+  } | null;
 }
 
 const getEdgeStyle = (
@@ -61,7 +70,8 @@ export default function GraphPage({
   user,
   initialNodes,
   initialEdges,
-  familyTreeId
+  familyTreeId,
+  familyTreeData
 }: GraphPageProps) {
   const router = useRouter();
   const { 'form-code': formCode } = router.query;
@@ -85,38 +95,54 @@ export default function GraphPage({
 
   return (
     <DashboardLayout user={user}>
-      <div>
-        <div className="max-w-10xl mx-auto p-3 sm:p-6 space-y-4 sm:space-y-6">
-          <div className="bg-white/60 backdrop-blur-sm rounded-xl border border-slate-200 p-1 mb-4">
-            <Tabs className="w-full" defaultValue="family-tree">
-              <TabsList className="h-10 sm:h-12 p-1 bg-transparent rounded-lg w-full grid grid-cols-2">
-                <TabsTrigger
-                  value="family-tree"
-                  className="flex items-center gap-1 sm:gap-2 h-8 sm:h-10 px-2 sm:px-6 rounded-md font-medium transition-all data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-slate-800 text-slate-600 hover:text-slate-800 text-xs sm:text-sm">
-                  <TreeDeciduous className="w-3 h-3 sm:w-4 sm:h-4" />
-                  <span className="hidden xs:inline">Family Tree</span>
-                  <span className="xs:hidden text-xs">Tree</span>
-                </TabsTrigger>
-                <TabsTrigger
-                  value="manage"
-                  onClick={() =>
-                    router.push(`/dashboard/family-tree/${formCode}/manage`)
-                  }
-                  className="flex items-center gap-1 sm:gap-2 h-8 sm:h-10 px-2 sm:px-6 rounded-md font-medium transition-all data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-slate-800 text-slate-600 hover:text-slate-800 text-xs sm:text-sm">
-                  <User2 className="w-3 h-3 sm:w-4 sm:h-4" />
-                  <span className="hidden xs:inline">Manage Tree</span>
-                  <span className="xs:hidden text-xs">Manage</span>
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
+      <div className="flex flex-col w-full max-w-full mx-auto p-3 sm:p-6 space-y-4 sm:space-y-6">
+        <div className="flex flex-col space-y-4">
+          <div className="space-y-2">
+            <div className="flex flex-col sm:flex-row sm:items-start gap-2 sm:gap-3">
+              <h1 className="text-2xl sm:text-3xl font-bold text-foreground break-words min-w-0 flex-1">
+                {familyTreeData?.title || 'Family Tree'}
+              </h1>
+              <Badge
+                variant="outline"
+                className="text-xs w-fit bg-purple-50 text-purple-700 border-purple-200">
+                {formCode}
+              </Badge>
+            </div>
+            {familyTreeData?.description && (
+              <p className="text-muted-foreground text-sm">
+                {familyTreeData.description}
+              </p>
+            )}
           </div>
+        </div>
+
+        <div className="bg-white/60 backdrop-blur-sm rounded-xl border border-slate-200 p-1">
+          <Tabs className="w-full" defaultValue="family-tree">
+            <TabsList className="h-12 p-1 bg-transparent rounded-lg w-full grid grid-cols-2">
+              <TabsTrigger
+                value="family-tree"
+                className="flex items-center gap-2 h-10 px-3 sm:px-6 rounded-md font-medium transition-all data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-slate-800 text-slate-600 hover:text-slate-800">
+                <TreeDeciduous className="w-4 h-4" />
+                <span className="hidden xs:inline">Family Tree</span>
+              </TabsTrigger>
+              <TabsTrigger
+                value="manage"
+                onClick={() =>
+                  router.push(`/dashboard/family-tree/${formCode}/manage`)
+                }
+                className="flex items-center gap-2 h-10 px-3 sm:px-6 rounded-md font-medium transition-all data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-slate-800 text-slate-600 hover:text-slate-800">
+                <User2 className="w-4 h-4" />
+                <span className="hidden xs:inline">Manage Tree</span>
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
         </div>
 
         <div className="bg-white/90 shadow-lg rounded-xl border border-gray-100 overflow-hidden">
           <div
             style={{
               width: '100%',
-              height: `${isMobile ? '70vh' : '80vh'}`,
+              height: `${isMobile ? '70vh' : '75vh'}`,
               position: 'relative',
               overflow: 'hidden'
             }}>
@@ -154,7 +180,8 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
         user: userData.user,
         initialNodes: [],
         initialEdges: [],
-        familyTreeId: ''
+        familyTreeId: '',
+        familyTreeData: null
       }
     };
   }
@@ -167,7 +194,9 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
           user: userData.user,
           initialNodes: [],
           initialEdges: [],
-          familyTreeId: ''
+          familyTreeId: '',
+          familyTreeData: null,
+          error: 'Family tree not found'
         }
       };
     }
@@ -252,12 +281,27 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
         };
       }) ?? [];
 
+    // Calculate statistics
+    const totalMembers = members.length;
+    const bigCount = members.filter((member) => member.is_big).length;
+    const littleCount = members.filter((member) => !member.is_big).length;
+
+    const familyTreeData = {
+      title: familyTree.title,
+      description: familyTree.description,
+      code: familyTree.code,
+      totalMembers,
+      bigCount,
+      littleCount
+    };
+
     return {
       props: {
         user: userData.user,
         initialNodes: nodes,
         initialEdges: edges,
-        familyTreeId: familyTree.id
+        familyTreeId: familyTree.id,
+        familyTreeData
       }
     };
   } catch (error) {

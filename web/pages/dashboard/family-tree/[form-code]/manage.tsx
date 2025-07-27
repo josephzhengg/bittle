@@ -73,6 +73,7 @@ import {
   SheetTitle,
   SheetTrigger
 } from '@/components/ui/sheet';
+import { Badge } from '@/components/ui/badge';
 
 const Pairing = z.object({
   id: z.string(),
@@ -98,12 +99,14 @@ const handleIntegerInput = (
 
 type ManageFamilyTreePageProps = {
   user: User;
+  familyTreeData: FamilyTree | null;
 };
 
 type SortOption = 'alphabetical' | 'points-desc' | 'points-asc';
 
 export default function ManageFamilyTreePage({
-  user
+  user,
+  familyTreeData
 }: ManageFamilyTreePageProps) {
   const queryUtils = useQueryClient();
   const supabase = useSupabase();
@@ -346,6 +349,26 @@ export default function ManageFamilyTreePage({
   return (
     <DashBoardLayout user={user}>
       <div className="max-w-10xl mx-auto p-3 sm:p-6 space-y-4 sm:space-y-6">
+        <div className="flex flex-col space-y-4">
+          <div className="space-y-2">
+            <div className="flex flex-col sm:flex-row sm:items-start gap-2 sm:gap-3">
+              <h1 className="text-2xl sm:text-3xl font-bold text-foreground break-words min-w-0 flex-1">
+                {familyTreeData?.title || 'Family Tree'}
+              </h1>
+              <Badge
+                variant="outline"
+                className="text-xs w-fit bg-purple-50 text-purple-700 border-purple-200">
+                {formCode}
+              </Badge>
+            </div>
+            {familyTreeData?.description && (
+              <p className="text-muted-foreground text-sm">
+                {familyTreeData.description}
+              </p>
+            )}
+          </div>
+        </div>
+
         <div className="bg-white/60 backdrop-blur-sm rounded-xl border border-slate-200 p-1 mb-4">
           <Tabs className="w-full" defaultValue="manage">
             <TabsList className="h-10 sm:h-12 p-1 bg-transparent rounded-lg w-full grid grid-cols-2">
@@ -1172,6 +1195,10 @@ export const getServerSideProps = async (
 ) => {
   const supabase = createSupabaseServerClient(context);
   const { data: userData, error } = await supabase.auth.getUser();
+  const { 'form-code': formCode } = context.query as { 'form-code': string };
+
+  const familyTreeData = await getFamilyTreeByCode(supabase, formCode);
+
   if (!userData || error) {
     return {
       redirect: {
@@ -1182,7 +1209,8 @@ export const getServerSideProps = async (
   }
   return {
     props: {
-      user: userData.user
+      user: userData.user,
+      familyTreeData
     }
   };
 };
