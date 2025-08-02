@@ -41,6 +41,7 @@ import { Question } from '@/utils/supabase/models/question';
 import { format } from 'date-fns';
 import { FormStatsCards } from '@/components/dashboard-components/form-stats-card';
 import FormNavigationTabs from '@/components/dashboard-components/form-navigation-tabs';
+import FormStatusBadge from '@/components/dashboard-components/form-status-badge';
 
 export type PastFormsPageProps = {
   user: User;
@@ -66,12 +67,11 @@ export default function FormPage({
   const { 'form-code': formCode } = router.query;
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Use server-side data as initial data, but allow client-side refetching
   const { data: formData, refetch: refetchForm } = useQuery({
     queryKey: ['formData', formCode],
     queryFn: async () => {
       const code = z.string().parse(formCode);
-      return getFormData(supabase, code); // Returns { id, title, description, deadline }
+      return getFormData(supabase, code);
     },
     enabled: !!formCode,
     initialData: initialFormData
@@ -148,34 +148,6 @@ export default function FormPage({
     });
   };
 
-  const isDeadlineApproaching = () => {
-    if (!formData?.deadline) return false;
-    const now = new Date();
-    const deadline = new Date(formData.deadline);
-    const timeDiff = deadline.getTime() - now.getTime();
-    const hoursUntilDeadline = timeDiff / (1000 * 3600);
-    return hoursUntilDeadline > 0 && hoursUntilDeadline <= 24;
-  };
-
-  const isDeadlinePassed = () => {
-    if (!formData?.deadline) return false;
-    const now = new Date();
-    const deadline = new Date(formData.deadline);
-    return deadline.getTime() < now.getTime();
-  };
-
-  const getDeadlineStatusColor = () => {
-    if (isDeadlinePassed()) return 'text-red-600';
-    if (isDeadlineApproaching()) return 'text-amber-600';
-    return 'text-gray-500';
-  };
-
-  const getDeadlineStatusText = () => {
-    if (isDeadlinePassed()) return 'Expired';
-    if (isDeadlineApproaching()) return 'Ending Soon';
-    return 'Completed';
-  };
-
   const handleRefresh = async () => {
     setIsRefreshing(true);
     try {
@@ -228,17 +200,7 @@ export default function FormPage({
                   {formCode}
                 </Badge>
                 {formData?.deadline && (
-                  <Badge
-                    variant="outline"
-                    className={`text-xs w-fit ${
-                      isDeadlinePassed()
-                        ? 'bg-red-50 text-red-700 border-red-200'
-                        : isDeadlineApproaching()
-                        ? 'bg-amber-50 text-amber-700 border-amber-200'
-                        : 'bg-gray-50 text-gray-700 border-gray-200'
-                    }`}>
-                    {getDeadlineStatusText()}
-                  </Badge>
+                  <FormStatusBadge deadline={formData.deadline} />
                 )}
               </div>
             </div>
@@ -260,9 +222,9 @@ export default function FormPage({
           {formData?.deadline && (
             <div className="bg-gradient-to-r from-gray-50 to-gray-100 rounded-lg p-4 border border-gray-200">
               <div className="flex items-center gap-2 text-sm">
-                <Clock className={`w-4 h-4 ${getDeadlineStatusColor()}`} />
+                <Clock className="w-4 h-4 text-gray-500" />
                 <span className="text-gray-500 font-medium">Deadline:</span>
-                <span className={`font-semibold ${getDeadlineStatusColor()}`}>
+                <span className="font-semibold text-gray-500">
                   {formatDateTime(formData.deadline)}
                 </span>
               </div>
@@ -404,12 +366,10 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
   }
 
   try {
-    // Fetch deadline for redirect logic
     const deadline = await getFormDeadline(supabase, formCode);
     const now = new Date();
     const isDeadlinePassed = deadline ? new Date(deadline) < now : false;
 
-    // Redirect based on deadline status
     if (currentPath.includes('/dashboard/current/form/') && !isDeadlinePassed) {
       return {
         redirect: {
@@ -428,7 +388,6 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
       };
     }
 
-    // Fetch all required data
     const [formData, formId] = await Promise.all([
       getFormData(supabase, formCode),
       getFormIdByCode(supabase, formCode)
@@ -453,7 +412,7 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
           id: formData.id,
           title: formData.title,
           description: formData.description,
-          deadline: formData.deadline || null, // Use as-is if string, fallback to null
+          deadline: formData.deadline || null,
           formId,
           questions: questions || [],
           formCode
@@ -463,7 +422,6 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
   } catch (error) {
     console.error('Error in getServerSideProps:', error);
 
-    // Fallback: Attempt to fetch data without deadline check
     try {
       const [formData, formId] = await Promise.all([
         getFormData(supabase, formCode),
@@ -489,7 +447,7 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
             id: formData.id,
             title: formData.title,
             description: formData.description,
-            deadline: formData.deadline || null, // Use as-is if string, fallback to null
+            deadline: formData.deadline || null,
             formId,
             questions: questions || [],
             formCode

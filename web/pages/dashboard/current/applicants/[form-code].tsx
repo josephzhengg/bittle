@@ -1,13 +1,4 @@
 import DashBoardLayout from '@/components/layouts/dashboard-layout';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow
-} from '@/components/ui/table';
 import {
   Card,
   CardContent,
@@ -30,7 +21,11 @@ import {
   ChevronDown
 } from 'lucide-react';
 import { createSupabaseServerClient } from '@/utils/supabase/clients/server-props';
-import { getFormTitle, getFormIdByCode } from '@/utils/supabase/queries/form';
+import {
+  getFormTitle,
+  getFormIdByCode,
+  getFormDeadline
+} from '@/utils/supabase/queries/form';
 import { getQuestions, getOptions } from '@/utils/supabase/queries/question';
 import {
   getFormSubmissions,
@@ -47,6 +42,7 @@ import { toast } from 'sonner';
 import { Question } from '@/utils/supabase/models/question';
 import ApplicantResponseDisplay from '@/components/dashboard-components/applicant-response-display';
 import FormNavigationTabs from '@/components/dashboard-components/form-navigation-tabs';
+import FormStatusBadge from '@/components/dashboard-components/form-status-badge';
 
 export type CurrentFormsPageProps = {
   user: User;
@@ -56,6 +52,7 @@ export type CurrentFormsPageProps = {
   questions: Question[];
   allOptions: Record<string, QuestionOption[]>;
   initialSubmissions: ProcessedSubmission[];
+  deadline?: string | null; // Ensure type matches the prop
 };
 
 interface ProcessedSubmission {
@@ -69,7 +66,8 @@ export default function FormPage({
   formTitle,
   formCode,
   questions,
-  initialSubmissions
+  initialSubmissions,
+  deadline
 }: CurrentFormsPageProps) {
   const router = useRouter();
 
@@ -307,11 +305,14 @@ export default function FormPage({
               <h1 className="text-2xl sm:text-3xl font-bold text-foreground break-words min-w-0 flex-1">
                 {formTitle}
               </h1>
-              <Badge
-                variant="outline"
-                className="text-xs w-fit bg-purple-50 text-purple-700 border-purple-200">
-                {formCode}
-              </Badge>
+              <div className="flex items-center gap-2">
+                <Badge
+                  variant="outline"
+                  className="text-xs w-fit bg-purple-50 text-purple-700 border-purple-200">
+                  {formCode}
+                </Badge>
+                <FormStatusBadge deadline={deadline} /> {/* Moved here */}
+              </div>
             </div>
             <p className="text-muted-foreground text-sm">
               View and manage form responses
@@ -349,7 +350,11 @@ export default function FormPage({
         </div>
 
         {/* Navigation Tabs */}
-        <FormNavigationTabs formCode={typeof formCode === 'string' ? formCode : ''} currentTab="applicants" basePath="current" />
+        <FormNavigationTabs
+          formCode={typeof formCode === 'string' ? formCode : ''}
+          currentTab="applicants"
+          basePath="current"
+        />
 
         {/* Statistics */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -433,7 +438,10 @@ export default function FormPage({
           </CardHeader>
           <CardContent>
             {filteredSubmissions && filteredSubmissions.length > 0 ? (
-              <ApplicantResponseDisplay submissions={filteredSubmissions} questions={sortedQuestions} />
+              <ApplicantResponseDisplay
+                submissions={filteredSubmissions}
+                questions={sortedQuestions}
+              />
             ) : (
               <div className="text-center py-16">
                 <div className="mx-auto max-w-md">
@@ -509,12 +517,16 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
   }
 
   try {
-    // Fetch all data on the server
-    const [formTitle, formId] = await Promise.all([
+    const [formTitle, formId, deadline] = await Promise.all([
       getFormTitle(supabase, formCode),
-      getFormIdByCode(supabase, formCode)
+      getFormIdByCode(supabase, formCode),
+      getFormDeadline(supabase, formCode) // Fetch deadline
     ]);
 
+    // Convert deadline to a string if it’s a Date object
+    const processedDeadline =
+      deadline instanceof Date ? deadline.toISOString() : deadline;
+      
     if (!formId) {
       return {
         notFound: true
@@ -596,7 +608,8 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
         formId,
         questions,
         allOptions,
-        initialSubmissions: processedSubmissions
+        initialSubmissions: processedSubmissions,
+        deadline: processedDeadline // Use the processed deadline
       }
     };
   } catch (error) {

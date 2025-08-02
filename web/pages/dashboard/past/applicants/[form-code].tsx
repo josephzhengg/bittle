@@ -1,5 +1,4 @@
 import DashBoardLayout from '@/components/layouts/dashboard-layout';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Card,
   CardContent,
@@ -22,7 +21,11 @@ import {
   ChevronDown
 } from 'lucide-react';
 import { createSupabaseServerClient } from '@/utils/supabase/clients/server-props';
-import { getFormTitle, getFormIdByCode } from '@/utils/supabase/queries/form';
+import {
+  getFormTitle,
+  getFormIdByCode,
+  getFormDeadline
+} from '@/utils/supabase/queries/form';
 import { getQuestions, getOptions } from '@/utils/supabase/queries/question';
 import {
   getFormSubmissions,
@@ -39,12 +42,14 @@ import { toast } from 'sonner';
 import { Question } from '@/utils/supabase/models/question';
 import ApplicantResponseDisplay from '@/components/dashboard-components/applicant-response-display';
 import FormNavigationTabs from '@/components/dashboard-components/form-navigation-tabs';
+import FormStatusBadge from '@/components/dashboard-components/form-status-badge';
 
 export type PastFormsPageProps = {
   user: User;
   formTitle: string;
   formCode: string;
   formId: string;
+  deadline?: string | null; // Added deadline field
   questions: Question[];
   allOptions: Record<string, QuestionOption[]>;
   initialSubmissions: ProcessedSubmission[];
@@ -60,6 +65,7 @@ export default function FormPage({
   user,
   formTitle,
   formCode,
+  deadline,
   questions,
   initialSubmissions
 }: PastFormsPageProps) {
@@ -299,11 +305,14 @@ export default function FormPage({
               <h1 className="text-2xl sm:text-3xl font-bold text-foreground break-words min-w-0 flex-1">
                 {formTitle}
               </h1>
-              <Badge
-                variant="outline"
-                className="text-xs w-fit bg-purple-50 text-purple-700 border-purple-200">
-                {formCode}
-              </Badge>
+              <div className="flex items-center gap-2">
+                <Badge
+                  variant="outline"
+                  className="text-xs w-fit bg-purple-50 text-purple-700 border-purple-200">
+                  {formCode}
+                </Badge>
+                {deadline && <FormStatusBadge deadline={deadline} />}
+              </div>
             </div>
             <p className="text-muted-foreground text-sm">
               View and manage form responses
@@ -330,18 +339,20 @@ export default function FormPage({
               Export CSV
             </Button>
             <Button
-              onClick={() =>
-                router.push(`/dashboard/current/form/${formCode}/edit`)
-              }
-              className="w-full sm:w-auto sm:min-w-[120px]">
+              disabled
+              className="w-full sm:w-auto sm:min-w-[120px] bg-gray-300 text-gray-500 cursor-not-allowed">
               <Edit className="w-4 h-4 mr-2" />
-              Edit Form
+              Edit Form (Disabled)
             </Button>
           </div>
         </div>
 
         {/* Navigation Tabs */}
-        <FormNavigationTabs formCode={typeof formCode === 'string' ? formCode : ''} currentTab="applicants" basePath="past" />
+        <FormNavigationTabs
+          formCode={typeof formCode === 'string' ? formCode : ''}
+          currentTab="applicants"
+          basePath="past"
+        />
 
         {/* Statistics */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -462,12 +473,8 @@ export default function FormPage({
                       </p>
                       <Button
                         variant="outline"
-                        onClick={() => {
-                          navigator.clipboard.writeText(
-                            `${window.location.origin}/form/${formCode}`
-                          );
-                          toast('Copied link!');
-                        }}>
+                        disabled
+                        className="bg-gray-300 text-gray-500 cursor-not-allowed">
                         Copy form link
                       </Button>
                     </>
@@ -505,10 +512,14 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
 
   try {
     // Fetch all data on the server
-    const [formTitle, formId] = await Promise.all([
+    const [formTitle, formId, deadline] = await Promise.all([
       getFormTitle(supabase, formCode),
-      getFormIdByCode(supabase, formCode)
+      getFormIdByCode(supabase, formCode),
+      getFormDeadline(supabase, formCode) // Added to fetch deadline
     ]);
+
+    const processedDeadline =
+      deadline instanceof Date ? deadline.toISOString() : deadline;
 
     if (!formId) {
       return {
@@ -591,7 +602,8 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
         formId,
         questions,
         allOptions,
-        initialSubmissions: processedSubmissions
+        initialSubmissions: processedSubmissions,
+        deadline: processedDeadline // Use the processed deadline
       }
     };
   } catch (error) {
