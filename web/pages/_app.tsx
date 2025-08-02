@@ -88,7 +88,7 @@ export default function App({ Component, pageProps }: AppProps) {
         disableTransitionOnChange
         themes={['light', 'dark']}>
         <Toaster />
-        {/* <AuthRequired /> */}
+        <AuthRequired />
       </ThemeProvider>
     );
   }
