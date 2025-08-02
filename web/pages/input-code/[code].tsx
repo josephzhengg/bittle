@@ -16,7 +16,8 @@ import {
   ChevronRight,
   Send,
   CheckCircle,
-  RotateCcw
+  RotateCcw,
+  MoveRight
 } from 'lucide-react';
 
 export default function QuestionnairePage() {
@@ -418,9 +419,15 @@ export default function QuestionnairePage() {
               </p>
               <button
                 onClick={handleSubmitAgain}
-                className="flex items-center px-6 py-3 mx-auto rounded-xl font-semibold bg-gradient-to-r from-pink-500 to-purple-500 text-white shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
+                className="flex items-center px-6 py-3 mx-auto rounded-xl font-semibold bg-gradient-to-r from-pink-500 to-purple-500 text-white shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 mb-4">
                 <RotateCcw className="w-5 h-5 mr-2" />
                 Submit Again
+              </button>
+              <button
+                onClick={() => router.push('/input-code')}
+                className="flex items-center px-6 py-3 mx-auto rounded-xl font-semibold border border-white/20 bg-white/10 text-white hover:bg-white/20 transition-all duration-300 transform hover:scale-105">
+                <MoveRight className="w-5 h-5 mr-2" />
+                Back to Start
               </button>
             </div>
           </div>
