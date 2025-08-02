@@ -40,6 +40,7 @@ import { useMemo, useState } from 'react';
 import { Question } from '@/utils/supabase/models/question';
 import { format } from 'date-fns';
 import { FormStatsCards } from '@/components/dashboard-components/form-stats-card';
+import FormNavigationTabs from '@/components/dashboard-components/form-navigation-tabs';
 
 export type PastFormsPageProps = {
   user: User;
@@ -310,28 +311,11 @@ export default function FormPage({
         </div>
 
         {/* Navigation Tabs */}
-        <div className="bg-gray-50/60 backdrop-blur-sm rounded-xl border border-gray-200 p-1">
-          <Tabs className="w-full" defaultValue="forms">
-            <TabsList className="h-12 p-1 bg-transparent rounded-lg w-full grid grid-cols-2">
-              <TabsTrigger
-                value="forms"
-                onClick={() => router.push(`/dashboard/past/form/${formCode}`)}
-                className="flex items-center gap-2 h-10 px-3 sm:px-6 rounded-md font-medium transition-all data-[state=active]:bg-gray-100 data-[state=active]:shadow-sm data-[state=active]:text-gray-800 text-gray-500 hover:text-gray-800">
-                <FileText className="w-4 h-4" />
-                <span className="hidden xs:inline">Forms</span>
-              </TabsTrigger>
-              <TabsTrigger
-                value="applicants"
-                onClick={() =>
-                  router.push(`/dashboard/past/applicants/${formCode}`)
-                }
-                className="flex items-center gap-2 h-10 px-3 sm:px-6 rounded-md font-medium transition-all data-[state=active]:bg-gray-100 data-[state=active]:shadow-sm data-[state=active]:text-gray-800 text-gray-500 hover:text-gray-800">
-                <Users className="w-4 h-4" />
-                <span className="hidden xs:inline">Applicants</span>
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
-        </div>
+        <FormNavigationTabs
+          formCode={typeof formCode === 'string' ? formCode : ''}
+          currentTab="forms"
+          basePath="past"
+        />
 
         {/* Statistics Cards */}
         <FormStatsCards
