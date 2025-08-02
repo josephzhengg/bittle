@@ -17,8 +17,6 @@ import {
   Users,
   FileText,
   RefreshCw,
-  ChevronRight,
-  ChevronDown
 } from 'lucide-react';
 import { createSupabaseServerClient } from '@/utils/supabase/clients/server-props';
 import {
@@ -73,9 +71,6 @@ export default function FormPage({
 
   // State for client-side filtering and interactions
   const [searchTerm, setSearchTerm] = useState('');
-  const [expandedSubmissions, setExpandedSubmissions] = useState<Set<string>>(
-    new Set()
-  );
   const [submissions] = useState<ProcessedSubmission[]>(initialSubmissions);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -129,19 +124,6 @@ export default function FormPage({
     setSearchTerm(value);
   }, []);
 
-  // Toggle expanded submission
-  const toggleSubmission = useCallback((submissionId: string) => {
-    setExpandedSubmissions((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(submissionId)) {
-        newSet.delete(submissionId);
-      } else {
-        newSet.add(submissionId);
-      }
-      return newSet;
-    });
-  }, []);
-
   // Refresh data
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
@@ -188,112 +170,6 @@ export default function FormPage({
     a.click();
     window.URL.revokeObjectURL(url);
   }, [filteredSubmissions, sortedQuestions, formTitle]);
-
-  // Helper function to format question type for display
-  const formatQuestionType = (type: string) => {
-    const typeMap: Record<string, string> = {
-      FREE_RESPONSE: 'Free Response',
-      MULTIPLE_CHOICE: 'Multiple Choice',
-      SELECT_ALL: 'Select All'
-    };
-    return typeMap[type] || type;
-  };
-
-  // Mobile card component for responses
-  const MobileResponseCard = ({
-    submission,
-    index
-  }: {
-    submission: ProcessedSubmission;
-    index: number;
-  }) => {
-    const isExpanded = expandedSubmissions.has(submission.id);
-
-    return (
-      <Card className="w-full">
-        <CardHeader
-          className="pb-2 cursor-pointer"
-          onClick={() => toggleSubmission(submission.id)}>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-sm font-medium">
-                {index + 1}
-              </div>
-              <div>
-                <div className="font-medium text-sm">
-                  {format(new Date(submission.submittedAt), 'MMM d, yyyy')}
-                </div>
-                <div className="text-muted-foreground text-xs">
-                  {format(new Date(submission.submittedAt), 'h:mm a')}
-                </div>
-              </div>
-            </div>
-            {isExpanded ? (
-              <ChevronDown className="w-4 h-4 text-muted-foreground" />
-            ) : (
-              <ChevronRight className="w-4 h-4 text-muted-foreground" />
-            )}
-          </div>
-        </CardHeader>
-
-        {isExpanded && (
-          <CardContent className="pt-0">
-            <div className="space-y-4">
-              {sortedQuestions.map((question) => (
-                <div key={question.id} className="space-y-2">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium text-foreground leading-tight">
-                        {question.prompt}
-                      </div>
-                      <Badge
-                        className={`text-xs mt-1 ${
-                          question.type === 'MULTIPLE_CHOICE'
-                            ? 'bg-blue-100 text-blue-800'
-                            : question.type === 'SELECT_ALL'
-                            ? 'bg-red-100 text-red-800'
-                            : 'bg-purple-100 text-purple-800'
-                        }`}>
-                        {formatQuestionType(question.type)}
-                      </Badge>
-                    </div>
-                  </div>
-
-                  <div className="ml-0">
-                    {submission.responses[question.id] ? (
-                      question.type === 'FREE_RESPONSE' ? (
-                        <div className="text-sm p-3 bg-muted/30 rounded-md break-words whitespace-pre-wrap">
-                          {submission.responses[question.id]}
-                        </div>
-                      ) : (
-                        <div className="flex flex-wrap gap-1">
-                          {submission.responses[question.id]
-                            .split(', ')
-                            .filter((option) => option.trim())
-                            .map((option, idx) => (
-                              <Badge
-                                key={idx}
-                                variant="secondary"
-                                className="text-xs">
-                                {option.trim()}
-                              </Badge>
-                            ))}
-                        </div>
-                      )
-                    ) : (
-                      <div className="text-muted-foreground text-xs italic p-2 bg-muted/20 rounded-md text-center">
-                        No response
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        )}
-      </Card>
-    );
-  };
 
   return (
     <DashBoardLayout user={user}>

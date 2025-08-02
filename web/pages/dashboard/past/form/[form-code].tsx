@@ -1,5 +1,4 @@
 import DashBoardLayout from '@/components/layouts/dashboard-layout';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -13,11 +12,9 @@ import {
 import { useSupabase } from '@/lib/supabase';
 import {
   Edit,
-  Users,
   FileText,
   Eye,
   RefreshCw,
-  Calendar,
   Clock,
   Settings
 } from 'lucide-react';
@@ -25,7 +22,6 @@ import ReadOnlyQuestionCard from '@/components/question-components/read-only-que
 import { FormEditDialog } from '@/components/dashboard-components/form-edit-dialog';
 import { createSupabaseServerClient } from '@/utils/supabase/clients/server-props';
 import {
-  getFormTitle,
   getFormIdByCode,
   getFormDeadline,
   getFormData
@@ -38,7 +34,6 @@ import { useRouter } from 'next/router';
 import { z } from 'zod';
 import { useMemo, useState } from 'react';
 import { Question } from '@/utils/supabase/models/question';
-import { format } from 'date-fns';
 import { FormStatsCards } from '@/components/dashboard-components/form-stats-card';
 import FormNavigationTabs from '@/components/dashboard-components/form-navigation-tabs';
 import FormStatusBadge from '@/components/dashboard-components/form-status-badge';
@@ -125,15 +120,6 @@ export default function FormPage({
 
     return { total, typeBreakdown };
   }, [sortedQuestions]);
-
-  const formatQuestionType = (type: string) => {
-    const typeMap: Record<string, string> = {
-      FREE_RESPONSE: 'Free Response',
-      MULTIPLE_CHOICE: 'Multiple Choice',
-      SELECT_ALL: 'Select All'
-    };
-    return typeMap[type] || type;
-  };
 
   const formatDateTime = (dateInput: string | Date) => {
     const date =

@@ -1,5 +1,4 @@
 import DashBoardLayout from '@/components/layouts/dashboard-layout';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -13,11 +12,9 @@ import {
 import { useSupabase } from '@/lib/supabase';
 import {
   Edit,
-  Users,
   FileText,
   Eye,
   RefreshCw,
-  Calendar,
   Clock,
   Settings
 } from 'lucide-react';
@@ -25,7 +22,6 @@ import ReadOnlyQuestionCard from '@/components/question-components/read-only-que
 import { FormEditDialog } from '@/components/dashboard-components/form-edit-dialog';
 import { createSupabaseServerClient } from '@/utils/supabase/clients/server-props';
 import {
-  getFormTitle,
   getFormIdByCode,
   getFormDeadline,
   getFormData
@@ -124,15 +120,6 @@ export default function FormPage({
 
     return { total, typeBreakdown };
   }, [sortedQuestions]);
-
-  const formatQuestionType = (type: string) => {
-    const typeMap: Record<string, string> = {
-      FREE_RESPONSE: 'Free Response',
-      MULTIPLE_CHOICE: 'Multiple Choice',
-      SELECT_ALL: 'Select All'
-    };
-    return typeMap[type] || type;
-  };
 
   const formatDateTime = (dateInput: string | Date) => {
     const date =
@@ -293,40 +280,6 @@ export default function FormPage({
           stats={stats}
           isPageLoading={isPageLoading}
         />
-
-        {/* Question Types Breakdown Card */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <Users className="w-5 h-5 text-pink-600" />
-              Question Types
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {isPageLoading ? (
-                <Skeleton className="h-4 w-32" />
-              ) : stats?.typeBreakdown ? (
-                Object.entries(stats.typeBreakdown).map(([type, count]) => (
-                  <div key={type} className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground">
-                      {formatQuestionType(type)}
-                    </span>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="secondary" className="text-xs">
-                        {count}
-                      </Badge>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <span className="text-sm text-muted-foreground">
-                  No questions
-                </span>
-              )}
-            </div>
-          </CardContent>
-        </Card>
 
         {/* Form Content */}
         <Card>
