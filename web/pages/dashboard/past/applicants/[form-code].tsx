@@ -41,6 +41,7 @@ import { Question } from '@/utils/supabase/models/question';
 import ApplicantResponseDisplay from '@/components/dashboard-components/applicant-response-display';
 import FormNavigationTabs from '@/components/dashboard-components/form-navigation-tabs';
 import FormStatusBadge from '@/components/dashboard-components/form-status-badge';
+import { ProcessedSubmission } from '@/utils/types';
 
 export type PastFormsPageProps = {
   user: User;
@@ -52,12 +53,6 @@ export type PastFormsPageProps = {
   allOptions: Record<string, QuestionOption[]>;
   initialSubmissions: ProcessedSubmission[];
 };
-
-interface ProcessedSubmission {
-  id: string;
-  submittedAt: string; // Changed from Date to string for serialization
-  responses: Record<string, string>;
-}
 
 export default function FormPage({
   user,

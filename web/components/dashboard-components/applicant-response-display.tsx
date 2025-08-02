@@ -5,7 +5,7 @@ import { ChevronDown, ChevronRight } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import { format } from 'date-fns';
 import { Question } from '@/utils/supabase/models/question';
-import { ProcessedSubmission } from './[form-code]';
+import { ProcessedSubmission } from '@/utils/types/index';
 import React from 'react';
 
 interface ApplicantResponseDisplayProps {
