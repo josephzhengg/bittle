@@ -1,10 +1,4 @@
-import React, {
-  useCallback,
-  useState,
-  useRef,
-  useMemo,
-  useEffect
-} from 'react';
+import { useCallback, useState, useRef, useMemo, useEffect } from 'react';
 import ReactFlow, {
   useNodesState,
   useEdgesState,
@@ -71,12 +65,11 @@ const layoutControlItems = [
 ];
 
 export const NODE_WIDTH = 172;
-export const NODE_HEIGHT = 36;
+export const NODE_HEIGHT = 60; // Increased from 36 for more vertical space
 export const PADDING = 50;
 export const VERTICAL_SPACING = 100;
-
 export const MOBILE_NODE_WIDTH = 140;
-export const MOBILE_NODE_HEIGHT = 32;
+export const MOBILE_NODE_HEIGHT = 48; // Increased from 32 for mobile
 export const MOBILE_PADDING = 20;
 export const MOBILE_VERTICAL_SPACING = 60;
 
@@ -114,7 +107,6 @@ const createStyledEdge = (
 ): Edge => {
   const sourceNode = nodes.find((n) => n.id === source);
   const targetNode = nodes.find((n) => n.id === target);
-
   // Validate node existence and positions
   if (!sourceNode || !targetNode) {
     console.warn(
@@ -130,10 +122,8 @@ const createStyledEdge = (
       markerEnd: getCustomMarker('general')
     };
   }
-
   const sourceX = sourceNode.position?.x ?? 0;
   const targetX = targetNode.position?.x ?? 0;
-
   // Validate position values
   if (isNaN(sourceX) || isNaN(targetX)) {
     console.warn(
@@ -149,10 +139,8 @@ const createStyledEdge = (
       markerEnd: getCustomMarker('general')
     };
   }
-
   const isBigToLittle = sourceNode?.data.is_big && targetNode?.data.hasBig;
   const isVertical = Math.abs(sourceX - targetX) < 10;
-
   return {
     id: edgeId,
     source,
@@ -172,17 +160,14 @@ const createStyledEdge = (
 
 export const useIsMobile = () => {
   const [isMobile, setIsMobile] = useState(false);
-
   useEffect(() => {
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 768);
     };
-
     checkMobile();
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
-
   return isMobile;
 };
 
@@ -191,7 +176,6 @@ const getEdgeStyle = (
   targetNode?: Node<NodeData>
 ) => {
   const isBigToLittle = sourceNode?.data.is_big && targetNode?.data.hasBig;
-
   return {
     stroke: isBigToLittle
       ? 'url(#bigToLittleGradient)'
@@ -210,8 +194,10 @@ const getNodeStyle = (data: NodeData, isMobile: boolean) => {
     width: isMobile ? MOBILE_NODE_WIDTH : NODE_WIDTH,
     height: isMobile ? MOBILE_NODE_HEIGHT : NODE_HEIGHT,
     borderRadius: 'var(--radius-md)',
-    padding: isMobile ? '0.5rem' : '0.75rem',
+    padding: isMobile ? '0.75rem' : '1rem', // Increased padding
     fontSize: isMobile ? '0.7rem' : '0.875rem',
+    fontFamily:
+      '"Geist Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', // Explicit font stack
     fontWeight: '500',
     display: 'flex',
     alignItems: 'center',
@@ -221,10 +207,9 @@ const getNodeStyle = (data: NodeData, isMobile: boolean) => {
     transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
     boxSizing: 'border-box' as const,
     overflow: 'visible',
-    backdropFilter: 'blur(4px)',
-    WebkitBackdropFilter: 'blur(4px)'
+    background: 'rgba(255, 255, 255, 0.8)', // Fallback for backdrop-filter
+    border: isMobile ? '1px solid var(--border)' : '2px solid var(--border)'
   };
-
   if (data.is_big && data.hasBig) {
     return {
       ...base,
@@ -283,24 +268,31 @@ const CustomNode: React.FC<{ data: NodeData; selected: boolean }> = ({
 
   const truncateText = (text: string, maxLength: number) => {
     if (text.length <= maxLength) return text;
+    console.log(`Truncating text: ${text} to maxLength: ${maxLength}`); // Debug log
     return text.substring(0, maxLength - 3) + '...';
   };
 
   const getMaxTextLength = () => {
-    if (isMobile) {
-      const availableWidth = MOBILE_NODE_WIDTH - 24;
-      const avgCharWidth = 6;
-      return Math.floor(availableWidth / avgCharWidth);
-    } else {
-      const availableWidth = NODE_WIDTH - 32;
-      const avgCharWidth = 7;
-      return Math.floor(availableWidth / avgCharWidth);
-    }
+    const availableWidth = isMobile ? MOBILE_NODE_WIDTH - 40 : NODE_WIDTH - 48; // Increased padding allowance
+    const avgCharWidth = isMobile ? 5.5 : 6.5; // Adjusted for font metrics
+    return Math.floor(availableWidth / avgCharWidth);
   };
 
   const maxLength = getMaxTextLength();
   const truncatedName = truncateText(fullName, maxLength);
   const displayText = `${roleIcon} ${truncatedName}`;
+
+  // Debug rendering on Vercel
+  useEffect(() => {
+    // 'id' is not available in data, so we can't log it here.
+    console.log(
+      `Node rendered. Dimensions: width=${
+        isMobile ? MOBILE_NODE_WIDTH : NODE_WIDTH
+      }, height=${isMobile ? MOBILE_NODE_HEIGHT : NODE_HEIGHT}`
+    );
+    console.log(`Rendered text: ${data.label}, Displayed: ${displayText}`);
+    // If you want to log the node id, you need to pass it as a prop to CustomNode.
+  }, [isMobile, data.label, displayText]);
 
   return (
     <div
@@ -310,7 +302,7 @@ const CustomNode: React.FC<{ data: NodeData; selected: boolean }> = ({
         maxWidth: isMobile ? MOBILE_NODE_WIDTH : NODE_WIDTH,
         minHeight: isMobile ? MOBILE_NODE_HEIGHT : NODE_HEIGHT,
         maxHeight: isMobile ? MOBILE_NODE_HEIGHT : NODE_HEIGHT,
-        lineHeight: isMobile ? '1.4' : '1.3',
+        lineHeight: isMobile ? '1.2' : '1.3',
         position: 'relative'
       }}
       className={`react-flow__node-custom ${selected ? 'selected' : ''}`}
@@ -325,7 +317,7 @@ const CustomNode: React.FC<{ data: NodeData; selected: boolean }> = ({
           border: '2px solid #fff',
           borderRadius: '50%',
           boxShadow: '0 0 8px rgba(64, 66, 209, 0.5)',
-          top: isMobile ? -6 : -8,
+          top: isMobile ? -12 : -14, // Moved further up
           zIndex: 10,
           transition: 'all 0.3s ease'
         }}
@@ -337,12 +329,13 @@ const CustomNode: React.FC<{ data: NodeData; selected: boolean }> = ({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          overflow: 'hidden',
+          overflow: 'visible', // Prevent clipping
           textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
+          whiteSpace: 'normal', // Allow text wrapping
           fontSize: isMobile ? '0.7rem' : '0.875rem',
           fontWeight: '500',
-          padding: isMobile ? '0 0.5rem' : '0 0.75rem'
+          padding: isMobile ? '0.75rem 0.75rem' : '1rem 1rem', // Increased padding
+          lineHeight: isMobile ? '1.2' : '1.3'
         }}>
         {displayText}
       </div>
@@ -356,7 +349,7 @@ const CustomNode: React.FC<{ data: NodeData; selected: boolean }> = ({
           border: '2px solid #fff',
           borderRadius: '50%',
           boxShadow: '0 0 8px rgba(64, 66, 209, 0.5)',
-          bottom: isMobile ? -6 : -8,
+          bottom: isMobile ? -12 : -14, // Moved further down
           zIndex: 10,
           transition: 'all 0.3s ease'
         }}
@@ -380,7 +373,6 @@ const findEmptySpace = (
 ) => {
   let x = PADDING,
     y = PADDING;
-
   const isOverlapping = (testX: number, testY: number) =>
     nodes.some(
       (n) =>
@@ -398,7 +390,6 @@ const findEmptySpace = (
   ];
   let attempt = 0,
     directionIndex = 0;
-
   while (isOverlapping(x, y) && attempt < 100) {
     const { dx, dy } = directions[directionIndex % directions.length];
     x += dx * 50;
@@ -410,7 +401,6 @@ const findEmptySpace = (
   }
   x = Math.max(PADDING, Math.min(x, containerWidth - NODE_WIDTH - PADDING));
   y = Math.max(PADDING, Math.min(y, containerHeight - NODE_HEIGHT - PADDING));
-
   return { x, y };
 };
 
@@ -421,40 +411,32 @@ const autoLayout = (
 ) => {
   const bigToLittles = new Map<string, string[]>();
   const littleToBig = new Map<string, string>();
-
   edges.forEach((edge) => {
     if (!bigToLittles.has(edge.source)) bigToLittles.set(edge.source, []);
     bigToLittles.get(edge.source)?.push(edge.target);
     littleToBig.set(edge.target, edge.source);
   });
-
   const calculateHorizontalOffset = (depth: number) => {
     const baseOffset = 15;
     return depth % 2 === 0 ? baseOffset : -baseOffset;
   };
-
   const positions = new Map<string, { x: number; y: number }>();
-
   const orphanedNodes = nodes.filter(
     (node) => !littleToBig.has(node.id) && !bigToLittles.has(node.id)
   );
-
   const roots = nodes.filter((node) => !littleToBig.has(node.id));
   const connectedNodeIds = new Set(
     nodes
       .filter((node) => littleToBig.has(node.id) || bigToLittles.has(node.id))
       .map((n) => n.id)
   );
-
   const nodeWidth = isMobile ? MOBILE_NODE_WIDTH : NODE_WIDTH;
   const nodeHeight = isMobile ? MOBILE_NODE_HEIGHT : NODE_HEIGHT;
   const padding = isMobile ? MOBILE_PADDING : PADDING;
   const verticalSpacing = isMobile ? MOBILE_VERTICAL_SPACING : VERTICAL_SPACING;
-
   let currentX = padding;
   const orphanY = padding;
   const currentY = orphanY + nodeHeight + verticalSpacing / 2;
-
   const layoutTree = (
     nodeId: string,
     startX: number,
@@ -463,26 +445,21 @@ const autoLayout = (
   ) => {
     const node = nodes.find((n) => n.id === nodeId);
     if (!node) return;
-
     const horizontalOffset = calculateHorizontalOffset(depth);
     const x = startX + availableWidth / 2 - nodeWidth / 2 + horizontalOffset;
     const y = currentY + depth * (nodeHeight + verticalSpacing);
-
     positions.set(nodeId, { x, y });
-
     const children = bigToLittles.get(nodeId) || [];
     if (children.length > 0) {
       const childWidths = children.map(() => nodeWidth + padding / 2);
       const totalChildrenWidth = childWidths.reduce((sum, w) => sum + w, 0);
       let childX = startX + (availableWidth - totalChildrenWidth) / 2;
-
       children.forEach((childId, index) => {
         layoutTree(childId, childX, childWidths[index], depth + 1);
         childX += childWidths[index];
       });
     }
   };
-
   roots
     .filter((root) => connectedNodeIds.has(root.id))
     .forEach((root) => {
@@ -490,12 +467,10 @@ const autoLayout = (
       layoutTree(root.id, currentX, treeWidth, 0);
       currentX += treeWidth + padding / 2;
     });
-
   if (orphanedNodes.length > 0) {
     const totalOrphansWidth =
       orphanedNodes.length * nodeWidth +
       (orphanedNodes.length - 1) * (padding / 2);
-
     let minX = padding;
     let maxX = currentX;
     if (positions.size > 0) {
@@ -507,9 +482,7 @@ const autoLayout = (
       maxX - minX,
       totalOrphansWidth + padding * 2
     );
-
     let orphanX = minX + (availableWidth - totalOrphansWidth) / 2;
-
     orphanedNodes.forEach((node) => {
       positions.set(node.id, {
         x: orphanX,
@@ -518,10 +491,8 @@ const autoLayout = (
       orphanX += nodeWidth + padding / 2;
     });
   }
-
   const updatedNodes = nodes.map((node) => {
     const pos = positions.get(node.id) || node.position;
-    // Validate positions
     const x = isNaN(pos.x) ? 0 : pos.x;
     const y = isNaN(pos.y) ? 0 : pos.y;
     return {
@@ -530,7 +501,6 @@ const autoLayout = (
       data: { ...node.data, position_x: x, position_y: y }
     };
   });
-
   return updatedNodes;
 };
 
@@ -542,7 +512,6 @@ const AddMemberDialog: React.FC<{
 }> = ({ isOpen, onSave, onCancel }) => {
   const [identifier, setIdentifier] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-
   const handleSubmit = async () => {
     if (!identifier.trim()) {
       toast.error('Please enter a valid identifier');
@@ -562,7 +531,6 @@ const AddMemberDialog: React.FC<{
       setIsSubmitting(false);
     }
   };
-
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey && !isSubmitting) {
       e.preventDefault();
@@ -572,9 +540,7 @@ const AddMemberDialog: React.FC<{
       }
     }
   };
-
   const isValid = identifier.trim().length > 0;
-
   return (
     <>
       {isOpen && (
@@ -649,7 +615,6 @@ const useFamilyTreeData = (
 ) => {
   const supabase = useSupabase();
   const [isLoading, setIsLoading] = useState(false);
-
   useEffect(() => {
     const loadInitialMembers = async () => {
       setIsLoading(true);
@@ -722,11 +687,9 @@ const useFamilyTreeData = (
     initialEdges,
     isMobile
   ]);
-
   const refetchNewSubmissions = useCallback(async () => {
     if (!familyTreeId) return;
     setIsLoading(true);
-
     try {
       const [members, submissions, { data: familyTree }] = await Promise.all([
         getFamilyTreeMembers(supabase, familyTreeId),
@@ -737,22 +700,18 @@ const useFamilyTreeData = (
           .eq('id', familyTreeId)
           .single()
       ]);
-
       if (!familyTree) {
         toast.error('Family tree data not found');
         return;
       }
-
       const existingIds = new Set(
         members.map((m) => m.form_submission_id).filter(Boolean)
       );
       const newSubmissions = submissions.filter((s) => !existingIds.has(s.id));
-
       if (!newSubmissions.length) {
         toast.info('No new submissions found');
         return;
       }
-
       const { data: responses } = await supabase
         .from('question_response')
         .select('free_text, form_submission_id')
@@ -762,7 +721,6 @@ const useFamilyTreeData = (
           'form_submission_id',
           newSubmissions.map((s) => s.id)
         );
-
       const { width, height } = getContainerSize();
       const currentNodes = await new Promise<Node[]>((resolve) => {
         setNodes((nds: Node[]) => {
@@ -770,7 +728,6 @@ const useFamilyTreeData = (
           return nds;
         });
       });
-
       const newMembers =
         responses?.map((response, index) => {
           const position = findEmptySpace(
@@ -788,12 +745,10 @@ const useFamilyTreeData = (
             position_y: position.y
           };
         }) ?? [];
-
       const { data: newMembersData } = await supabase
         .from('tree_member')
         .insert(newMembers)
         .select();
-
       const newNodes = TreeMember.array()
         .parse(newMembersData)
         .map((member) => {
@@ -806,7 +761,6 @@ const useFamilyTreeData = (
             hasBig: false,
             form_submission_id: member.form_submission_id
           };
-
           return {
             id: member.id,
             type: 'custom',
@@ -819,7 +773,6 @@ const useFamilyTreeData = (
             selectable: true
           };
         });
-
       setNodes((nds: Node[]) => [...nds, ...newNodes]);
       setTimeout(() => {
         fitView({ padding: isMobile ? 0.1 : 0.4 });
@@ -835,7 +788,6 @@ const useFamilyTreeData = (
       setIsLoading(false);
     }
   }, [familyTreeId, supabase, setNodes, getContainerSize, fitView, isMobile]);
-
   return { refetchNewSubmissions, isLoading };
 };
 
@@ -848,37 +800,30 @@ const updateNodeRoles = async (
 ) => {
   const bigToLittles = new Map<string, string[]>();
   const littleToBig = new Map<string, string>();
-
   edges.forEach((edge) => {
     if (!bigToLittles.has(edge.source)) bigToLittles.set(edge.source, []);
     bigToLittles.get(edge.source)?.push(edge.target);
     littleToBig.set(edge.target, edge.source);
   });
-
   const shouldBeBig = new Set<string>();
   edges.forEach((edge) => {
     shouldBeBig.add(edge.source);
   });
-
   const updates: { id: string; is_big: boolean }[] = [];
-
   const updatedNodes = nodes.map((node) => {
     const hasLittles =
       bigToLittles.has(node.id) && bigToLittles.get(node.id)!.length > 0;
     const hasBig = littleToBig.has(node.id);
     const newIsBig = shouldBeBig.has(node.id);
-
     if (node.data.is_big !== newIsBig) {
       updates.push({ id: node.id, is_big: newIsBig });
     }
-
     const updatedData = {
       ...node.data,
       hasLittles,
       hasBig,
       is_big: newIsBig
     };
-
     return {
       ...node,
       data: {
@@ -890,12 +835,10 @@ const updateNodeRoles = async (
       }
     };
   });
-
   const updatedEdges = edges.map((edge) => {
     const sourceNode = updatedNodes.find((n) => n.id === edge.source);
     const targetNode = updatedNodes.find((n) => n.id === edge.target);
     const isBigToLittle = sourceNode?.data.is_big && targetNode?.data.hasBig;
-
     return {
       ...edge,
       type: 'smoothstep',
@@ -907,7 +850,6 @@ const updateNodeRoles = async (
       }
     };
   });
-
   if (updates.length > 0) {
     try {
       for (const update of updates) {
@@ -915,7 +857,6 @@ const updateNodeRoles = async (
           .from('tree_member')
           .update({ is_big: update.is_big })
           .eq('id', update.id);
-
         if (error) {
           console.error(
             'Failed to update big status for node:',
@@ -930,7 +871,6 @@ const updateNodeRoles = async (
       throw err;
     }
   }
-
   setNodes(updatedNodes);
   setEdges(updatedEdges);
 };
@@ -949,7 +889,6 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
         const targetNode = initialNodes.find((n) => n.id === edge.target);
         const isBigToLittle =
           sourceNode?.data.is_big && targetNode?.data.hasBig;
-
         return {
           ...edge,
           type: 'smoothstep',
@@ -964,7 +903,6 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
       }),
     [initialEdges, initialNodes]
   );
-
   const styledInitialNodes = useMemo(
     () =>
       initialNodes.map((node) => ({
@@ -976,7 +914,6 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
       })),
     [initialNodes]
   );
-
   const [nodes, setNodes, onNodesChange] =
     useNodesState<NodeData>(styledInitialNodes);
   const [edges, setEdges, onEdgesChange] =
@@ -1008,7 +945,6 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
   } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const { fitView, getViewport } = useReactFlow();
-
   useEffect(() => {
     const hasSeenTutorial = localStorage.getItem('hasSeenFamilyTreeTutorial');
     if (!hasSeenTutorial) {
@@ -1016,7 +952,6 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
       localStorage.setItem('hasSeenFamilyTreeTutorial', 'true');
     }
   }, []);
-
   const getContainerSize = useCallback(() => {
     if (containerRef.current) {
       const { width, height } = containerRef.current.getBoundingClientRect();
@@ -1030,7 +965,6 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
       height: window.innerHeight - 20
     };
   }, []);
-
   const { refetchNewSubmissions, isLoading } = useFamilyTreeData(
     familyTreeId,
     setNodes,
@@ -1040,7 +974,6 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
     styledInitialEdges,
     isMobile
   );
-
   const handleAddMember = useCallback(
     async (identifier: string) => {
       try {
@@ -1050,7 +983,6 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
           familyTreeId,
           identifier
         );
-
         const position = findEmptySpace(nodes, newMember.id, width, height);
         const data: NodeData = {
           label: newMember.identifier,
@@ -1061,7 +993,6 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
           hasBig: false,
           form_submission_id: newMember.form_submission_id
         };
-
         const newNode = {
           id: newMember.id,
           type: 'custom',
@@ -1073,7 +1004,6 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
           draggable: true,
           selectable: true
         };
-
         setNodes((nds) => [...nds, newNode]);
         setAddMemberDialog(false);
         setTimeout(() => {
@@ -1098,19 +1028,14 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
       isMobile
     ]
   );
-
   const onEdgeContextMenu = useCallback(
     (event: React.MouseEvent, edge: Edge) => {
       event.preventDefault();
-
       const sourceNode = nodes.find((n) => n.id === edge.source);
       const targetNode = nodes.find((n) => n.id === edge.target);
-
       if (!sourceNode || !targetNode || !containerRef.current) return;
-
       const viewport = getViewport();
       const { x: panX, y: panY, zoom } = viewport;
-
       const midX =
         (sourceNode.position.x +
           NODE_WIDTH / 2 +
@@ -1123,10 +1048,8 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
           targetNode.position.y +
           NODE_HEIGHT / 2) /
         2;
-
       const screenX = midX * zoom + panX;
       const screenY = midY * zoom + panY;
-
       const containerBounds = containerRef.current.getBoundingClientRect();
       const menuX = Math.max(
         10,
@@ -1136,7 +1059,6 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
         10,
         Math.min(screenY, containerBounds.height - 100)
       );
-
       setContextMenu({
         id: edge.id,
         type: 'edge',
@@ -1145,7 +1067,6 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
           y: menuY
         }
       });
-
       setEdges((eds) =>
         eds.map((e) => ({
           ...e,
@@ -1155,7 +1076,6 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
     },
     [setEdges, nodes, getViewport]
   );
-
   const onNodeDragStop = useCallback(
     async (_: React.MouseEvent, node: Node) => {
       try {
@@ -1170,7 +1090,6 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
     },
     [supabase]
   );
-
   const onConnect = useCallback(
     async (connection: Connection) => {
       if (!connection.source || !connection.target) return;
@@ -1184,14 +1103,12 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
           connection.source,
           connection.target
         );
-
         const newEdge = createStyledEdge(
           result[0].id,
           connection.source,
           connection.target,
           nodes
         );
-
         setEdges((eds) => {
           const updatedEdges = addEdge(newEdge, eds);
           setTimeout(async () => {
@@ -1212,19 +1129,16 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
     },
     [setEdges, supabase, nodes, setNodes]
   );
-
   const handleToggleBig = useCallback(
     async (nodeId: string) => {
       try {
         const node = nodes.find((n) => n.id === nodeId);
         if (!node) return;
-
         const newIsBig = !node.data.is_big;
         await toggleBig(supabase, nodeId, newIsBig);
         toast.success(
           `Member ${newIsBig ? 'promoted to big' : 'demoted from big'}`
         );
-
         const updatedNodes = nodes.map((n) =>
           n.id === nodeId
             ? {
@@ -1240,16 +1154,13 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
               }
             : n
         );
-
         setNodes(updatedNodes);
-
         setEdges((eds) =>
           eds.map((edge) => {
             const sourceNode = updatedNodes.find((n) => n.id === edge.source);
             const targetNode = updatedNodes.find((n) => n.id === edge.target);
             const isBigToLittle =
               sourceNode?.data.is_big && targetNode?.data.hasBig;
-
             const updatedEdge: Edge = {
               ...edge,
               type: 'smoothstep',
@@ -1278,7 +1189,6 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
     },
     [nodes, setNodes, setEdges, supabase]
   );
-
   const handleDelete = useCallback(
     async (id: string, type: 'node' | 'edge') => {
       try {
@@ -1287,9 +1197,7 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
           if (!node) {
             throw new Error('Node not found');
           }
-
           const cleanIdentifier = node.data.label.split(' ').slice(1).join(' ');
-
           setDeleteMemberDialog({
             isOpen: true,
             nodeId: id,
@@ -1301,9 +1209,7 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
           if (!edge) {
             throw new Error('Edge not found');
           }
-
           await removeConnection(supabase, edge.target, edge.source);
-
           setEdges((eds) => {
             const updatedEdges = eds.filter((e) => e.id !== id);
             setTimeout(async () => {
@@ -1317,7 +1223,6 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
             }, 0);
             return updatedEdges;
           });
-
           toast.success('Connection deleted successfully');
           setContextMenu(null);
         }
@@ -1332,7 +1237,6 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
     },
     [edges, nodes, setNodes, setEdges, supabase]
   );
-
   const handleConfirmDelete = useCallback(
     async (
       nodeId: string,
@@ -1346,7 +1250,6 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
           formSubmissionId,
           formSubmissionId ? undefined : identifier
         );
-
         setNodes((nds) => nds.filter((n) => n.id !== nodeId));
         setEdges((eds) => {
           const updatedEdges = eds.filter(
@@ -1364,7 +1267,6 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
           }, 0);
           return updatedEdges;
         });
-
         toast.success(
           formSubmissionId
             ? 'Member deleted successfully'
@@ -1384,13 +1286,11 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
     },
     [nodes, setNodes, setEdges, supabase, familyTreeId]
   );
-
   const resetLayout = useCallback(async () => {
     if (!containerRef.current) {
       toast.error('Container not ready. Please try again.');
       return;
     }
-
     try {
       const { width, height } = getContainerSize();
       if (width <= 0 || height <= 0) {
@@ -1398,7 +1298,6 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
           'Invalid container dimensions: width or height is zero or negative'
         );
       }
-
       if (!nodes?.length) {
         toast(
           'No nodes to reset layout for. Please refetch submissions or add members.'
@@ -1410,12 +1309,10 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
           'Invalid node data: some nodes are missing id or label'
         );
       }
-
       const updatedNodes = autoLayout(nodes, edges, isMobile);
       if (!updatedNodes.length) {
         throw new Error('Auto-layout returned no nodes');
       }
-
       const updates = updatedNodes.map((node) => {
         const identifier = node.data.label.split(' ').slice(1).join(' ').trim();
         if (!identifier) {
@@ -1440,16 +1337,13 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
         }
         return update;
       });
-
       const { error } = await supabase
         .from('tree_member')
         .upsert(updates, { onConflict: 'id' });
-
       if (error) {
         console.error('Supabase error:', error);
         throw new Error(`Supabase error: ${error.message}`);
       }
-
       setNodes(updatedNodes);
       setTimeout(() => {
         fitView({ padding: isMobile ? 0.1 : 0.4 });
@@ -1464,12 +1358,10 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
       );
     }
   }, [nodes, edges, setNodes, getContainerSize, supabase, fitView, isMobile]);
-
   const handleSaveIdentifier = useCallback(
     async (nodeId: string, newIdentifier: string) => {
       try {
         await updateIdentifier(supabase, nodeId, newIdentifier);
-
         setNodes((nds) =>
           nds.map((n) =>
             n.id === nodeId
@@ -1483,7 +1375,6 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
               : n
           )
         );
-
         toast.success('Identifier updated successfully');
         setEditDialog(null);
       } catch (err) {
@@ -1496,21 +1387,18 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
     },
     [setNodes, supabase]
   );
-
   const handleNodeClick = useCallback(
     async (e: React.MouseEvent | React.TouchEvent, node: Node<NodeData>) => {
       e.stopPropagation();
       setNodes((nds) => nds.map((n) => ({ ...n, selected: n.id === node.id })));
       setEdges((eds) => eds.map((e) => ({ ...e, selected: false })));
       setContextMenu(null);
-
       const isTouch = 'touches' in e;
       const x = isTouch ? e.touches[0].clientX : e.clientX;
       const y = isTouch ? e.touches[0].clientY : e.clientY;
       const now = Date.now();
       const DOUBLE_TAP_THRESHOLD = 300;
       const TAP_TOLERANCE = 20;
-
       if (
         lastTap &&
         lastTap.id === node.id &&
@@ -1520,13 +1408,10 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
       ) {
         const containerBounds = containerRef.current?.getBoundingClientRect();
         if (!containerBounds) return;
-
         const viewport = getViewport();
         const { x: panX, y: panY, zoom } = viewport;
-
         const nodeScreenX = (node.position.x + NODE_WIDTH / 2) * zoom + panX;
         const nodeScreenY = (node.position.y + NODE_HEIGHT / 2) * zoom + panY;
-
         const menuX = Math.max(
           10,
           Math.min(nodeScreenX + 20, containerBounds.width - 220)
@@ -1535,7 +1420,6 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
           10,
           Math.min(nodeScreenY - 50, containerBounds.height - 200)
         );
-
         setContextMenu({
           id: node.id,
           type: 'node',
@@ -1544,10 +1428,8 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
         setLastTap(null);
         return;
       }
-
       setLastTap({ time: now, id: node.id, x, y });
       setTimeout(() => setLastTap(null), DOUBLE_TAP_THRESHOLD);
-
       if (node.data.form_submission_id) {
         try {
           setSelectedSubmission({
@@ -1555,17 +1437,14 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
             formId: null,
             allOptions: {}
           });
-
           const { data: familyTree } = await supabase
             .from('family_tree')
             .select('form_id')
             .eq('id', familyTreeId)
             .single();
-
           if (!familyTree?.form_id) {
             throw new Error('Form ID not found for this family tree');
           }
-
           const questions = await getQuestions(supabase, familyTree.form_id);
           const allOptions: Record<string, QuestionOption[]> = {};
           for (const question of questions) {
@@ -1577,7 +1456,6 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
               allOptions[question.id] = options;
             }
           }
-
           setSelectedSubmission({
             formSubmissionId: node.data.form_submission_id,
             formId: familyTree.form_id,
@@ -1600,7 +1478,6 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
     },
     [setNodes, setEdges, supabase, familyTreeId, isMobile, lastTap, getViewport]
   );
-
   if (isLoading)
     return (
       <div className="loading-container">
@@ -1608,7 +1485,6 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
         <p>Loading family tree...</p>
       </div>
     );
-
   return (
     <div className="family-tree-container">
       <div className="absolute top-2 right-2 z-10">
@@ -1618,7 +1494,9 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
               variant="ghost"
               size={isMobile ? 'icon' : undefined}
               className={`bg-white/80 border border-gray-300 hover:bg-gray-100 hover:border-gray-400 transition rounded-lg shadow-sm
-              ${isMobile ? '' : 'h-14 w-14 min-w-[56px] min-h-[56px] text-lg'}`}
+                ${
+                  isMobile ? '' : 'h-14 w-14 min-w-[56px] min-h-[56px] text-lg'
+                }`}
               aria-label="Open layout controls menu">
               <Menu
                 className={`text-gray-600 ${isMobile ? 'h-5 w-5' : 'h-8 w-8'}`}
@@ -1817,19 +1695,15 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
             setNodes((nds) =>
               nds.map((n) => ({ ...n, selected: n.id === node.id }))
             );
-
             const containerBounds =
               containerRef.current?.getBoundingClientRect();
             if (!containerBounds) return;
-
             const viewport = getViewport();
             const { x: panX, y: panY, zoom } = viewport;
-
             const nodeScreenX =
               (node.position.x + NODE_WIDTH / 2) * zoom + panX;
             const nodeScreenY =
               (node.position.y + NODE_HEIGHT / 2) * zoom + panY;
-
             const menuX = Math.max(
               10,
               Math.min(nodeScreenX + 20, containerBounds.width - 220)
@@ -1838,7 +1712,6 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
               10,
               Math.min(nodeScreenY - 50, containerBounds.height - 200)
             );
-
             setContextMenu({
               id: node.id,
               type: 'node',
@@ -1848,15 +1721,11 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
           onEdgeClick={(e, edge) => {
             e.preventDefault();
             e.stopPropagation();
-
             const sourceNode = nodes.find((n) => n.id === edge.source);
             const targetNode = nodes.find((n) => n.id === edge.target);
-
             if (!sourceNode || !targetNode || !containerRef.current) return;
-
             const viewport = getViewport();
             const { x: panX, y: panY, zoom } = viewport;
-
             const midX =
               (sourceNode.position.x +
                 NODE_WIDTH / 2 +
@@ -1869,10 +1738,8 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
                 targetNode.position.y +
                 NODE_HEIGHT / 2) /
               2;
-
             const screenX = midX * zoom + panX;
             const screenY = midY * zoom + panY;
-
             const containerBounds =
               containerRef.current.getBoundingClientRect();
             const menuX = Math.max(
@@ -1883,7 +1750,6 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
               10,
               Math.min(screenY, containerBounds.height - 100)
             );
-
             setContextMenu({
               id: edge.id,
               type: 'edge',
@@ -1892,7 +1758,6 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
                 y: menuY
               }
             });
-
             setEdges((eds) =>
               eds.map((e) => ({
                 ...e,
