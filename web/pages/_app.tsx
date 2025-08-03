@@ -7,6 +7,7 @@ import { User } from '@supabase/supabase-js';
 import { useSupabase } from '@/lib/supabase';
 import { ThemeProvider } from '@/components/theme/theme-provider';
 import { Toaster } from 'sonner';
+import 'reactflow/dist/style.css';
 
 const queryClient = new QueryClient();
 
