@@ -1018,21 +1018,23 @@
 .react-flow__node-custom {
   overflow: visible !important;
   height: auto !important;
-  min-height: var(--node-height, 60px); /* Match NODE_HEIGHT */
+  min-height: var(--node-height, 60px);
   line-height: normal !important;
-  border: none !important; /* Prevent global border interference */
+  border: none !important;
 }
 
-/* Ensure text container inside nodes doesn't clip */
 .react-flow__node-custom > div {
   overflow: visible !important;
   white-space: normal !important;
   text-overflow: unset !important;
 }
 
-/* Responsive node heights for mobile */
 @media (max-width: 768px) {
   .react-flow__node-custom {
-    min-height: var(--mobile-node-height, 48px); /* Match MOBILE_NODE_HEIGHT */
+    min-height: var(--mobile-node-height, 48px); 
   }
+}
+
+.node-badge[data-badge*="👑🌱"] {
+  font-size: 0.7rem;
 }

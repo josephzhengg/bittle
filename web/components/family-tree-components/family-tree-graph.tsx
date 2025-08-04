@@ -65,11 +65,11 @@ const layoutControlItems = [
 ];
 
 export const NODE_WIDTH = 172;
-export const NODE_HEIGHT = 60; // Increased from 36 for more vertical space
+export const NODE_HEIGHT = 60;
 export const PADDING = 50;
 export const VERTICAL_SPACING = 100;
 export const MOBILE_NODE_WIDTH = 140;
-export const MOBILE_NODE_HEIGHT = 48; // Increased from 32 for mobile
+export const MOBILE_NODE_HEIGHT = 48;
 export const MOBILE_PADDING = 20;
 export const MOBILE_VERTICAL_SPACING = 60;
 
@@ -107,7 +107,6 @@ const createStyledEdge = (
 ): Edge => {
   const sourceNode = nodes.find((n) => n.id === source);
   const targetNode = nodes.find((n) => n.id === target);
-  // Validate node existence and positions
   if (!sourceNode || !targetNode) {
     console.warn(
       `Missing node for edge ${edgeId}: source=${source}, target=${target}`
@@ -124,7 +123,6 @@ const createStyledEdge = (
   }
   const sourceX = sourceNode.position?.x ?? 0;
   const targetX = targetNode.position?.x ?? 0;
-  // Validate position values
   if (isNaN(sourceX) || isNaN(targetX)) {
     console.warn(
       `Invalid positions for edge ${edgeId}: sourceX=${sourceX}, targetX=${targetX}`
@@ -194,51 +192,49 @@ const getNodeStyle = (data: NodeData, isMobile: boolean) => {
     width: isMobile ? MOBILE_NODE_WIDTH : NODE_WIDTH,
     height: isMobile ? MOBILE_NODE_HEIGHT : NODE_HEIGHT,
     borderRadius: 'var(--radius-md)',
-    padding: isMobile ? '0.75rem' : '1rem', // Increased padding
+    padding: isMobile ? '0.75rem' : '1rem',
     fontSize: isMobile ? '0.7rem' : '0.875rem',
     fontFamily:
-      '"Geist Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', // Explicit font stack
+      '"Geist Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
     fontWeight: '500',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     textAlign: 'center' as const,
-    boxShadow: '0 2px 6px rgba(0, 0, 0, 0.05)',
+    boxShadow: '0 4px 8px rgba(0, 0, 0, 0.15)',
     transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
     boxSizing: 'border-box' as const,
     overflow: 'visible',
-    background: 'rgba(255, 255, 255, 0.8)', // Fallback for backdrop-filter
-    border: isMobile ? '1px solid var(--border)' : '2px solid var(--border)'
+    border: isMobile ? '2px solid var(--border)' : '3px solid var(--border)',
+    position: 'relative' as const
   };
   if (data.is_big && data.hasBig) {
     return {
       ...base,
-      background: 'linear-gradient(135deg, var(--secondary), #6d28d9)',
-      color: '#fff',
-      border: isMobile
-        ? '1px solid var(--secondary)'
-        : '2px solid var(--secondary)'
+      background: 'linear-gradient(135deg, #7e22ce, #4c1d95)',
+      color: '#f3e8ff',
+      border: isMobile ? '2px solid #6b21a8' : '3px solid #6b21a8'
     };
   } else if (data.is_big) {
     return {
       ...base,
-      background: 'linear-gradient(135deg, var(--primary), #4f46e5)',
-      color: '#fff',
-      border: isMobile ? '1px solid var(--primary)' : '2px solid var(--primary)'
+      background: 'linear-gradient(135deg, #4f46e5, #312e81)',
+      color: '#e0e7ff',
+      border: isMobile ? '2px solid #3730a3' : '3px solid #3730a3'
     };
   } else if (data.hasBig) {
     return {
       ...base,
-      background: 'linear-gradient(135deg, #10b981, #047857)',
-      color: '#fff',
-      border: isMobile ? '1px solid #065f46' : '2px solid #065f46'
+      background: 'linear-gradient(135deg, #059669, #064e3b)',
+      color: '#d1fae5',
+      border: isMobile ? '2px solid #065f46' : '3px solid #065f46'
     };
   } else {
     return {
       ...base,
-      background: 'linear-gradient(135deg, #f3f4f6, #e5e7eb)',
-      color: 'var(--foreground)',
-      border: isMobile ? '1px solid var(--border)' : '2px solid var(--border)'
+      background: 'linear-gradient(135deg, #e5e7eb, #d1d5db)',
+      color: '#1f2937',
+      border: isMobile ? '2px solid #6b7280' : '3px solid #6b7280'
     };
   }
 };
@@ -264,35 +260,22 @@ const CustomNode: React.FC<{ data: NodeData; selected: boolean }> = ({
 }) => {
   const isMobile = useIsMobile();
   const fullName = data.label.split(' ').slice(1).join(' ');
-  const roleIcon = data.label.split(' ')[0];
+  const roleIcon = getRoleIcon(data);
 
   const truncateText = (text: string, maxLength: number) => {
     if (text.length <= maxLength) return text;
-    console.log(`Truncating text: ${text} to maxLength: ${maxLength}`); // Debug log
+    console.log(`Truncating text: ${text} to maxLength: ${maxLength}`);
     return text.substring(0, maxLength - 3) + '...';
   };
 
   const getMaxTextLength = () => {
-    const availableWidth = isMobile ? MOBILE_NODE_WIDTH - 40 : NODE_WIDTH - 48; // Increased padding allowance
-    const avgCharWidth = isMobile ? 5.5 : 6.5; // Adjusted for font metrics
+    const availableWidth = isMobile ? MOBILE_NODE_WIDTH - 24 : NODE_WIDTH - 32;
+    const avgCharWidth = isMobile ? 5.5 : 6.5;
     return Math.floor(availableWidth / avgCharWidth);
   };
 
   const maxLength = getMaxTextLength();
   const truncatedName = truncateText(fullName, maxLength);
-  const displayText = `${roleIcon} ${truncatedName}`;
-
-  // Debug rendering on Vercel
-  useEffect(() => {
-    // 'id' is not available in data, so we can't log it here.
-    console.log(
-      `Node rendered. Dimensions: width=${
-        isMobile ? MOBILE_NODE_WIDTH : NODE_WIDTH
-      }, height=${isMobile ? MOBILE_NODE_HEIGHT : NODE_HEIGHT}`
-    );
-    console.log(`Rendered text: ${data.label}, Displayed: ${displayText}`);
-    // If you want to log the node id, you need to pass it as a prop to CustomNode.
-  }, [isMobile, data.label, displayText]);
 
   return (
     <div
@@ -302,8 +285,7 @@ const CustomNode: React.FC<{ data: NodeData; selected: boolean }> = ({
         maxWidth: isMobile ? MOBILE_NODE_WIDTH : NODE_WIDTH,
         minHeight: isMobile ? MOBILE_NODE_HEIGHT : NODE_HEIGHT,
         maxHeight: isMobile ? MOBILE_NODE_HEIGHT : NODE_HEIGHT,
-        lineHeight: isMobile ? '1.2' : '1.3',
-        position: 'relative'
+        lineHeight: isMobile ? '1.2' : '1.3'
       }}
       className={`react-flow__node-custom ${selected ? 'selected' : ''}`}
       title={`${roleIcon} ${fullName}`}>
@@ -317,11 +299,39 @@ const CustomNode: React.FC<{ data: NodeData; selected: boolean }> = ({
           border: '2px solid #fff',
           borderRadius: '50%',
           boxShadow: '0 0 8px rgba(64, 66, 209, 0.5)',
-          top: isMobile ? -12 : -14, // Moved further up
+          top: isMobile ? -12 : -14,
           zIndex: 10,
           transition: 'all 0.3s ease'
         }}
       />
+      <div
+        className="node-badge"
+        style={{
+          position: 'absolute',
+          top: isMobile ? -10 : -12,
+          left: isMobile ? -10 : -12,
+          width: isMobile ? 24 : 28,
+          height: isMobile ? 24 : 28,
+          borderRadius: '50%',
+          background: 'rgba(255, 255, 255, 0.95)',
+          border: '1px solid rgba(0, 0, 0, 0.15)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize:
+            roleIcon === '👑🌱'
+              ? isMobile
+                ? '0.6rem'
+                : '0.7rem'
+              : isMobile
+              ? '0.65rem'
+              : '0.75rem',
+          zIndex: 11,
+          boxShadow: '0 2px 4px rgba(0, 0, 0, 0.15)',
+          overflow: 'hidden'
+        }}>
+        {roleIcon}
+      </div>
       <div
         style={{
           width: '100%',
@@ -329,15 +339,15 @@ const CustomNode: React.FC<{ data: NodeData; selected: boolean }> = ({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          overflow: 'visible', // Prevent clipping
+          overflow: 'hidden',
           textOverflow: 'ellipsis',
-          whiteSpace: 'normal', // Allow text wrapping
+          whiteSpace: 'nowrap',
           fontSize: isMobile ? '0.7rem' : '0.875rem',
           fontWeight: '500',
-          padding: isMobile ? '0.75rem 0.75rem' : '1rem 1rem', // Increased padding
+          padding: isMobile ? '0.75rem 0.75rem' : '1rem 1rem',
           lineHeight: isMobile ? '1.2' : '1.3'
         }}>
-        {displayText}
+        {truncatedName}
       </div>
       <Handle
         type="source"
@@ -349,7 +359,7 @@ const CustomNode: React.FC<{ data: NodeData; selected: boolean }> = ({
           border: '2px solid #fff',
           borderRadius: '50%',
           boxShadow: '0 0 8px rgba(64, 66, 209, 0.5)',
-          bottom: isMobile ? -12 : -14, // Moved further down
+          bottom: isMobile ? -12 : -14,
           zIndex: 10,
           transition: 'all 0.3s ease'
         }}
@@ -858,16 +868,10 @@ const updateNodeRoles = async (
           .update({ is_big: update.is_big })
           .eq('id', update.id);
         if (error) {
-          console.error(
-            'Failed to update big status for node:',
-            update.id,
-            error
-          );
           throw error;
         }
       }
     } catch (err) {
-      console.error('Error updating big status:', err);
       throw err;
     }
   }
@@ -1227,7 +1231,6 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
           setContextMenu(null);
         }
       } catch (err) {
-        console.error(`Error initiating deletion for ${type}:`, err);
         toast.error(
           `Failed to initiate deletion for ${
             type === 'node' ? 'member' : 'connection'
@@ -1273,7 +1276,6 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
             : 'Manual member deleted successfully'
         );
       } catch (err) {
-        console.error('Error deleting member:', err);
         toast.error(
           `Failed to delete member: ${
             err instanceof Error ? err.message : 'Unknown error'
@@ -1341,7 +1343,6 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
         .from('tree_member')
         .upsert(updates, { onConflict: 'id' });
       if (error) {
-        console.error('Supabase error:', error);
         throw new Error(`Supabase error: ${error.message}`);
       }
       setNodes(updatedNodes);
@@ -1350,7 +1351,6 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
       }, 100);
       toast.success('Layout reset and positions saved');
     } catch (err) {
-      console.error('Reset layout error:', err);
       toast.error(
         `Failed to save node positions: ${
           err instanceof Error ? err.message : 'Unknown error'
@@ -1561,14 +1561,14 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
                 isMobile ? 'gap-2 p-1' : 'gap-3 p-2'
               }`}>
               <div
-                className={`flex flex-row items-center justify-center bg-gradient-to-r from-purple-500 to-purple-700 rounded text-white font-medium gap-1 ${
+                className={`flex flex-row items-center justify-center bg-gradient-to-r from-purple-600 to-purple-800 rounded text-white font-medium gap-1 ${
                   isMobile ? 'w-12 h-5 text-[8px]' : 'w-18 h-7 text-xs'
                 }`}>
                 <span>👑</span>
                 <span>🌱</span>
               </div>
               <span
-                className={`text-gray-700 font-medium ${
+                className={`text-gray-900 font-medium ${
                   isMobile ? 'text-[10px]' : ''
                 }`}>
                 {isMobile ? 'Big+Little' : 'Big and Little'}
@@ -1579,13 +1579,13 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
                 isMobile ? 'gap-2 p-1' : 'gap-3 p-2'
               }`}>
               <div
-                className={`flex items-center justify-center bg-gradient-to-r from-indigo-500 to-indigo-700 rounded text-white font-medium ${
+                className={`flex items-center justify-center bg-gradient-to-r from-indigo-600 to-indigo-800 rounded text-white font-medium ${
                   isMobile ? 'w-12 h-5 text-[8px]' : 'w-16 h-7 text-xs'
                 }`}>
                 ⭐
               </div>
               <span
-                className={`text-gray-700 font-medium ${
+                className={`text-gray-900 font-medium ${
                   isMobile ? 'text-[10px]' : ''
                 }`}>
                 Big
@@ -1596,13 +1596,13 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
                 isMobile ? 'gap-2 p-1' : 'gap-3 p-2'
               }`}>
               <div
-                className={`flex items-center justify-center bg-gradient-to-r from-green-500 to-green-700 rounded text-white font-medium ${
+                className={`flex items-center justify-center bg-gradient-to-r from-green-600 to-green-800 rounded text-white font-medium ${
                   isMobile ? 'w-12 h-5 text-[8px]' : 'w-16 h-7 text-xs'
                 }`}>
                 🌱
               </div>
               <span
-                className={`text-gray-700 font-medium ${
+                className={`text-gray-900 font-medium ${
                   isMobile ? 'text-[10px]' : ''
                 }`}>
                 Little
@@ -1613,13 +1613,13 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
                 isMobile ? 'gap-2 p-1' : 'gap-3 p-2'
               }`}>
               <div
-                className={`flex items-center justify-center bg-gradient-to-r from-gray-400 to-gray-500 rounded text-white font-medium ${
+                className={`flex items-center justify-center bg-gradient-to-r from-gray-500 to-gray-600 rounded text-white font-medium ${
                   isMobile ? 'w-12 h-5 text-[8px]' : 'w-16 h-7 text-xs'
                 }`}>
                 ⚪
               </div>
               <span
-                className={`text-gray-700 font-medium ${
+                className={`text-gray-900 font-medium ${
                   isMobile ? 'text-[10px]' : ''
                 }`}>
                 Unconnected
@@ -1631,7 +1631,7 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
               isMobile ? 'mt-2 pt-1' : 'mt-3 pt-2'
             }`}>
             <div
-              className={`text-gray-500 text-center ${
+              className={`text-gray-600 text-center ${
                 isMobile ? 'text-[9px] leading-tight' : 'text-xs'
               }`}>
               {isMobile
