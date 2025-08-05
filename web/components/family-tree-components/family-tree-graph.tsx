@@ -240,7 +240,7 @@ const getNodeStyle = (data: NodeData, isMobile: boolean) => {
 };
 
 const getRoleIcon = (data: NodeData) => {
-  if (data.is_big && data.hasBig) return '👑🌱';
+  if (data.is_big && data.hasBig) return '🥸';
   if (data.is_big) return '⭐';
   if (data.hasBig) return '🌱';
   return '⚪';
@@ -319,7 +319,7 @@ const CustomNode: React.FC<{ data: NodeData; selected: boolean }> = ({
           alignItems: 'center',
           justifyContent: 'center',
           fontSize:
-            roleIcon === '👑🌱'
+            roleIcon === '🥸'
               ? isMobile
                 ? '0.6rem'
                 : '0.7rem'
@@ -1555,23 +1555,22 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
               {isMobile ? 'LEGEND' : 'FAMILY TREE LEGEND'}
             </span>
           </div>
-          <div className={`${isMobile ? 'space-y-1.5' : 'space-y-2.5'}`}>
+          <div>
             <div
               className={`flex items-center rounded-lg hover:bg-gray-100/60 transition-colors duration-200 ${
                 isMobile ? 'gap-2 p-1' : 'gap-3 p-2'
               }`}>
               <div
-                className={`flex flex-row items-center justify-center bg-gradient-to-r from-purple-600 to-purple-800 rounded text-white font-medium gap-1 ${
-                  isMobile ? 'w-12 h-5 text-[8px]' : 'w-18 h-7 text-xs'
+                className={`flex items-center justify-center bg-gradient-to-r from-indigo-600 to-indigo-800 rounded text-white font-medium ${
+                  isMobile ? 'w-12 h-5 text-[8px]' : 'w-16 h-7 text-xs'
                 }`}>
-                <span>👑</span>
-                <span>🌱</span>
+                🥸
               </div>
               <span
                 className={`text-gray-900 font-medium ${
                   isMobile ? 'text-[10px]' : ''
                 }`}>
-                {isMobile ? 'Big+Little' : 'Big and Little'}
+                Big and Little
               </span>
             </div>
             <div
