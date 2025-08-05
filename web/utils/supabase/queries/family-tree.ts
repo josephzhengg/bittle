@@ -63,11 +63,6 @@ export const getIdentifier = async (
     .single();
 
   if (error || !data) {
-    console.error(
-      `Error fetching identifier for member_id ${member_id}:`,
-      error,
-      data
-    );
     throw new Error(`Error fetching identifier: ${error?.message}`);
   }
 
@@ -199,7 +194,6 @@ export async function createFamilyTree(
 
     return familyTree;
   } catch (error) {
-    console.error('Error creating family tree:', error);
     throw error;
   }
 }

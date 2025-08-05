@@ -10,14 +10,7 @@ import {
   CardTitle
 } from '@/components/ui/card';
 import { useSupabase } from '@/lib/supabase';
-import {
-  Edit,
-  FileText,
-  Eye,
-  RefreshCw,
-  Clock,
-  Settings
-} from 'lucide-react';
+import { Edit, FileText, Eye, RefreshCw, Clock, Settings } from 'lucide-react';
 import ReadOnlyQuestionCard from '@/components/question-components/read-only-question-card';
 import { FormEditDialog } from '@/components/dashboard-components/form-edit-dialog';
 import { createSupabaseServerClient } from '@/utils/supabase/clients/server-props';
@@ -405,9 +398,7 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
         }
       }
     };
-  } catch (error) {
-    console.error('Error in getServerSideProps:', error);
-
+  } catch {
     try {
       const [formData, formId] = await Promise.all([
         getFormData(supabase, formCode),
@@ -440,8 +431,7 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
           }
         }
       };
-    } catch (fallbackError) {
-      console.error('Fallback error fetching form data:', fallbackError);
+    } catch {
       return {
         props: {
           user: userData.user,

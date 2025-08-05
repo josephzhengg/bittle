@@ -61,7 +61,6 @@ export const createPointSubmission = async (
     .insert({ connection_id, prompt, point, challenge_id: null });
 
   if (insertError) {
-    console.error('Insert error details:', insertError);
     throw new Error(`Error creating point submission: ${insertError.message}`);
   }
 
@@ -72,7 +71,6 @@ export const createPointSubmission = async (
     .single();
 
   if (connectionError || !connection) {
-    console.error('Connection fetch error:', connectionError);
     throw new Error(`Error fetching connection: ${connectionError?.message}`);
   }
 
@@ -82,7 +80,6 @@ export const createPointSubmission = async (
     .eq('id', connection_id);
 
   if (updateError) {
-    console.error('Update error details:', updateError);
     throw new Error(`Error updating connection points: ${updateError.message}`);
   }
 };
@@ -104,7 +101,6 @@ export const createPointSubmissionWithChallenge = async (
       const errorMessage = challengeError
         ? `Error fetching challenge: ${challengeError.message}`
         : `Challenge with ID ${challenge_id} not found`;
-      console.error(errorMessage);
       throw new Error(errorMessage);
     }
 
@@ -119,7 +115,6 @@ export const createPointSubmissionWithChallenge = async (
       });
 
     if (insertError) {
-      console.error('Error inserting point submission:', insertError);
       throw new Error(
         `Error creating point submission: ${insertError.message}`
       );
@@ -135,7 +130,6 @@ export const createPointSubmissionWithChallenge = async (
       const errorMessage = connectionError
         ? `Error fetching connection: ${connectionError.message}`
         : `Connection with ID ${connection_id} not found`;
-      console.error(errorMessage);
       throw new Error(errorMessage);
     }
 
@@ -147,16 +141,11 @@ export const createPointSubmissionWithChallenge = async (
       .eq('id', connection_id);
 
     if (updateError) {
-      console.error('Error updating connection points:', updateError);
       throw new Error(
         `Error updating connection points: ${updateError.message}`
       );
     }
   } catch (error) {
-    console.error(
-      'Unexpected error in createPointSubmissionWithChallenge:',
-      error
-    );
     throw error;
   }
 };

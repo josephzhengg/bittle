@@ -118,8 +118,7 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
   let formsData: Form[] = [];
   try {
     formsData = await getForms(supabase, userData.user.id);
-  } catch (error) {
-    console.error('Error fetching forms:', error);
+  } catch {
     formsData = [];
   }
 

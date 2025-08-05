@@ -304,8 +304,7 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
         familyTreeData
       }
     };
-  } catch (error) {
-    console.error('Error in getServerSideProps:', error);
+  } catch {
     return {
       props: {
         user: userData.user,

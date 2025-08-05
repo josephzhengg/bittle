@@ -40,8 +40,7 @@ export default function PairingSubmissionLogs({
         try {
           const submissions = await getPointSubmissions(supabase, connectionId);
           return submissions;
-        } catch (error) {
-          console.error('Unexpected error fetching submissions:', error);
+        } catch {
           return [];
         }
       }
@@ -80,7 +79,6 @@ export default function PairingSubmissionLogs({
 
       toast.success('Point submission deleted successfully!');
     } catch (error) {
-      console.error('Error deleting submission:', error);
       toast.error(
         `Failed to delete point submission: ${
           error instanceof Error ? error.message : 'Unknown error'

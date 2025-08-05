@@ -19,14 +19,16 @@ export interface FormData {
 export function useFormEditor(initialForm: FormData) {
   const supabase = useSupabase();
   const queryClient = useQueryClient();
-  
+
   // Edit state
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  
+
   // Form values
   const [editTitle, setEditTitle] = useState(initialForm.title);
-  const [editDescription, setEditDescription] = useState(initialForm.description || '');
+  const [editDescription, setEditDescription] = useState(
+    initialForm.description || ''
+  );
   const [editDeadline, setEditDeadline] = useState<Date | undefined>(
     initialForm.deadline ? new Date(initialForm.deadline) : undefined
   );
@@ -68,7 +70,9 @@ export function useFormEditor(initialForm: FormData) {
   const resetForm = () => {
     setEditTitle(initialForm.title);
     setEditDescription(initialForm.description || '');
-    setEditDeadline(initialForm.deadline ? new Date(initialForm.deadline) : undefined);
+    setEditDeadline(
+      initialForm.deadline ? new Date(initialForm.deadline) : undefined
+    );
     setEditDeadlineTime(() => {
       if (initialForm.deadline) {
         const date = new Date(initialForm.deadline);
@@ -95,19 +99,18 @@ export function useFormEditor(initialForm: FormData) {
       await updateDescription(supabase, initialForm.id, editDescription.trim());
       const deadline = getDeadlineWithTime();
       await updateDeadline(supabase, initialForm.id, deadline);
-      
+
       toast('Form updated successfully!');
       setIsEditModalOpen(false);
-      
+
       // Invalidate relevant queries
       queryClient.invalidateQueries({ queryKey: ['form'] });
       queryClient.invalidateQueries({ queryKey: ['title'] });
       queryClient.invalidateQueries({ queryKey: ['formData'] });
-      
+
       onSuccess?.();
-    } catch (error) {
+    } catch {
       toast('Error updating form, please try again.');
-      console.error('Update error:', error);
     } finally {
       setIsLoading(false);
     }
@@ -133,22 +136,22 @@ export function useFormEditor(initialForm: FormData) {
     editDescription,
     editDeadline,
     editDeadlineTime,
-    
+
     // Setters
     setEditTitle,
     setEditDescription,
     setEditDeadline,
     setEditDeadlineTime,
-    
+
     // Actions
     openEditModal,
     saveForm,
     cancelEdit,
-    
+
     // Helpers
     getDeadlineDisplayText,
     getDeadlineWithTime,
-    
+
     // Dialog handlers
     setIsEditModalOpen
   };

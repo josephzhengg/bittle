@@ -145,8 +145,6 @@ export default function DashboardHeader({ user }: DashboardHeaderProps) {
       setCreateFormOpen(false);
       router.push(`/dashboard/current/form/${code}/edit`);
     } catch (error) {
-      console.error('Error creating form:', error);
-
       // More specific error handling
       if (error instanceof Error) {
         if (error.message.includes('template questions')) {
@@ -289,8 +287,7 @@ export default function DashboardHeader({ user }: DashboardHeaderProps) {
                       toast('Information successfully changed!');
                       queryUtils.refetchQueries({ queryKey: ['organization'] });
                       setEditInfoOpen(false);
-                    } catch (error) {
-                      console.error('Error editing profile:', error);
+                    } catch {
                       toast('Failed to edit profile. Please try again.');
                     }
                   }}>

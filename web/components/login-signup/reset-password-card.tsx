@@ -91,11 +91,6 @@ export default function ResetPasswordCard({
     setIsLoading(false);
 
     if (error || !data.session) {
-      console.error('OTP verification error:', {
-        message: error?.message,
-        code: error?.code,
-        status: error?.status
-      });
       toast.error(
         error?.message || 'Invalid OTP. Please try again or request a new one.'
       );
@@ -127,11 +122,6 @@ export default function ResetPasswordCard({
     setIsLoading(false);
 
     if (error) {
-      console.error('Password update error:', {
-        message: error?.message,
-        code: error?.code,
-        status: error?.status
-      });
       toast.error(
         error.message || 'Error updating password. Please try again.'
       );
@@ -160,7 +150,6 @@ export default function ResetPasswordCard({
     });
     setIsLoading(false);
     if (error) {
-      console.error('OTP resend error:', error);
       toast.error(error.message || 'Error resending OTP. Please try again.');
     } else {
       toast.success(

@@ -253,8 +253,8 @@ const CreateQuestionDialog = ({
       await onSave(formData);
       resetForm();
       onOpenChange(false);
-    } catch (error) {
-      console.error('Failed to save question:', error);
+    } catch {
+      toast.error('Failed to create question. Please try again.');
     }
   };
 
@@ -476,7 +476,6 @@ export default function EditPage({ user }: EditPageProps) {
 
       toast.success('Question created successfully!');
     } catch (error) {
-      console.error('Failed to save question:', error);
       toast.error('Failed to create question. Please try again.');
       throw error;
     } finally {
@@ -508,8 +507,7 @@ export default function EditPage({ user }: EditPageProps) {
           await queryClient.invalidateQueries({ queryKey: ['questions'] });
 
           toast.success('Questions reordered successfully!');
-        } catch (error) {
-          console.error('Failed to reorder questions:', error);
+        } catch {
           toast.error('Failed to reorder questions. Please try again.');
           const sortedQuestions = [...questions].sort(
             (a, b) => a.index - b.index
@@ -707,8 +705,8 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
         }
       };
     }
-  } catch (error) {
-    console.error('Error checking form deadline:', error);
+  } catch {
+    toast.error('Failed to fetch form deadline. Please try again later.');
   }
 
   return {

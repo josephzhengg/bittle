@@ -19,6 +19,7 @@ import {
   RotateCcw,
   MoveRight
 } from 'lucide-react';
+import { toast } from 'sonner';
 
 export default function QuestionnairePage() {
   const supabase = useSupabase();
@@ -187,9 +188,8 @@ export default function QuestionnairePage() {
       }
 
       setShowSuccess(true);
-    } catch (error) {
-      console.error('Submission failed:', error);
-      alert('There was an error submitting the form.');
+    } catch {
+      toast.error('There was an error submitting the form.');
     } finally {
       setSubmitting(false);
     }

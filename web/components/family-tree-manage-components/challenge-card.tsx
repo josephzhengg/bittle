@@ -82,8 +82,7 @@ export default function ChallengeCard({
             challenge.id
           );
           return submissions || [];
-        } catch (error) {
-          console.error('Error fetching challenge submissions:', error);
+        } catch {
           return [];
         }
       },
@@ -146,8 +145,7 @@ export default function ChallengeCard({
       queryClient.refetchQueries({
         queryKey: ['challengeSubmissions', challenge.id]
       });
-    } catch (error) {
-      console.error('Error creating point submission:', error);
+    } catch {
       toast.error('Failed to complete challenge');
     } finally {
       setSubmissionOpen(false);

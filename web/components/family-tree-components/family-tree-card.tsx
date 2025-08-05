@@ -79,9 +79,8 @@ export default function FamilyTreeCard({
         description: 'The family tree and all its data have been removed.'
       });
       queryUtils.refetchQueries({ queryKey: ['family-trees'] });
-    } catch (error) {
+    } catch {
       toast('Error deleting family tree, please try again.');
-      console.error('Delete error:', error);
     } finally {
       setIsDeleteModalOpen(false);
     }
@@ -97,9 +96,8 @@ export default function FamilyTreeCard({
       toast('Family tree updated successfully!');
       setIsEditModalOpen(false);
       queryUtils.refetchQueries({ queryKey: ['family-trees'] });
-    } catch (error) {
+    } catch {
       toast('Error updating family tree, please try again.');
-      console.error('Update error:', error);
     }
   };
 

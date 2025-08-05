@@ -1,12 +1,19 @@
+import Head from 'next/head';
 import { createSupabaseServerClient } from '@/utils/supabase/clients/server-props';
-import { GetServerSidePropsContext } from 'next';
-import { Label } from '@/components/ui/label';
+import type { GetServerSidePropsContext } from 'next';
 
 export default function Home() {
   return (
-    <div>
-      <Label>Index</Label>
-    </div>
+    <>
+      <Head>
+        <title>Home - My App</title>
+        <meta
+          name="description"
+          content="Welcome to My App, your starting point for managing forms and data."
+        />
+      </Head>
+      {null}
+    </>
   );
 }
 
@@ -27,18 +34,9 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
     };
   }
 
-  if (session?.user) {
-    return {
-      redirect: {
-        destination: '/dashboard/current',
-        permanent: false
-      }
-    };
-  }
-
   return {
     redirect: {
-      destination: '/login',
+      destination: session?.user ? '/dashboard/current' : '/login',
       permanent: false
     }
   };

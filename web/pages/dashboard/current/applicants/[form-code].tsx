@@ -16,7 +16,7 @@ import {
   Calendar,
   Users,
   FileText,
-  RefreshCw,
+  RefreshCw
 } from 'lucide-react';
 import { createSupabaseServerClient } from '@/utils/supabase/clients/server-props';
 import {
@@ -125,8 +125,7 @@ export default function FormPage({
     try {
       // Trigger a page refresh to get fresh server-side data
       router.replace(router.asPath);
-    } catch (error) {
-      console.error('Error refreshing data:', error);
+    } catch {
       toast.error('Failed to refresh data');
     } finally {
       setIsRefreshing(false);
@@ -397,7 +396,7 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
     // Convert deadline to a string if it’s a Date object
     const processedDeadline =
       deadline instanceof Date ? deadline.toISOString() : deadline;
-      
+
     if (!formId) {
       return {
         notFound: true
@@ -480,11 +479,10 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
         questions,
         allOptions,
         initialSubmissions: processedSubmissions,
-        deadline: processedDeadline // Use the processed deadline
+        deadline: processedDeadline
       }
     };
-  } catch (error) {
-    console.error('Error fetching server-side data:', error);
+  } catch {
     return {
       notFound: true
     };

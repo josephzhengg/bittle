@@ -125,8 +125,7 @@ export default function FormPage({
     try {
       // Trigger a page refresh to get fresh server-side data
       router.replace(router.asPath);
-    } catch (error) {
-      console.error('Error refreshing data:', error);
+    } catch {
       toast.error('Failed to refresh data');
     } finally {
       setIsRefreshing(false);
@@ -477,8 +476,7 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
         deadline: processedDeadline // Use the processed deadline
       }
     };
-  } catch (error) {
-    console.error('Error fetching server-side data:', error);
+  } catch {
     return {
       notFound: true
     };
