@@ -15,16 +15,32 @@ export default function Dashboard({ user }: DashboardProps) {
   const supabase = useSupabase();
   const router = useRouter();
 
-  const { data: formData } = useQuery({
-    queryKey: ['form'],
+  const {
+    data: formData,
+    error,
+    isLoading
+  } = useQuery({
+    queryKey: ['form', user.id], // Include user.id in queryKey for cache uniqueness
     queryFn: () => getForms(supabase, user.id)
   });
 
   useEffect(() => {
-    if (formData && formData[0]) {
-      router.push(`/dashboard/current`);
+    if (!router.isReady) return;
+
+    if (error) {
+      console.error('Error fetching forms:', error);
+      router.replace('/error'); // Redirect to an error page or fallback
+      return;
     }
-  }, [router, formData, supabase]);
+
+    if (!isLoading && formData) {
+      if (formData[0]) {
+        router.replace(`/dashboard/form/${formData[0].id}`); // Redirect to first form
+      } else {
+        router.replace('/dashboard/empty'); // Redirect if no forms exist
+      }
+    }
+  }, [router, formData, isLoading, error, router.isReady]);
 
   return (
     <div className="flex items-center justify-center h-screen bg-gray-100">
@@ -40,7 +56,7 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
   const supabase = createSupabaseServerClient(context);
   const { data: userData, error } = await supabase.auth.getUser();
 
-  if (!userData || error) {
+  if (error || !userData.user) {
     return {
       redirect: {
         destination: '/login',

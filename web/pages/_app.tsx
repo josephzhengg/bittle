@@ -7,7 +7,6 @@ import { User } from '@supabase/supabase-js';
 import { useSupabase } from '@/lib/supabase';
 import { ThemeProvider } from '@/components/theme/theme-provider';
 import { Toaster } from 'sonner';
-import 'reactflow/dist/style.css';
 
 const queryClient = new QueryClient();
 
@@ -24,50 +23,25 @@ export default function App({ Component, pageProps }: AppProps) {
   const [authInitialized, setAuthInitialized] = useState(false);
   const supabase = useSupabase();
 
-  // Check if current route is excluded
   const isExcludedRoute =
     excludedRoutes.includes(router.pathname) ||
     router.pathname.startsWith('/input-code/');
 
   useEffect(() => {
-    async function initializeAuth() {
-      try {
-        const {
-          data: { user }
-        } = await supabase.auth.getUser();
-        setUser(user);
-      } catch (error) {
-        console.error('Error fetching user:', error);
-      } finally {
-        setAuthInitialized(true);
-      }
-    }
+    const {
+      data: { subscription }
+    } = supabase.auth.onAuthStateChange((_, session) => {
+      setUser(session?.user ?? null);
+      setAuthInitialized(true);
+    });
+    return () => subscription.unsubscribe();
+  }, [supabase]);
 
-    // Only initialize auth once
-    if (!authInitialized) {
-      initializeAuth();
-    }
-  }, [supabase, authInitialized]);
-
-  // Handle excluded routes immediately
-  if (isExcludedRoute) {
-    return (
-      <QueryClientProvider client={queryClient}>
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          enableSystem
-          disableTransitionOnChange
-          themes={['light', 'dark']}>
-          <Toaster />
-          <Component {...pageProps} />
-        </ThemeProvider>
-      </QueryClientProvider>
-    );
+  if (!authInitialized) {
+    return null;
   }
 
-  // For protected routes, show auth required if no user (after auth is initialized)
-  if (authInitialized && !user) {
+  if (!isExcludedRoute && !user) {
     return (
       <ThemeProvider
         attribute="class"
@@ -80,12 +54,6 @@ export default function App({ Component, pageProps }: AppProps) {
     );
   }
 
-  // If auth hasn't been initialized yet, render nothing (prevents flash)
-  if (!authInitialized) {
-    return null;
-  }
-
-  // Normal app rendering
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider
