@@ -7,31 +7,37 @@ import { User } from '@supabase/supabase-js';
 import { useSupabase } from '@/lib/supabase';
 import { ThemeProvider } from '@/components/theme/theme-provider';
 import { Toaster } from 'sonner';
+import 'reactflow/dist/style.css';
 
 const queryClient = new QueryClient();
 
-// Simple auth required component - no glassmorphic container
-const AuthRequired = () => {
-  const router = useRouter();
+// const AuthRequired = () => {
+//   const router = useRouter();
 
-  return (
-    <div className="min-h-screen flex items-center justify-center p-4">
-      <div className="text-center space-y-4">
-        <h2 className="text-2xl font-semibold">Authentication Required</h2>
-        <p className="text-muted-foreground">Please log in to continue</p>
-        <button
-          onClick={() => router.push('/login')}
-          className="px-6 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors">
-          Go to Login
-        </button>
-      </div>
-    </div>
-  );
-};
+//   return (
+//     <div className="min-h-screen flex items-center justify-center p-4">
+//       <div className="text-center space-y-4">
+//         <h2 className="text-2xl font-semibold">Authentication Required</h2>
+//         <p className="text-muted-foreground">Please log in to continue</p>
+//         <button
+//           onClick={() => router.push('/login')}
+//           className="px-6 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors">
+//           Go to Login
+//         </button>
+//       </div>
+//     </div>
+//   );
+// };
 
 export default function App({ Component, pageProps }: AppProps) {
   const router = useRouter();
-  const excludedRoutes = ['/login', '/signup', '/input-code'];
+  const excludedRoutes = [
+    '/login',
+    '/signup',
+    '/input-code',
+    '/reset-password',
+    '/forgot-password'
+  ];
   const [user, setUser] = useState<User | null>(null);
   const [authInitialized, setAuthInitialized] = useState(false);
   const supabase = useSupabase();
