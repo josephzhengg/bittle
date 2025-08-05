@@ -1,15 +1,36 @@
-import { QueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
+import { useRouter } from 'next/router';
 import { getForms } from '@/utils/supabase/queries/form';
+import type { User } from '@supabase/supabase-js';
 import { createSupabaseServerClient } from '@/utils/supabase/clients/server-props';
 import { GetServerSidePropsContext } from 'next';
-import styles from './Dashboard.module.css';
+import { useSupabase } from '@/lib/supabase';
+import { useEffect } from 'react';
 
-export default function Dashboard() {
+type DashboardProps = {
+  user: User;
+};
+
+export default function Dashboard({ user }: DashboardProps) {
+  const supabase = useSupabase();
+  const router = useRouter();
+
+  const { data: formData } = useQuery({
+    queryKey: ['form'],
+    queryFn: () => getForms(supabase, user.id)
+  });
+
+  useEffect(() => {
+    if (formData && formData[0]) {
+      router.push(`/dashboard/current`);
+    }
+  }, [router, formData, supabase]);
+
   return (
-    <div className={styles.container}>
-      <div className={styles.textCenter}>
-        <div className={styles.spinner}></div>
-        <p className={styles.text}>Loading...</p>
+    <div className="flex items-center justify-center h-screen bg-gray-100">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-blue-500"></div>
+        <p className="mt-4 text-gray-600">Loading...</p>
       </div>
     </div>
   );
@@ -17,9 +38,9 @@ export default function Dashboard() {
 
 export async function getServerSideProps(context: GetServerSidePropsContext) {
   const supabase = createSupabaseServerClient(context);
-  const { data: userData, error: authError } = await supabase.auth.getUser();
+  const { data: userData, error } = await supabase.auth.getUser();
 
-  if (authError || !userData.user) {
+  if (!userData || error) {
     return {
       redirect: {
         destination: '/login',
@@ -28,29 +49,9 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
     };
   }
 
-  const queryClient = new QueryClient();
-  let formData = null;
-  try {
-    formData = await queryClient.fetchQuery({
-      queryKey: ['form', userData.user.id],
-      queryFn: () => getForms(supabase, userData.user.id)
-    });
-  } catch {
-    return {
-      redirect: {
-        destination: '/error',
-        permanent: false
-      }
-    };
-  }
-
   return {
-    redirect: {
-      destination:
-        formData && formData[0]
-          ? `/dashboard/form/${formData[0].id}`
-          : '/dashboard/empty',
-      permanent: false
+    props: {
+      user: userData.user
     }
   };
 }
