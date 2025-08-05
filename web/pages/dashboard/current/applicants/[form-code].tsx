@@ -1,13 +1,4 @@
 import DashBoardLayout from '@/components/layouts/dashboard-layout';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow
-} from '@/components/ui/table';
 import {
   Card,
   CardContent,
@@ -26,11 +17,13 @@ import {
   Users,
   FileText,
   RefreshCw,
-  ChevronRight,
-  ChevronDown
 } from 'lucide-react';
 import { createSupabaseServerClient } from '@/utils/supabase/clients/server-props';
-import { getFormTitle, getFormIdByCode } from '@/utils/supabase/queries/form';
+import {
+  getFormTitle,
+  getFormIdByCode,
+  getFormDeadline
+} from '@/utils/supabase/queries/form';
 import { getQuestions, getOptions } from '@/utils/supabase/queries/question';
 import {
   getFormSubmissions,
@@ -45,6 +38,10 @@ import { format } from 'date-fns';
 import { QuestionOption } from '@/utils/supabase/models/question-option';
 import { toast } from 'sonner';
 import { Question } from '@/utils/supabase/models/question';
+import ApplicantResponseDisplay from '@/components/dashboard-components/applicant-response-display';
+import FormNavigationTabs from '@/components/dashboard-components/form-navigation-tabs';
+import FormStatusBadge from '@/components/dashboard-components/form-status-badge';
+import { ProcessedSubmission } from '@/utils/types';
 
 export type CurrentFormsPageProps = {
   user: User;
@@ -54,28 +51,21 @@ export type CurrentFormsPageProps = {
   questions: Question[];
   allOptions: Record<string, QuestionOption[]>;
   initialSubmissions: ProcessedSubmission[];
+  deadline?: string | null; // Ensure type matches the prop
 };
-
-interface ProcessedSubmission {
-  id: string;
-  submittedAt: string; // Changed from Date to string for serialization
-  responses: Record<string, string>;
-}
 
 export default function FormPage({
   user,
   formTitle,
   formCode,
   questions,
-  initialSubmissions
+  initialSubmissions,
+  deadline
 }: CurrentFormsPageProps) {
   const router = useRouter();
 
   // State for client-side filtering and interactions
   const [searchTerm, setSearchTerm] = useState('');
-  const [expandedSubmissions, setExpandedSubmissions] = useState<Set<string>>(
-    new Set()
-  );
   const [submissions] = useState<ProcessedSubmission[]>(initialSubmissions);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -129,19 +119,6 @@ export default function FormPage({
     setSearchTerm(value);
   }, []);
 
-  // Toggle expanded submission
-  const toggleSubmission = useCallback((submissionId: string) => {
-    setExpandedSubmissions((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(submissionId)) {
-        newSet.delete(submissionId);
-      } else {
-        newSet.add(submissionId);
-      }
-      return newSet;
-    });
-  }, []);
-
   // Refresh data
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
@@ -189,112 +166,6 @@ export default function FormPage({
     window.URL.revokeObjectURL(url);
   }, [filteredSubmissions, sortedQuestions, formTitle]);
 
-  // Helper function to format question type for display
-  const formatQuestionType = (type: string) => {
-    const typeMap: Record<string, string> = {
-      FREE_RESPONSE: 'Free Response',
-      MULTIPLE_CHOICE: 'Multiple Choice',
-      SELECT_ALL: 'Select All'
-    };
-    return typeMap[type] || type;
-  };
-
-  // Mobile card component for responses
-  const MobileResponseCard = ({
-    submission,
-    index
-  }: {
-    submission: ProcessedSubmission;
-    index: number;
-  }) => {
-    const isExpanded = expandedSubmissions.has(submission.id);
-
-    return (
-      <Card className="w-full">
-        <CardHeader
-          className="pb-2 cursor-pointer"
-          onClick={() => toggleSubmission(submission.id)}>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-sm font-medium">
-                {index + 1}
-              </div>
-              <div>
-                <div className="font-medium text-sm">
-                  {format(new Date(submission.submittedAt), 'MMM d, yyyy')}
-                </div>
-                <div className="text-muted-foreground text-xs">
-                  {format(new Date(submission.submittedAt), 'h:mm a')}
-                </div>
-              </div>
-            </div>
-            {isExpanded ? (
-              <ChevronDown className="w-4 h-4 text-muted-foreground" />
-            ) : (
-              <ChevronRight className="w-4 h-4 text-muted-foreground" />
-            )}
-          </div>
-        </CardHeader>
-
-        {isExpanded && (
-          <CardContent className="pt-0">
-            <div className="space-y-4">
-              {sortedQuestions.map((question) => (
-                <div key={question.id} className="space-y-2">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium text-foreground leading-tight">
-                        {question.prompt}
-                      </div>
-                      <Badge
-                        className={`text-xs mt-1 ${
-                          question.type === 'MULTIPLE_CHOICE'
-                            ? 'bg-blue-100 text-blue-800'
-                            : question.type === 'SELECT_ALL'
-                            ? 'bg-red-100 text-red-800'
-                            : 'bg-purple-100 text-purple-800'
-                        }`}>
-                        {formatQuestionType(question.type)}
-                      </Badge>
-                    </div>
-                  </div>
-
-                  <div className="ml-0">
-                    {submission.responses[question.id] ? (
-                      question.type === 'FREE_RESPONSE' ? (
-                        <div className="text-sm p-3 bg-muted/30 rounded-md break-words whitespace-pre-wrap">
-                          {submission.responses[question.id]}
-                        </div>
-                      ) : (
-                        <div className="flex flex-wrap gap-1">
-                          {submission.responses[question.id]
-                            .split(', ')
-                            .filter((option) => option.trim())
-                            .map((option, idx) => (
-                              <Badge
-                                key={idx}
-                                variant="secondary"
-                                className="text-xs">
-                                {option.trim()}
-                              </Badge>
-                            ))}
-                        </div>
-                      )
-                    ) : (
-                      <div className="text-muted-foreground text-xs italic p-2 bg-muted/20 rounded-md text-center">
-                        No response
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        )}
-      </Card>
-    );
-  };
-
   return (
     <DashBoardLayout user={user}>
       <div className="flex flex-col w-full max-w-full mx-auto p-3 sm:p-6 space-y-4 sm:space-y-6">
@@ -305,11 +176,14 @@ export default function FormPage({
               <h1 className="text-2xl sm:text-3xl font-bold text-foreground break-words min-w-0 flex-1">
                 {formTitle}
               </h1>
-              <Badge
-                variant="outline"
-                className="text-xs w-fit bg-purple-50 text-purple-700 border-purple-200">
-                {formCode}
-              </Badge>
+              <div className="flex items-center gap-2">
+                <Badge
+                  variant="outline"
+                  className="text-xs w-fit bg-purple-50 text-purple-700 border-purple-200">
+                  {formCode}
+                </Badge>
+                <FormStatusBadge deadline={deadline} /> {/* Moved here */}
+              </div>
             </div>
             <p className="text-muted-foreground text-sm">
               View and manage form responses
@@ -347,30 +221,11 @@ export default function FormPage({
         </div>
 
         {/* Navigation Tabs */}
-        <div className="bg-white/60 backdrop-blur-sm rounded-xl border border-slate-200 p-1">
-          <Tabs className="w-full" defaultValue="applicants">
-            <TabsList className="h-12 p-1 bg-transparent rounded-lg w-full grid grid-cols-2">
-              <TabsTrigger
-                value="forms"
-                onClick={() =>
-                  router.push(`/dashboard/current/form/${formCode}`)
-                }
-                className="flex items-center gap-2 h-10 px-3 sm:px-6 rounded-md font-medium transition-all data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-slate-800 text-slate-600 hover:text-slate-800">
-                <FileText className="w-4 h-4" />
-                <span className="hidden xs:inline">Forms</span>
-              </TabsTrigger>
-              <TabsTrigger
-                value="applicants"
-                onClick={() =>
-                  router.push(`/dashboard/current/applicants/${formCode}`)
-                }
-                className="flex items-center gap-2 h-10 px-3 sm:px-6 rounded-md font-medium transition-all data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-slate-800 text-slate-600 hover:text-slate-800">
-                <Users className="w-4 h-4" />
-                <span className="hidden xs:inline">Applicants</span>
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
-        </div>
+        <FormNavigationTabs
+          formCode={typeof formCode === 'string' ? formCode : ''}
+          currentTab="applicants"
+          basePath="current"
+        />
 
         {/* Statistics */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -454,122 +309,10 @@ export default function FormPage({
           </CardHeader>
           <CardContent>
             {filteredSubmissions && filteredSubmissions.length > 0 ? (
-              <>
-                {/* Desktop Table View */}
-                <div className="hidden lg:block w-full overflow-hidden rounded-lg border">
-                  <div className="overflow-x-auto">
-                    <Table className="w-full">
-                      <TableHeader>
-                        <TableRow className="bg-muted/80 border-b-2">
-                          <TableHead className="w-16 text-center font-semibold py-4">
-                            #
-                          </TableHead>
-                          <TableHead className="w-40 font-semibold py-4">
-                            <div className="flex items-center gap-2">
-                              <Calendar className="w-4 h-4" />
-                              Date
-                            </div>
-                          </TableHead>
-                          {sortedQuestions.map((question) => (
-                            <TableHead
-                              key={question.id}
-                              className="min-w-[200px] font-semibold py-4">
-                              <div className="space-y-2">
-                                <div className="font-medium text-sm leading-tight break-words">
-                                  {question.prompt}
-                                </div>
-                                <Badge
-                                  className={`text-xs px-2 py-1 rounded font-medium ${
-                                    question.type === 'MULTIPLE_CHOICE'
-                                      ? 'bg-blue-100 text-blue-800'
-                                      : question.type === 'SELECT_ALL'
-                                      ? 'bg-red-100 text-red-800'
-                                      : 'bg-purple-100 text-purple-800'
-                                  }`}>
-                                  {formatQuestionType(question.type)}
-                                </Badge>
-                              </div>
-                            </TableHead>
-                          ))}
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {filteredSubmissions.map((submission, index) => (
-                          <TableRow
-                            key={submission.id}
-                            className="hover:bg-muted/20 transition-colors border-b border-border/50 last:border-b-0">
-                            <TableCell className="text-center font-medium text-muted-foreground py-6">
-                              {index + 1}
-                            </TableCell>
-                            <TableCell className="p-6">
-                              <div className="space-y-1">
-                                <div className="font-medium text-sm">
-                                  {format(
-                                    new Date(submission.submittedAt),
-                                    'MMM d, yyyy'
-                                  )}
-                                </div>
-                                <div className="text-muted-foreground text-xs">
-                                  {format(
-                                    new Date(submission.submittedAt),
-                                    'h:mm a'
-                                  )}
-                                </div>
-                              </div>
-                            </TableCell>
-                            {sortedQuestions.map((question) => (
-                              <TableCell
-                                key={question.id}
-                                className="p-6 align-top">
-                                <div className="min-h-[50px] flex items-start">
-                                  {submission.responses[question.id] ? (
-                                    <div className="w-full">
-                                      {question.type === 'FREE_RESPONSE' ? (
-                                        <div className="text-sm leading-relaxed break-words whitespace-pre-wrap max-h-32 overflow-y-auto p-3 bg-muted/30 rounded-md">
-                                          {submission.responses[question.id]}
-                                        </div>
-                                      ) : (
-                                        <div className="flex flex-wrap gap-1">
-                                          {submission.responses[question.id]
-                                            .split(', ')
-                                            .filter((option) => option.trim())
-                                            .map((option, idx) => (
-                                              <Badge
-                                                key={idx}
-                                                variant="secondary"
-                                                className="text-xs">
-                                                {option.trim()}
-                                              </Badge>
-                                            ))}
-                                        </div>
-                                      )}
-                                    </div>
-                                  ) : (
-                                    <div className="w-full flex items-center justify-center text-muted-foreground text-xs italic py-4 bg-muted/20 rounded-md">
-                                      No response
-                                    </div>
-                                  )}
-                                </div>
-                              </TableCell>
-                            ))}
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </div>
-
-                {/* Mobile Card View */}
-                <div className="lg:hidden space-y-4">
-                  {filteredSubmissions.map((submission, index) => (
-                    <MobileResponseCard
-                      key={submission.id}
-                      submission={submission}
-                      index={index}
-                    />
-                  ))}
-                </div>
-              </>
+              <ApplicantResponseDisplay
+                submissions={filteredSubmissions}
+                questions={sortedQuestions}
+              />
             ) : (
               <div className="text-center py-16">
                 <div className="mx-auto max-w-md">
@@ -645,12 +388,16 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
   }
 
   try {
-    // Fetch all data on the server
-    const [formTitle, formId] = await Promise.all([
+    const [formTitle, formId, deadline] = await Promise.all([
       getFormTitle(supabase, formCode),
-      getFormIdByCode(supabase, formCode)
+      getFormIdByCode(supabase, formCode),
+      getFormDeadline(supabase, formCode) // Fetch deadline
     ]);
 
+    // Convert deadline to a string if it’s a Date object
+    const processedDeadline =
+      deadline instanceof Date ? deadline.toISOString() : deadline;
+      
     if (!formId) {
       return {
         notFound: true
@@ -732,7 +479,8 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
         formId,
         questions,
         allOptions,
-        initialSubmissions: processedSubmissions
+        initialSubmissions: processedSubmissions,
+        deadline: processedDeadline // Use the processed deadline
       }
     };
   } catch (error) {
