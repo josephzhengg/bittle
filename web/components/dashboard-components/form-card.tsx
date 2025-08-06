@@ -124,6 +124,7 @@ export default function FormCard({ form }: FormCardProps) {
       queryUtils.refetchQueries({ queryKey: ['form'] });
     } catch {
       toast('Error updating form, please try again.');
+
     }
   };
 

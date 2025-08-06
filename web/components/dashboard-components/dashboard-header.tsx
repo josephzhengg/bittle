@@ -145,6 +145,7 @@ export default function DashboardHeader({ user }: DashboardHeaderProps) {
       setCreateFormOpen(false);
       router.push(`/dashboard/current/form/${code}/edit`);
     } catch (error) {
+
       // More specific error handling
       if (error instanceof Error) {
         if (error.message.includes('template questions')) {
@@ -288,6 +289,7 @@ export default function DashboardHeader({ user }: DashboardHeaderProps) {
                       queryUtils.refetchQueries({ queryKey: ['organization'] });
                       setEditInfoOpen(false);
                     } catch {
+
                       toast('Failed to edit profile. Please try again.');
                     }
                   }}>
