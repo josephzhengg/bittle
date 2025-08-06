@@ -122,9 +122,9 @@ export default function FormCard({ form }: FormCardProps) {
       toast('Form updated successfully!');
       setIsEditModalOpen(false);
       queryUtils.refetchQueries({ queryKey: ['form'] });
-    } catch (error) {
+    } catch {
       toast('Error updating form, please try again.');
-      console.error('Update error:', error);
+
     }
   };
 

@@ -45,19 +45,22 @@ const QUESTION_TYPES = [
     id: 'mcq',
     label: 'Multiple Choice',
     description: 'Users can select one option',
-    dbType: 'MULTIPLE_CHOICE'
+    dbType: 'MULTIPLE_CHOICE',
+    icon: '📝' // Icon for Multiple Choice
   },
   {
     id: 'sa',
     label: 'Select All That Apply',
     description: 'Users can select multiple options',
-    dbType: 'SELECT_ALL'
+    dbType: 'SELECT_ALL',
+    icon: '✅' // Icon for Select All That Apply
   },
   {
     id: 'fr',
     label: 'Free Response',
     description: 'Users can type their own answer',
-    dbType: 'FREE_RESPONSE'
+    dbType: 'FREE_RESPONSE',
+    icon: '✍️' // Icon for Free Response
   }
 ] as const;
 
@@ -151,7 +154,7 @@ const QuestionTypeSelect = ({
           <RadioGroupItem value={type.id} id={type.id} className="mt-1" />
           <div className="flex-1 min-w-0">
             <Label htmlFor={type.id} className="cursor-pointer font-medium">
-              {type.label}
+              {type.icon} {type.label}
             </Label>
             <p className="text-sm text-gray-600 mt-1">{type.description}</p>
           </div>
@@ -250,8 +253,8 @@ const CreateQuestionDialog = ({
       await onSave(formData);
       resetForm();
       onOpenChange(false);
-    } catch (error) {
-      console.error('Failed to save question:', error);
+    } catch {
+      toast.error('Failed to create question. Please try again.');
     }
   };
 
@@ -473,7 +476,6 @@ export default function EditPage({ user }: EditPageProps) {
 
       toast.success('Question created successfully!');
     } catch (error) {
-      console.error('Failed to save question:', error);
       toast.error('Failed to create question. Please try again.');
       throw error;
     } finally {
@@ -505,8 +507,7 @@ export default function EditPage({ user }: EditPageProps) {
           await queryClient.invalidateQueries({ queryKey: ['questions'] });
 
           toast.success('Questions reordered successfully!');
-        } catch (error) {
-          console.error('Failed to reorder questions:', error);
+        } catch {
           toast.error('Failed to reorder questions. Please try again.');
           const sortedQuestions = [...questions].sort(
             (a, b) => a.index - b.index
@@ -704,8 +705,8 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
         }
       };
     }
-  } catch (error) {
-    console.error('Error checking form deadline:', error);
+  } catch {
+    toast.error('Failed to fetch form deadline. Please try again later.');
   }
 
   return {

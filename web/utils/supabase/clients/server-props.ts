@@ -1,9 +1,9 @@
-import { type GetServerSidePropsContext } from "next";
-import { createServerClient, serializeCookieHeader } from "@supabase/ssr";
+import { type GetServerSidePropsContext } from 'next';
+import { createServerClient, serializeCookieHeader } from '@supabase/ssr';
 
 export function createSupabaseServerClient({
   req,
-  res,
+  res
 }: GetServerSidePropsContext) {
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -13,18 +13,18 @@ export function createSupabaseServerClient({
         getAll() {
           return Object.keys(req.cookies).map((name) => ({
             name,
-            value: req.cookies[name] || "",
+            value: req.cookies[name] || ''
           }));
         },
         setAll(cookiesToSet) {
           res.setHeader(
-            "Set-Cookie",
+            'Set-Cookie',
             cookiesToSet.map(({ name, value, options }) =>
               serializeCookieHeader(name, value, options)
             )
           );
-        },
-      },
+        }
+      }
     }
   );
 

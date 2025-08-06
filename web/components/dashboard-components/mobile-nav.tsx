@@ -1,4 +1,3 @@
-import { ClipboardList, Menu, LibraryBig } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -8,18 +7,12 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useRouter } from 'next/router';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { Smile, Baby, Trees, Menu } from 'lucide-react';
 
 const navigationItems = [
-  {
-    title: 'Current',
-    url: '/dashboard/current',
-    icon: LibraryBig
-  },
-  {
-    title: 'Past',
-    url: '/dashboard/past',
-    icon: ClipboardList
-  }
+  { title: 'Current', url: '/dashboard/current', icon: Smile },
+  { title: 'Past', url: '/dashboard/past', icon: Baby },
+  { title: 'Family Tree', url: '/dashboard/family-tree', icon: Trees }
 ];
 
 export function MobileNav() {

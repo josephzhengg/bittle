@@ -1,33 +1,31 @@
+import Head from 'next/head';
 import { createSupabaseServerClient } from '@/utils/supabase/clients/server-props';
-import { GetServerSidePropsContext } from 'next';
-import { Label } from '@/components/ui/label';
+import type { GetServerSidePropsContext } from 'next';
 
 export default function Home() {
-  // This is the default page that displays when the app is accessed.
-  // You can add dynamic paths using folders of the form [param] in the pages directory.
-  // In these folders, you can create a file called [param].tsx to handle dynamic routing.
-
   return (
-    <div>
-      <Label>Index</Label>
-    </div>
+    <>
+      <Head>
+        <title>Home - My App</title>
+        <meta
+          name="description"
+          content="Welcome to My App, your starting point for managing forms and data."
+        />
+      </Head>
+      {null}
+    </>
   );
 }
 
 export async function getServerSideProps(context: GetServerSidePropsContext) {
   const supabase = createSupabaseServerClient(context);
-  const { data: user, error: userError } = await supabase.auth.getUser();
+  const {
+    data: { session },
+    error
+  } = await supabase.auth.getSession();
 
-  if (user) {
-    return {
-      redirect: {
-        destination: '/dashboard/current',
-        permanent: false
-      }
-    };
-  }
-
-  if (userError || !user) {
+  if (error) {
+    console.error('Error fetching session:', error);
     return {
       redirect: {
         destination: '/login',
@@ -37,6 +35,9 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
   }
 
   return {
-    props: {}
+    redirect: {
+      destination: session?.user ? '/dashboard/current' : '/login',
+      permanent: false
+    }
   };
 }

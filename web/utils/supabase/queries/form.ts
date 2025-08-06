@@ -266,3 +266,25 @@ export const getFormDeadline = async (
   }
   return deadlineData.deadline ? new Date(deadlineData.deadline) : null;
 };
+
+export const getFormData = async (
+  supabase: SupabaseClient,
+  code: string
+): Promise<{ id: string; title: string; description?: string; deadline?: string }> => {
+  const { data: formData, error: formError } = await supabase
+    .from('form')
+    .select('id, title, description, deadline')
+    .eq('code', code)
+    .single();
+
+  if (formError || !formData) {
+    throw new Error(`Error fetching form data: ${formError?.message}`);
+  }
+
+  return {
+    id: formData.id,
+    title: formData.title,
+    description: formData.description,
+    deadline: formData.deadline
+  };
+};
