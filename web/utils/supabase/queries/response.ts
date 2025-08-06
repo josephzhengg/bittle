@@ -57,3 +57,17 @@ export const getResponseOptionSelection = async (
 
   return responseOptionData;
 };
+
+export const deleteResponse = async (
+  supabase: SupabaseClient,
+  form_submission_id: string
+): Promise<void> => {
+  const { error: deleteError } = await supabase
+    .from('form_submission')
+    .delete()
+    .eq('id', form_submission_id);
+
+  if (deleteError) {
+    throw new Error(`Error deleting response: ${deleteError.message}`);
+  }
+};

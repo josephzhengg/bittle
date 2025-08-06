@@ -19,6 +19,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { createSupabaseServerClient } from '@/utils/supabase/clients/server-props';
+import { deleteResponse } from '@/utils/supabase/queries/response';
 import {
   getFormTitle,
   getFormIdByCode,
@@ -42,6 +43,7 @@ import ApplicantResponseDisplay from '@/components/dashboard-components/applican
 import FormNavigationTabs from '@/components/dashboard-components/form-navigation-tabs';
 import FormStatusBadge from '@/components/dashboard-components/form-status-badge';
 import { ProcessedSubmission } from '@/utils/types';
+import { useSupabase } from '@/lib/supabase';
 
 export type CurrentFormsPageProps = {
   user: User;
@@ -51,7 +53,7 @@ export type CurrentFormsPageProps = {
   questions: Question[];
   allOptions: Record<string, QuestionOption[]>;
   initialSubmissions: ProcessedSubmission[];
-  deadline?: string | null; // Ensure type matches the prop
+  deadline?: string | null;
 };
 
 export default function FormPage({
@@ -63,10 +65,12 @@ export default function FormPage({
   deadline
 }: CurrentFormsPageProps) {
   const router = useRouter();
+  const supabase = useSupabase();
 
   // State for client-side filtering and interactions
   const [searchTerm, setSearchTerm] = useState('');
-  const [submissions] = useState<ProcessedSubmission[]>(initialSubmissions);
+  const [submissions, setSubmissions] =
+    useState<ProcessedSubmission[]>(initialSubmissions);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Sort questions by index for consistent column ordering
@@ -81,7 +85,6 @@ export default function FormPage({
         new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime()
     );
 
-    // Apply search filter
     if (searchTerm) {
       filtered = filtered.filter((submission) => {
         const searchLower = searchTerm.toLowerCase();
@@ -123,14 +126,29 @@ export default function FormPage({
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
     try {
-      // Trigger a page refresh to get fresh server-side data
       router.replace(router.asPath);
-    } catch {
+    } catch (error) {
+      console.error('Error refreshing data:', error);
       toast.error('Failed to refresh data');
     } finally {
       setIsRefreshing(false);
     }
   }, [router]);
+
+  // Delete submission
+  const handleDeleteSubmission = useCallback(
+    async (submissionId: string) => {
+      try {
+        await deleteResponse(supabase, submissionId);
+        setSubmissions((prev) => prev.filter((sub) => sub.id !== submissionId));
+        toast.success('Submission deleted successfully');
+      } catch (error) {
+        console.error('Error deleting submission:', error);
+        toast.error('Failed to delete submission');
+      }
+    },
+    [supabase]
+  );
 
   // Export functionality
   const handleExport = useCallback(() => {
@@ -181,7 +199,7 @@ export default function FormPage({
                   className="text-xs w-fit bg-purple-50 text-purple-700 border-purple-200">
                   {formCode}
                 </Badge>
-                <FormStatusBadge deadline={deadline} /> {/* Moved here */}
+                <FormStatusBadge deadline={deadline} />
               </div>
             </div>
             <p className="text-muted-foreground text-sm">
@@ -311,6 +329,7 @@ export default function FormPage({
               <ApplicantResponseDisplay
                 submissions={filteredSubmissions}
                 questions={sortedQuestions}
+                onDeleteSubmission={handleDeleteSubmission}
               />
             ) : (
               <div className="text-center py-16">
@@ -390,10 +409,9 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
     const [formTitle, formId, deadline] = await Promise.all([
       getFormTitle(supabase, formCode),
       getFormIdByCode(supabase, formCode),
-      getFormDeadline(supabase, formCode) // Fetch deadline
+      getFormDeadline(supabase, formCode)
     ]);
 
-    // Convert deadline to a string if it’s a Date object
     const processedDeadline =
       deadline instanceof Date ? deadline.toISOString() : deadline;
 
@@ -408,7 +426,6 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
       getFormSubmissions(supabase, formId)
     ]);
 
-    // Fetch all question options for MCQ and SELECT_ALL questions
     const allOptions: Record<string, QuestionOption[]> = {};
     for (const question of questions) {
       if (
@@ -420,7 +437,6 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
       }
     }
 
-    // Process all submissions with their responses
     const processedSubmissions: ProcessedSubmission[] = [];
     for (const submission of submissions) {
       const questionResponses = await getQuestionResponse(
@@ -434,7 +450,6 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
 
       const responses: Record<string, string> = {};
 
-      // Process each question response
       for (const response of questionResponses) {
         const question = questions.find((q) => q.id === response.question_id);
         if (!question) continue;
@@ -445,7 +460,6 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
           question.type === 'MULTIPLE_CHOICE' ||
           question.type === 'SELECT_ALL'
         ) {
-          // Find selected options for this response
           const selectedOptions = optionSelections
             .filter((selection) => selection.response_id === response.id)
             .map((selection) => {
@@ -482,7 +496,8 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
         deadline: processedDeadline
       }
     };
-  } catch {
+  } catch (error) {
+    console.error('Error fetching server-side data:', error);
     return {
       notFound: true
     };
