@@ -5,8 +5,8 @@ export default class MyDocument extends Document {
     return (
       <Html lang="en">
         <Head>
-          <title>My App - Your App Name</title>
           <meta
+            title="Bittle"
             name="description"
             content="A modern web application for managing forms and data, built with Next.js and Supabase."
           />
