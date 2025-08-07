@@ -1,12 +1,23 @@
-import DashBoardLayout from '@/components/layouts/dashboard-layout';
+import { useMemo } from 'react';
+import dynamic from 'next/dynamic';
+import { useQuery } from '@tanstack/react-query';
 import { useSupabase } from '@/lib/supabase';
 import type { User } from '@supabase/supabase-js';
-import { createSupabaseServerClient } from '@/utils/supabase/clients/server-props';
 import { GetServerSidePropsContext } from 'next';
 import { getForms } from '@/utils/supabase/queries/form';
-import { useQuery } from '@tanstack/react-query';
-import FormCard from '@/components/dashboard-components/form-card';
-import { FileText } from 'lucide-react';
+
+const DashBoardLayout = dynamic(
+  () => import('@/components/layouts/dashboard-layout'),
+  { ssr: true }
+);
+const FormCard = dynamic(
+  () => import('@/components/dashboard-components/form-card'),
+  { ssr: true }
+);
+const FileText = dynamic(
+  () => import('lucide-react').then((mod) => mod.FileText),
+  { ssr: false }
+);
 
 type Form = Awaited<ReturnType<typeof getForms>>[0];
 
@@ -21,23 +32,27 @@ export default function CurrentFormsPage({
 }: CurrentFormsPageProps) {
   const supabase = useSupabase();
 
-  // Use server data as initial data, but enable real-time updates
   const { data: formsData = initialFormsData } = useQuery({
     queryKey: ['form'],
-    queryFn: async () => getForms(supabase, user.id),
-    initialData: initialFormsData, // Start with server data
-    staleTime: 30 * 1000, // Consider fresh for 30 seconds
-    refetchOnWindowFocus: true // Refetch when user returns to tab
+    queryFn: () => getForms(supabase, user.id),
+    initialData: initialFormsData,
+    staleTime: 60 * 1000,
+    refetchOnWindowFocus: false
   });
 
-  // Filter and sort logic
-  const activeFormsData = formsData
-    ?.filter((form) => !form.deadline || new Date(form.deadline) > new Date())
-    .sort((a, b) => {
-      const dateA = new Date(a.created_at);
-      const dateB = new Date(b.created_at);
-      return dateB.getTime() - dateA.getTime();
-    });
+  const activeFormsData = useMemo(() => {
+    return formsData
+      ?.filter((form) => !form.deadline || new Date(form.deadline) > new Date())
+      .sort((a, b) => {
+        const dateA = new Date(a.created_at);
+        const dateB = new Date(b.created_at);
+        return dateB.getTime() - dateA.getTime();
+      });
+  }, [formsData]);
+
+  const totalForms = formsData?.length || 0;
+  const activeFormsCount = activeFormsData?.length || 0;
+  const expiredFormsCount = totalForms - activeFormsCount;
 
   return (
     <DashBoardLayout user={user}>
@@ -82,29 +97,19 @@ export default function CurrentFormsPage({
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="text-center p-4 bg-white/50 rounded-lg border border-slate-100">
                 <div className="text-2xl font-bold text-purple-600">
-                  {formsData.length}
+                  {totalForms}
                 </div>
                 <div className="text-sm text-slate-600">Total Forms</div>
               </div>
               <div className="text-center p-4 bg-white/50 rounded-lg border border-slate-100">
                 <div className="text-2xl font-bold text-green-600">
-                  {
-                    formsData.filter(
-                      (form) =>
-                        !form.deadline || new Date(form.deadline) > new Date()
-                    ).length
-                  }
+                  {activeFormsCount}
                 </div>
                 <div className="text-sm text-slate-600">Active Forms</div>
               </div>
               <div className="text-center p-4 bg-white/50 rounded-lg border border-slate-100">
                 <div className="text-2xl font-bold text-red-600">
-                  {
-                    formsData.filter(
-                      (form) =>
-                        form.deadline && new Date(form.deadline) < new Date()
-                    ).length
-                  }
+                  {expiredFormsCount}
                 </div>
                 <div className="text-sm text-slate-600">Expired Forms</div>
               </div>
@@ -117,11 +122,13 @@ export default function CurrentFormsPage({
 }
 
 export async function getServerSideProps(context: GetServerSidePropsContext) {
+  const { createSupabaseServerClient } = await import(
+    '@/utils/supabase/clients/server-props'
+  );
   const supabase = createSupabaseServerClient(context);
-
   const { data: userData, error } = await supabase.auth.getUser();
 
-  if (!userData || error) {
+  if (error || !userData?.user) {
     return {
       redirect: {
         destination: '/login',

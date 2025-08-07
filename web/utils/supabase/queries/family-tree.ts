@@ -586,3 +586,17 @@ export async function createFamilyMember(
   }
   return data;
 }
+
+export const removeAllConnections = async (
+  supabase: SupabaseClient,
+  family_tree_id: string
+): Promise<void> => {
+  const { error } = await supabase
+    .from('connections')
+    .delete()
+    .eq('family_tree_id', family_tree_id);
+
+  if (error) {
+    throw new Error(`Error removing all connections: ${error.message}`);
+  }
+};

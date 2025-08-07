@@ -27,7 +27,8 @@ import {
   getFamilyTreeMembers,
   createFamilyMember,
   updateIdentifier,
-  deleteFamilyMember
+  deleteFamilyMember,
+  removeAllConnections
 } from '@/utils/supabase/queries/family-tree';
 import { getQuestions, getOptions } from '@/utils/supabase/queries/question';
 import SubmissionDetailsOverlay from '@/components/family-tree-components/submission-details-overlay';
@@ -37,7 +38,14 @@ import TutorialOverlay from '@/components/family-tree-components/tutorial';
 import { z } from 'zod';
 import { toast } from 'sonner';
 import { SupabaseClient } from '@supabase/supabase-js';
-import { Layout, RefreshCw, Plus, HelpCircle, Menu } from 'lucide-react';
+import {
+  Layout,
+  RefreshCw,
+  Plus,
+  HelpCircle,
+  Menu,
+  Scissors
+} from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -61,6 +69,11 @@ const layoutControlItems = [
   { title: 'Recenter', action: 'recenter', icon: RefreshCw },
   { title: 'Refetch Submissions', action: 'refetch', icon: RefreshCw },
   { title: 'Add Member', action: 'addMember', icon: Plus },
+  {
+    title: 'Remove All Connections',
+    action: 'removeAllConnections',
+    icon: Scissors
+  },
   { title: 'Tutorial', action: 'tutorial', icon: HelpCircle }
 ];
 
@@ -156,19 +169,28 @@ const createStyledEdge = (
   };
 };
 
-export const useIsMobile = () => {
+const useIsMobile = () => {
   const [isMobile, setIsMobile] = useState(false);
+
   useEffect(() => {
+    let timeoutId: NodeJS.Timeout;
     const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768);
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        setIsMobile(window.innerWidth < 768);
+      }, 100);
     };
+
     checkMobile();
     window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
+    return () => {
+      window.removeEventListener('resize', checkMobile);
+      clearTimeout(timeoutId);
+    };
   }, []);
+
   return isMobile;
 };
-
 const getEdgeStyle = (
   sourceNode?: Node<NodeData>,
   targetNode?: Node<NodeData>
@@ -624,10 +646,9 @@ const useFamilyTreeData = (
   isMobile: boolean
 ) => {
   const supabase = useSupabase();
-  const [isLoading, setIsLoading] = useState(false);
+
   useEffect(() => {
     const loadInitialMembers = async () => {
-      setIsLoading(true);
       try {
         const members = await getFamilyTreeMembers(supabase, familyTreeId);
         const nodes = members.map((member) => {
@@ -682,8 +703,6 @@ const useFamilyTreeData = (
             err instanceof Error ? err.message : 'Unknown error'
           }`
         );
-      } finally {
-        setIsLoading(false);
       }
     };
     loadInitialMembers();
@@ -699,7 +718,6 @@ const useFamilyTreeData = (
   ]);
   const refetchNewSubmissions = useCallback(async () => {
     if (!familyTreeId) return;
-    setIsLoading(true);
     try {
       const [members, submissions, { data: familyTree }] = await Promise.all([
         getFamilyTreeMembers(supabase, familyTreeId),
@@ -794,11 +812,10 @@ const useFamilyTreeData = (
           err instanceof Error ? err.message : 'Unknown error'
         }`
       );
-    } finally {
-      setIsLoading(false);
     }
   }, [familyTreeId, supabase, setNodes, getContainerSize, fitView, isMobile]);
-  return { refetchNewSubmissions, isLoading };
+
+  return { refetchNewSubmissions };
 };
 
 const updateNodeRoles = async (
@@ -935,6 +952,8 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
   } | null>(null);
   const [addMemberDialog, setAddMemberDialog] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
+  const [confirmRemoveConnections, setConfirmRemoveConnections] =
+    useState(false);
   const [deleteMemberDialog, setDeleteMemberDialog] = useState<{
     isOpen: boolean;
     nodeId: string;
@@ -949,6 +968,7 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
   } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const { fitView, getViewport } = useReactFlow();
+
   useEffect(() => {
     const hasSeenTutorial = localStorage.getItem('hasSeenFamilyTreeTutorial');
     if (!hasSeenTutorial) {
@@ -956,6 +976,7 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
       localStorage.setItem('hasSeenFamilyTreeTutorial', 'true');
     }
   }, []);
+
   const getContainerSize = useCallback(() => {
     if (containerRef.current) {
       const { width, height } = containerRef.current.getBoundingClientRect();
@@ -969,7 +990,8 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
       height: window.innerHeight - 20
     };
   }, []);
-  const { refetchNewSubmissions, isLoading } = useFamilyTreeData(
+
+  const { refetchNewSubmissions } = useFamilyTreeData(
     familyTreeId,
     setNodes,
     setEdges,
@@ -1478,13 +1500,7 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
     },
     [setNodes, setEdges, supabase, familyTreeId, isMobile, lastTap, getViewport]
   );
-  if (isLoading)
-    return (
-      <div className="loading-container">
-        <div className="loading-spinner"></div>
-        <p>Loading family tree...</p>
-      </div>
-    );
+
   return (
     <div className="family-tree-container">
       <div className="absolute top-2 right-2 z-10">
@@ -1521,6 +1537,8 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
                     else if (item.action === 'addMember')
                       setAddMemberDialog(true);
                     else if (item.action === 'tutorial') setShowTutorial(true);
+                    else if (item.action === 'removeAllConnections')
+                      setConfirmRemoveConnections(true);
                   }}
                   className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-gray-100 transition text-gray-700">
                   <item.icon className="h-4 w-4 text-gray-500" />
@@ -1561,9 +1579,12 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
                 isMobile ? 'gap-2 p-1' : 'gap-3 p-2'
               }`}>
               <div
-                className={`flex items-center justify-center bg-gradient-to-r from-indigo-600 to-indigo-800 rounded text-white font-medium ${
+                className={`flex items-center justify-center rounded text-white font-medium ${
                   isMobile ? 'w-12 h-5 text-[8px]' : 'w-16 h-7 text-xs'
-                }`}>
+                }`}
+                style={{
+                  background: 'linear-gradient(90deg, #7e22ce 0%, #4c1d95 100%)'
+                }}>
                 🥸
               </div>
               <span
@@ -1664,6 +1685,80 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
             localStorage.setItem('hasSeenFamilyTreeTutorial', 'true');
           }}
         />
+      )}
+      {confirmRemoveConnections && (
+        <>
+          <Dialog
+            open={confirmRemoveConnections}
+            onOpenChange={(open) => setConfirmRemoveConnections(open)}>
+            <DialogContent
+              className="fixed left-1/2 top-1/2 w-[95vw] max-w-sm sm:max-w-lg -translate-x-1/2 -translate-y-1/2 mx-auto rounded-xl shadow-lg z-[9999] p-6 sm:p-8 bg-white"
+              style={{ zIndex: 9999 }}>
+              <DialogHeader className="pb-4">
+                <DialogTitle className="text-xl font-bold text-center sm:text-left text-red-600">
+                  Remove All Connections
+                </DialogTitle>
+              </DialogHeader>
+              <div className="space-y-6">
+                <div className="space-y-3">
+                  <Label className="text-base font-medium block text-center sm:text-left text-gray-700">
+                    Are you sure you want to remove <b>all connections</b>{' '}
+                    between members in this family tree?
+                    <span className="block text-sm text-gray-500 mt-2">
+                      This will disconnect every &quot;big&quot; and
+                      &quot;little&quot; relationship. <br />
+                      <b>This action cannot be undone.</b>
+                    </span>
+                  </Label>
+                </div>
+                <DialogFooter className="flex flex-col gap-3 sm:flex-row sm:justify-end sm:gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setConfirmRemoveConnections(false)}
+                    className="w-full h-12 text-base font-medium rounded-lg border-2 sm:w-auto sm:h-10 sm:px-6 transition-colors">
+                    Cancel
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    onClick={async () => {
+                      try {
+                        await removeAllConnections(supabase, familyTreeId);
+                        setEdges([]);
+                        setNodes((nds) =>
+                          nds.map((n) => ({
+                            ...n,
+                            data: {
+                              ...n.data,
+                              hasBig: false,
+                              hasLittles: false,
+                              is_big: false,
+                              label: `⚪ ${n.data.label
+                                .split(' ')
+                                .slice(1)
+                                .join(' ')}`
+                            }
+                          }))
+                        );
+                        toast.success('All connections removed');
+                        setConfirmRemoveConnections(false);
+                      } catch (err) {
+                        toast.error(
+                          `Failed to remove all connections: ${
+                            err instanceof Error ? err.message : 'Unknown error'
+                          }`
+                        );
+                      }
+                    }}
+                    className="w-full h-12 text-base font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed sm:w-auto sm:h-10 sm:px-6 transition-colors">
+                    Remove All Connections
+                  </Button>
+                </DialogFooter>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </>
       )}
       <div
         ref={containerRef}
