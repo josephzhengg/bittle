@@ -633,10 +633,9 @@ const useFamilyTreeData = (
   isMobile: boolean
 ) => {
   const supabase = useSupabase();
-  const [isLoading, setIsLoading] = useState(false);
+
   useEffect(() => {
     const loadInitialMembers = async () => {
-      setIsLoading(true);
       try {
         const members = await getFamilyTreeMembers(supabase, familyTreeId);
         const nodes = members.map((member) => {
@@ -691,8 +690,6 @@ const useFamilyTreeData = (
             err instanceof Error ? err.message : 'Unknown error'
           }`
         );
-      } finally {
-        setIsLoading(false);
       }
     };
     loadInitialMembers();
@@ -708,7 +705,6 @@ const useFamilyTreeData = (
   ]);
   const refetchNewSubmissions = useCallback(async () => {
     if (!familyTreeId) return;
-    setIsLoading(true);
     try {
       const [members, submissions, { data: familyTree }] = await Promise.all([
         getFamilyTreeMembers(supabase, familyTreeId),
@@ -803,11 +799,10 @@ const useFamilyTreeData = (
           err instanceof Error ? err.message : 'Unknown error'
         }`
       );
-    } finally {
-      setIsLoading(false);
     }
   }, [familyTreeId, supabase, setNodes, getContainerSize, fitView, isMobile]);
-  return { refetchNewSubmissions, isLoading };
+
+  return { refetchNewSubmissions };
 };
 
 const updateNodeRoles = async (
@@ -958,6 +953,7 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
   } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const { fitView, getViewport } = useReactFlow();
+
   useEffect(() => {
     const hasSeenTutorial = localStorage.getItem('hasSeenFamilyTreeTutorial');
     if (!hasSeenTutorial) {
@@ -965,6 +961,7 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
       localStorage.setItem('hasSeenFamilyTreeTutorial', 'true');
     }
   }, []);
+
   const getContainerSize = useCallback(() => {
     if (containerRef.current) {
       const { width, height } = containerRef.current.getBoundingClientRect();
@@ -978,7 +975,8 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
       height: window.innerHeight - 20
     };
   }, []);
-  const { refetchNewSubmissions, isLoading } = useFamilyTreeData(
+
+  const { refetchNewSubmissions } = useFamilyTreeData(
     familyTreeId,
     setNodes,
     setEdges,
@@ -1487,13 +1485,7 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
     },
     [setNodes, setEdges, supabase, familyTreeId, isMobile, lastTap, getViewport]
   );
-  if (isLoading)
-    return (
-      <div className="loading-container">
-        <div className="loading-spinner"></div>
-        <p>Loading family tree...</p>
-      </div>
-    );
+
   return (
     <div className="family-tree-container">
       <div className="absolute top-2 right-2 z-10">
