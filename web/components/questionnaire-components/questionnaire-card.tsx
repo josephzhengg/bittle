@@ -40,7 +40,6 @@ export default function QuestionnaireCard({
   const [selectedValues, setSelectedValues] = useState<string[]>([]);
   const [textAnswer, setTextAnswer] = useState<string>('');
 
-  // Sync with current answer prop
   useEffect(() => {
     if (currentAnswer !== undefined) {
       if (question.type === 'MULTIPLE_CHOICE') {
@@ -65,7 +64,6 @@ export default function QuestionnaireCard({
       (question.type === 'MULTIPLE_CHOICE' || question.type === 'SELECT_ALL')
   });
 
-  // Helper function to format question type for display
   const getQuestionTypeDisplay = (type: string) => {
     switch (type) {
       case 'MULTIPLE_CHOICE':
@@ -74,10 +72,26 @@ export default function QuestionnaireCard({
         return 'Select all that apply';
       case 'FREE_RESPONSE':
         return 'Write your response';
+      case 'SECTION_HEADER':
+        return 'Section Header';
       default:
         return type;
     }
   };
+
+  if (question.type === 'SECTION_HEADER') {
+    return (
+      <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 border border-white/20">
+        <h2 className="text-3xl font-bold text-white mb-4">
+          {question.prompt}
+        </h2>
+        {question.description && (
+          <p className="text-blue-100 mb-6">{question.description}</p>
+        )}
+        <p className="text-sm text-blue-200">Click Next to continue</p>
+      </div>
+    );
+  }
 
   if (
     isLoading &&
@@ -123,7 +137,6 @@ export default function QuestionnaireCard({
     );
   }
 
-  // Multiple Choice Implementation
   if (question.type === 'MULTIPLE_CHOICE') {
     const handleRadioChange = (value: string) => {
       setSelectedValue(value);
@@ -143,7 +156,6 @@ export default function QuestionnaireCard({
               {getQuestionTypeDisplay(question.type)}
             </Badge>
           </div>
-
           <RadioGroup value={selectedValue} onValueChange={handleRadioChange}>
             {questionOption?.map((option) => {
               const isSelected = selectedValue === option.id;
@@ -163,7 +175,6 @@ export default function QuestionnaireCard({
                       className="text-lg text-white cursor-pointer flex-1">
                       {option.label}
                     </Label>
-                    {isSelected && <Check className="h-5 w-5 text-blue-300" />}
                   </div>
                 </div>
               );
@@ -174,28 +185,13 @@ export default function QuestionnaireCard({
     );
   }
 
-  // Enhanced Select All Implementation with cohesive blue-purple theme
-  else if (question.type === 'SELECT_ALL') {
-    const toggleOption = (optionId: string) => {
-      let newSelectedValues: string[];
-      if (selectedValues.includes(optionId)) {
-        newSelectedValues = selectedValues.filter((id) => id !== optionId);
-      } else {
-        newSelectedValues = [...selectedValues, optionId];
-      }
+  if (question.type === 'SELECT_ALL') {
+    const toggleOption = (value: string) => {
+      const newSelectedValues = selectedValues.includes(value)
+        ? selectedValues.filter((v) => v !== value)
+        : [...selectedValues, value];
       setSelectedValues(newSelectedValues);
       onAnswerChange?.(question.id, newSelectedValues);
-    };
-
-    const getSelectedLabels = () => {
-      if (selectedValues.length === 0) return 'Select options...';
-      if (selectedValues.length === 1) {
-        const option = questionOption?.find(
-          (opt) => opt.id === selectedValues[0]
-        );
-        return option?.label || '1 selected';
-      }
-      return `${selectedValues.length} options selected`;
     };
 
     return (
@@ -211,47 +207,33 @@ export default function QuestionnaireCard({
               {getQuestionTypeDisplay(question.type)}
             </Badge>
           </div>
-
           <Popover open={open} onOpenChange={setOpen}>
             <PopoverTrigger asChild>
               <Button
                 variant="outline"
                 role="combobox"
                 aria-expanded={open}
-                className={`w-full justify-between text-left h-auto py-4 px-4 ${
-                  selectedValues.length > 0
-                    ? 'bg-gradient-to-r from-blue-500/25 to-purple-500/25 border-blue-400/50 text-white shadow-md hover:shadow-lg hover:from-blue-500/30 hover:to-purple-500/30'
-                    : 'bg-white/10 border-white/30 text-white/80 hover:bg-white/20 hover:border-white/40'
-                }`}>
-                <div className="flex items-center gap-2">
-                  {selectedValues.length > 0 && (
-                    <Badge className="bg-blue-500/80 text-white border-blue-400/50 text-xs px-2 py-1">
-                      {selectedValues.length}
-                    </Badge>
-                  )}
-                  <span className="truncate">{getSelectedLabels()}</span>
-                </div>
+                className="w-full justify-between bg-white/5 border-white/20 text-white hover:bg-white/10 hover:border-white/30">
+                {selectedValues.length > 0
+                  ? `${selectedValues.length} option(s) selected`
+                  : 'Select options...'}
                 <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-full p-0 bg-slate-900/95 backdrop-blur-lg border border-blue-400/30">
+            <PopoverContent className="w-[400px] p-0 bg-white/10 border-white/20">
               <Command className="bg-transparent">
-                <CommandInput
-                  placeholder="Search options..."
-                  className="text-white placeholder:text-blue-200/60 border-b border-blue-400/20"
-                />
-                <CommandEmpty className="text-blue-200/80 py-6 text-center">
-                  No options found.
-                </CommandEmpty>
-                <CommandGroup>
-                  <CommandList className="max-h-64">
+                <CommandInput placeholder="Search options..." />
+                <CommandList>
+                  <CommandEmpty>No options found.</CommandEmpty>
+                  <CommandGroup>
                     {questionOption?.map((option) => (
                       <CommandItem
                         key={option.id}
+                        value={option.id}
                         onSelect={() => toggleOption(option.id)}
-                        className={`text-lg py-4 px-4 rounded-lg cursor-pointer transition-all duration-200 ${
+                        className={`text-white cursor-pointer ${
                           selectedValues.includes(option.id)
-                            ? 'bg-gradient-to-r from-blue-500/30 to-purple-500/30 text-white border border-blue-400/40 shadow-md'
+                            ? 'bg-gradient-to-r from-blue-500/40 to-purple-500/40 border-blue-400/40 shadow-md'
                             : 'text-blue-100/90 hover:bg-blue-500/15 hover:text-white'
                         }`}>
                         <div className="flex items-center justify-between w-full">
@@ -262,13 +244,11 @@ export default function QuestionnaireCard({
                         </div>
                       </CommandItem>
                     ))}
-                  </CommandList>
-                </CommandGroup>
+                  </CommandGroup>
+                </CommandList>
               </Command>
             </PopoverContent>
           </Popover>
-
-          {/* Scrollable selected items display with blue-purple theme */}
           {selectedValues.length > 0 && (
             <div className="space-y-4">
               <div className="bg-blue-900/40 backdrop-blur-sm rounded-xl border border-blue-400/40 shadow-sm">
@@ -289,7 +269,6 @@ export default function QuestionnaireCard({
                     </Button>
                   </div>
                 </div>
-
                 <div className="p-4 max-h-48 overflow-y-auto">
                   <div className="flex flex-wrap gap-2">
                     {selectedValues.map((valueId) => {
@@ -323,8 +302,7 @@ export default function QuestionnaireCard({
     );
   }
 
-  // Free Response Implementation
-  else if (question.type === 'FREE_RESPONSE') {
+  if (question.type === 'FREE_RESPONSE') {
     const handleTextChange = (value: string) => {
       setTextAnswer(value);
       onAnswerChange?.(question.id, value);
@@ -343,7 +321,6 @@ export default function QuestionnaireCard({
               {getQuestionTypeDisplay(question.type)}
             </Badge>
           </div>
-
           <div className="space-y-3">
             <Textarea
               placeholder="Type your response here..."
@@ -366,31 +343,28 @@ export default function QuestionnaireCard({
     );
   }
 
-  // Fallback for unknown question types
-  else {
-    return (
-      <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 border border-white/20 max-h-[80vh] overflow-y-auto">
-        <div className="text-center text-white">
-          <div className="mb-4">
-            <svg
-              className="w-12 h-12 mx-auto text-blue-200"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
-          </div>
-          <h3 className="text-xl font-semibold mb-2">Unknown Question Type</h3>
-          <p className="text-blue-200">
-            Question type &quot;{question.type}&quot; is not supported.
-          </p>
+  return (
+    <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 border border-white/20 max-h-[80vh] overflow-y-auto">
+      <div className="text-center text-white">
+        <div className="mb-4">
+          <svg
+            className="w-12 h-12 mx-auto text-blue-200"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24">
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+            />
+          </svg>
         </div>
+        <h3 className="text-xl font-semibold mb-2">Unknown Question Type</h3>
+        <p className="text-blue-200">
+          Question type &quot;{question.type}&quot; is not supported.
+        </p>
       </div>
-    );
-  }
+    </div>
+  );
 }

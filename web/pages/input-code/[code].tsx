@@ -31,7 +31,6 @@ export default function QuestionnairePage() {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [showSuccess, setShowSuccess] = useState(false);
 
-  // Fetch form data to get title and author
   const {
     data: formData,
     isLoading: isLoadingForm,
@@ -68,23 +67,23 @@ export default function QuestionnairePage() {
     enabled: !!formData?.id
   });
 
-  // Helper function to check if a question is answered
   const isQuestionAnswered = (questionId: string, questionType: string) => {
+    if (questionType === 'SECTION_HEADER') {
+      return true; // Section headers are always "answered"
+    }
+
     const answer = answers[questionId];
 
     if (!answer) return false;
 
-    // For FREE_RESPONSE, check if there's actual text content
     if (questionType === 'FREE_RESPONSE') {
       return typeof answer === 'string' && answer.trim().length > 0;
     }
 
-    // For MULTIPLE_CHOICE, check if there's a selected value
     if (questionType === 'MULTIPLE_CHOICE') {
       return typeof answer === 'string' && answer.length > 0;
     }
 
-    // For SELECT_ALL, check if there's at least one selected option
     if (questionType === 'SELECT_ALL') {
       return Array.isArray(answer) && answer.length > 0;
     }
@@ -99,7 +98,6 @@ export default function QuestionnairePage() {
     setAnswers((prev) => {
       const newAnswers = { ...prev };
 
-      // Handle empty or invalid answers by removing them from the answers object
       if (
         !answer ||
         (typeof answer === 'string' && answer.trim().length === 0) ||
@@ -135,7 +133,6 @@ export default function QuestionnairePage() {
   const handleSubmit = async () => {
     if (!formData?.id || !questionsData) return;
 
-    // Double-check that all questions are answered before submitting
     const unansweredQuestions = questionsData.filter(
       (question) => !isQuestionAnswered(question.id, question.type)
     );
@@ -154,7 +151,7 @@ export default function QuestionnairePage() {
 
       for (const [questionId, answer] of Object.entries(answers)) {
         const question = questionsData.find((q) => q.id === questionId);
-        if (!question) continue;
+        if (!question || question.type === 'SECTION_HEADER') continue;
 
         if (question.type === 'FREE_RESPONSE') {
           await createQuestionResponse(
@@ -195,64 +192,47 @@ export default function QuestionnairePage() {
     }
   };
 
-  // Helper function to render progress dots with smart scaling
+  const actualQuestions =
+    questionsData?.filter((q) => q.type !== 'SECTION_HEADER') || [];
+  const totalActualQuestions = actualQuestions.length;
+  const answeredCount = actualQuestions.filter((q) =>
+    isQuestionAnswered(q.id, q.type)
+  ).length;
+  const progressPercentageAnswered =
+    totalActualQuestions > 0 ? (answeredCount / totalActualQuestions) * 100 : 0;
+  const actualQuestionsBefore = questionsData
+    ? questionsData
+        .slice(0, currentQuestionIndex + 1)
+        .filter((q) => q.type !== 'SECTION_HEADER').length
+    : 0;
+
   const renderProgressDots = () => {
     if (!questionsData) return null;
 
-    const totalQuestions = questionsData.length;
-
-    // For many questions (>15), show a condensed view
-    if (totalQuestions > 15) {
-      const answeredCount = questionsData.filter((question) =>
-        isQuestionAnswered(question.id, question.type)
-      ).length;
-
+    if (totalActualQuestions > 15) {
       return (
         <div className="flex items-center space-x-2">
           <div className="text-xs text-blue-100 font-medium">
-            {answeredCount} / {totalQuestions} completed
+            {answeredCount} / {totalActualQuestions} completed
           </div>
-          <div className="w-16 bg-white/20 rounded-full h-1.5">
+          <div className="w-16 bg/white-20 rounded-full h-1.5">
             <div
               className="bg-gradient-to-r from-pink-500 to-purple-500 h-1.5 rounded-full transition-all duration-300"
-              style={{ width: `${(answeredCount / totalQuestions) * 100}%` }}
+              style={{ width: `${progressPercentageAnswered}%` }}
             />
           </div>
         </div>
       );
     }
 
-    // For moderate questions (8-15), show smaller dots
-    if (totalQuestions > 8) {
-      return (
-        <div className="flex space-x-1">
-          {questionsData.map((question, index) => (
-            <div
-              key={question.id}
-              className={`w-1.5 h-1.5 rounded-full transition-all duration-300 ${
-                index === currentQuestionIndex
-                  ? 'bg-gradient-to-r from-pink-500 to-purple-500 scale-150'
-                  : isQuestionAnswered(question.id, question.type)
-                  ? 'bg-green-400'
-                  : 'bg-white/30'
-              }`}
-            />
-          ))}
-        </div>
-      );
-    }
-
-    // For few questions (≤8), show regular-sized dots
     return (
       <div className="flex space-x-1.5">
-        {questionsData.map((question, index) => (
+        {actualQuestions.map((question) => (
           <div
             key={question.id}
             className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${
-              index === currentQuestionIndex
-                ? 'bg-gradient-to-r from-pink-500 to-purple-500 scale-125'
-                : isQuestionAnswered(question.id, question.type)
-                ? 'bg-green-400'
+              isQuestionAnswered(question.id, question.type)
+                ? 'bg-gradient-to-r from-pink-500 to-purple-500'
                 : 'bg-white/30'
             }`}
           />
@@ -396,7 +376,6 @@ export default function QuestionnairePage() {
     currentQuestion &&
     isQuestionAnswered(currentQuestion.id, currentQuestion.type);
 
-  // Check if all questions are answered for submit button
   const allQuestionsAnswered = questionsData.every((question) =>
     isQuestionAnswered(question.id, question.type)
   );
@@ -445,7 +424,6 @@ export default function QuestionnairePage() {
       </div>
 
       <div className="relative z-10 w-full max-w-4xl h-screen flex flex-col px-4 py-6 mx-auto">
-        {/* Header - Updated to show form title and author */}
         <div className="text-center mb-4 animate-fade-in-up flex-shrink-0">
           <div className="mb-3">
             <h1 className="text-4xl lg:text-5xl font-black text-white mb-2 tracking-tight">
@@ -473,13 +451,18 @@ export default function QuestionnairePage() {
                 </span>
               </h2>
             )}
-            <p className="text-base text-blue-100 leading-relaxed">
-              Question {currentQuestionIndex + 1} of {questionsData.length}
-            </p>
+            {currentQuestion.type !== 'SECTION_HEADER' ? (
+              <p className="text-base text-blue-100 leading-relaxed">
+                Question {actualQuestionsBefore} of {totalActualQuestions}
+              </p>
+            ) : (
+              <p className="text-base text-blue-100 leading-relaxed">
+                Section: {currentQuestion.prompt}
+              </p>
+            )}
           </div>
         </div>
 
-        {/* Progress Bar - Reduced margins */}
         <div className="mb-4 animate-slide-in-left flex-shrink-0">
           <div className="flex justify-between items-center mb-2">
             <span className="text-sm font-medium text-blue-100">Progress</span>
@@ -495,24 +478,38 @@ export default function QuestionnairePage() {
           </div>
         </div>
 
-        {/* Question Container - Made scrollable if needed */}
         <div className="flex-1 flex items-center justify-center mb-4 overflow-hidden">
           <div className="w-full max-w-2xl h-full flex items-center justify-center">
             {currentQuestion && (
               <div
                 key={currentQuestion.id}
                 className="animate-question-slide-in w-full max-h-full overflow-auto">
-                <QuestionnaireCard
-                  question={currentQuestion}
-                  onAnswerChange={handleAnswerChange}
-                  currentAnswer={answers[currentQuestion.id]}
-                />
+                {currentQuestion.type === 'SECTION_HEADER' ? (
+                  <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
+                    <h2 className="text-2xl font-bold text-white mb-4">
+                      {currentQuestion.prompt}
+                    </h2>
+                    {currentQuestion.description && (
+                      <p className="text-blue-100 mb-6">
+                        {currentQuestion.description}
+                      </p>
+                    )}
+                    <p className="text-sm text-blue-200">
+                      Click Next to continue
+                    </p>
+                  </div>
+                ) : (
+                  <QuestionnaireCard
+                    question={currentQuestion}
+                    onAnswerChange={handleAnswerChange}
+                    currentAnswer={answers[currentQuestion.id]}
+                  />
+                )}
               </div>
             )}
           </div>
         </div>
 
-        {/* Navigation - Fixed at bottom with improved responsive design */}
         <div className="flex justify-between items-center animate-fade-in-up flex-shrink-0 pt-2 min-h-[40px]">
           <button
             onClick={handlePrevious}
