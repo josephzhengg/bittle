@@ -156,19 +156,28 @@ const createStyledEdge = (
   };
 };
 
-export const useIsMobile = () => {
+const useIsMobile = () => {
   const [isMobile, setIsMobile] = useState(false);
+
   useEffect(() => {
+    let timeoutId: NodeJS.Timeout;
     const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768);
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        setIsMobile(window.innerWidth < 768);
+      }, 100);
     };
+
     checkMobile();
     window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
+    return () => {
+      window.removeEventListener('resize', checkMobile);
+      clearTimeout(timeoutId);
+    };
   }, []);
+
   return isMobile;
 };
-
 const getEdgeStyle = (
   sourceNode?: Node<NodeData>,
   targetNode?: Node<NodeData>
@@ -1561,9 +1570,12 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
                 isMobile ? 'gap-2 p-1' : 'gap-3 p-2'
               }`}>
               <div
-                className={`flex items-center justify-center bg-gradient-to-r from-indigo-600 to-indigo-800 rounded text-white font-medium ${
+                className={`flex items-center justify-center rounded text-white font-medium ${
                   isMobile ? 'w-12 h-5 text-[8px]' : 'w-16 h-7 text-xs'
-                }`}>
+                }`}
+                style={{
+                  background: 'linear-gradient(90deg, #7e22ce 0%, #4c1d95 100%)'
+                }}>
                 🥸
               </div>
               <span
