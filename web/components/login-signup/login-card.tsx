@@ -134,6 +134,7 @@ export default function LoginCard({ supabase, router }: LoginCardProps) {
           </Button>
           <div className="flex justify-center">
             <Button
+              name="forgot-password-button"
               type="button"
               variant="ghost"
               className="text-purple-600 hover:text-purple-800 hover:bg-purple-50 p-0 h-auto font-medium text-sm"
