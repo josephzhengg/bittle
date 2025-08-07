@@ -366,7 +366,7 @@ export default function FormPage({
                         variant="outline"
                         onClick={() => {
                           navigator.clipboard.writeText(
-                            `${window.location.origin}/form/${formCode}`
+                            `${window.location.origin}/input-code/${formCode}`
                           );
                           toast('Copied link!');
                         }}>

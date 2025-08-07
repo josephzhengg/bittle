@@ -348,20 +348,25 @@ export const reorderQuestions = async (
   }
 };
 
-export const updateQuestion = async (
-  supabase: SupabaseClient,
-  question_id: string,
-  prompt: string
-): Promise<void> => {
-  const { error: questionError } = await supabase
-    .from('question')
-    .update({ prompt: prompt })
-    .eq('id', question_id);
+  export const updateQuestion = async (
+    supabase: SupabaseClient,
+    question_id: string,
+    prompt: string,
+    description?: string
+  ): Promise<void> => {
+    const updateData: { prompt: string; description?: string } = { prompt };
+    if (description !== undefined) {
+      updateData['description'] = description;
+    }
+    const { error: questionError } = await supabase
+      .from('question')
+      .update(updateData)
+      .eq('id', question_id);
 
-  if (questionError) {
-    throw new Error(`Error updating question prompt: ${questionError.message}`);
-  }
-};
+    if (questionError) {
+      throw new Error(`Error updating question prompt: ${questionError.message}`);
+    }
+  };
 
 export const updateOption = async (
   supabase: SupabaseClient,

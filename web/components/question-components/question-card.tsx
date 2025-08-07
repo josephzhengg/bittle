@@ -67,6 +67,9 @@ export default function QuestionCard({
 
   const [isEditingPrompt, setIsEditingPrompt] = useState(false);
   const [editedPrompt, setEditedPrompt] = useState(question.prompt);
+  const [editedDescription, setEditedDescription] = useState(
+    question.description || ''
+  );
   const [editingOptionId, setEditingOptionId] = useState<string | null>(null);
   const [editedOptionLabel, setEditedOptionLabel] = useState('');
   const [isAddingOption, setIsAddingOption] = useState(false);
@@ -74,7 +77,7 @@ export default function QuestionCard({
 
   const supabase = useSupabase();
 
-  const { data: questionOption, isLoading } = useQuery({
+  const { data: questionOption } = useQuery({
     queryKey: ['options', question.id],
     queryFn: () => getOptions(supabase, question.id),
     enabled:
@@ -113,7 +116,12 @@ export default function QuestionCard({
 
   const handleSavePrompt = async () => {
     try {
-      await updateQuestion(supabase, question.id, editedPrompt);
+      await updateQuestion(
+        supabase,
+        question.id,
+        editedPrompt,
+        editedDescription
+      );
       setIsEditingPrompt(false);
       toast.success('Question updated successfully.');
       await queryUtils.refetchQueries({ queryKey: ['questions'] });
@@ -124,6 +132,7 @@ export default function QuestionCard({
 
   const handleCancelPromptEdit = () => {
     setEditedPrompt(question.prompt);
+    setEditedDescription(question.description || '');
     setIsEditingPrompt(false);
   };
 
@@ -207,36 +216,68 @@ export default function QuestionCard({
     return (
       <Card>
         <CardHeader>
-          <CardTitle>{question.prompt}</CardTitle>
-          {question.description && (
-            <CardDescription>{question.description}</CardDescription>
-          )}
-        </CardHeader>
-      </Card>
-    );
-  }
-
-  if (
-    isLoading &&
-    (question.type === 'MULTIPLE_CHOICE' || question.type === 'SELECT_ALL')
-  ) {
-    return (
-      <Card>
-        <CardHeader>
           <div className="flex justify-between items-start">
-            <div className="space-y-2 animate-pulse">
-              <div className="h-6 bg-gray-200 rounded w-3/4"></div>
-              <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+            <div className="flex-1 mr-4">
+              {isEditingPrompt ? (
+                <div className="space-y-2">
+                  <Input
+                    value={editedPrompt}
+                    onChange={(e) => setEditedPrompt(e.target.value)}
+                    className="text-lg font-semibold"
+                  />
+                  <Textarea
+                    value={editedDescription}
+                    onChange={(e) => setEditedDescription(e.target.value)}
+                    placeholder="Add a description (optional)"
+                    className="min-h-[60px]"
+                  />
+                  <div className="flex gap-2">
+                    <Button size="sm" onClick={handleSavePrompt}>
+                      <Save className="w-3 h-3 mr-1" />
+                      Save
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={handleCancelPromptEdit}>
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-start gap-2">
+                  <div className="flex-1">
+                    <CardTitle>
+                      {displayNumber
+                        ? `Section ${displayNumber}: ${question.prompt}`
+                        : question.prompt}
+                    </CardTitle>
+                    {question.description && (
+                      <CardDescription className="mt-1">
+                        {question.description}
+                      </CardDescription>
+                    )}
+                  </div>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    onClick={() => setIsEditingPrompt(true)}
+                    className="h-6 w-6">
+                    <Edit className="w-3 h-3" />
+                  </Button>
+                </div>
+              )}
             </div>
+            <Button
+              variant="destructive"
+              size="icon"
+              onClick={handleDelete}
+              aria-label="Delete section">
+              <X className="w-4 h-4" />
+            </Button>
           </div>
         </CardHeader>
-        <CardContent>
-          <div className="space-y-2 animate-pulse">
-            <div className="h-10 bg-gray-200 rounded"></div>
-            <div className="h-10 bg-gray-200 rounded"></div>
-            <div className="h-10 bg-gray-200 rounded"></div>
-          </div>
-        </CardContent>
+        <CardContent />
       </Card>
     );
   }
