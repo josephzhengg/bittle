@@ -183,15 +183,27 @@ export default function QuestionnaireCard({
         </div>
       </div>
     );
-  }
-
-  if (question.type === 'SELECT_ALL') {
-    const toggleOption = (value: string) => {
-      const newSelectedValues = selectedValues.includes(value)
-        ? selectedValues.filter((v) => v !== value)
-        : [...selectedValues, value];
+  } else if (question.type === 'SELECT_ALL') {
+    const toggleOption = (optionId: string) => {
+      let newSelectedValues: string[];
+      if (selectedValues.includes(optionId)) {
+        newSelectedValues = selectedValues.filter((id) => id !== optionId);
+      } else {
+        newSelectedValues = [...selectedValues, optionId];
+      }
       setSelectedValues(newSelectedValues);
       onAnswerChange?.(question.id, newSelectedValues);
+    };
+
+    const getSelectedLabels = () => {
+      if (selectedValues.length === 0) return 'Select options...';
+      if (selectedValues.length === 1) {
+        const option = questionOption?.find(
+          (opt) => opt.id === selectedValues[0]
+        );
+        return option?.label || '1 selected';
+      }
+      return `${selectedValues.length} options selected`;
     };
 
     return (
@@ -207,33 +219,47 @@ export default function QuestionnaireCard({
               {getQuestionTypeDisplay(question.type)}
             </Badge>
           </div>
+
           <Popover open={open} onOpenChange={setOpen}>
             <PopoverTrigger asChild>
               <Button
                 variant="outline"
                 role="combobox"
                 aria-expanded={open}
-                className="w-full justify-between bg-white/5 border-white/20 text-white hover:bg-white/10 hover:border-white/30">
-                {selectedValues.length > 0
-                  ? `${selectedValues.length} option(s) selected`
-                  : 'Select options...'}
+                className={`w-full justify-between text-left h-auto py-4 px-4 ${
+                  selectedValues.length > 0
+                    ? 'bg-gradient-to-r from-blue-500/25 to-purple-500/25 border-blue-400/50 text-white shadow-md hover:shadow-lg hover:from-blue-500/30 hover:to-purple-500/30'
+                    : 'bg-white/10 border-white/30 text-white/80 hover:bg-white/20 hover:border-white/40'
+                }`}>
+                <div className="flex items-center gap-2">
+                  {selectedValues.length > 0 && (
+                    <Badge className="bg-blue-500/80 text-white border-blue-400/50 text-xs px-2 py-1">
+                      {selectedValues.length}
+                    </Badge>
+                  )}
+                  <span className="truncate">{getSelectedLabels()}</span>
+                </div>
                 <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-[400px] p-0 bg-white/10 border-white/20">
+            <PopoverContent className="w-full p-0 bg-slate-900/95 backdrop-blur-lg border border-blue-400/30">
               <Command className="bg-transparent">
-                <CommandInput placeholder="Search options..." />
-                <CommandList>
-                  <CommandEmpty>No options found.</CommandEmpty>
-                  <CommandGroup>
+                <CommandInput
+                  placeholder="Search options..."
+                  className="text-white placeholder:text-blue-200/60 border-b border-blue-400/20"
+                />
+                <CommandEmpty className="text-blue-200/80 py-6 text-center">
+                  No options found.
+                </CommandEmpty>
+                <CommandGroup>
+                  <CommandList className="max-h-64">
                     {questionOption?.map((option) => (
                       <CommandItem
                         key={option.id}
-                        value={option.id}
                         onSelect={() => toggleOption(option.id)}
-                        className={`text-white cursor-pointer ${
+                        className={`text-lg py-4 px-4 rounded-lg cursor-pointer transition-all duration-200 ${
                           selectedValues.includes(option.id)
-                            ? 'bg-gradient-to-r from-blue-500/40 to-purple-500/40 border-blue-400/40 shadow-md'
+                            ? 'bg-gradient-to-r from-blue-500/30 to-purple-500/30 text-white border border-blue-400/40 shadow-md'
                             : 'text-blue-100/90 hover:bg-blue-500/15 hover:text-white'
                         }`}>
                         <div className="flex items-center justify-between w-full">
@@ -244,11 +270,13 @@ export default function QuestionnaireCard({
                         </div>
                       </CommandItem>
                     ))}
-                  </CommandGroup>
-                </CommandList>
+                  </CommandList>
+                </CommandGroup>
               </Command>
             </PopoverContent>
           </Popover>
+
+          {/* Scrollable selected items display with blue-purple theme */}
           {selectedValues.length > 0 && (
             <div className="space-y-4">
               <div className="bg-blue-900/40 backdrop-blur-sm rounded-xl border border-blue-400/40 shadow-sm">
@@ -269,6 +297,7 @@ export default function QuestionnaireCard({
                     </Button>
                   </div>
                 </div>
+
                 <div className="p-4 max-h-48 overflow-y-auto">
                   <div className="flex flex-wrap gap-2">
                     {selectedValues.map((valueId) => {
