@@ -45,19 +45,29 @@ const QUESTION_TYPES = [
     id: 'mcq',
     label: 'Multiple Choice',
     description: 'Users can select one option',
-    dbType: 'MULTIPLE_CHOICE'
+    dbType: 'MULTIPLE_CHOICE',
+    icon: '📝'
   },
   {
     id: 'sa',
     label: 'Select All That Apply',
     description: 'Users can select multiple options',
-    dbType: 'SELECT_ALL'
+    dbType: 'SELECT_ALL',
+    icon: '✅'
   },
   {
     id: 'fr',
     label: 'Free Response',
     description: 'Users can type their own answer',
-    dbType: 'FREE_RESPONSE'
+    dbType: 'FREE_RESPONSE',
+    icon: '✍️'
+  },
+  {
+    id: 'section',
+    label: 'Section Header',
+    description: 'Add a title and description to your form',
+    dbType: 'SECTION_HEADER',
+    icon: '📌'
   }
 ] as const;
 
@@ -68,6 +78,7 @@ interface CreateQuestionFormData {
   type: QuestionType | '';
   prompt: string;
   options: string[];
+  description?: string;
 }
 
 // Custom Hooks
@@ -151,7 +162,7 @@ const QuestionTypeSelect = ({
           <RadioGroupItem value={type.id} id={type.id} className="mt-1" />
           <div className="flex-1 min-w-0">
             <Label htmlFor={type.id} className="cursor-pointer font-medium">
-              {type.label}
+              {type.icon} {type.label}
             </Label>
             <p className="text-sm text-gray-600 mt-1">{type.description}</p>
           </div>
@@ -221,14 +232,16 @@ const CreateQuestionDialog = ({
   const [formData, setFormData] = useState<CreateQuestionFormData>({
     type: '',
     prompt: '',
-    options: ['']
+    options: [''],
+    description: ''
   });
 
   const resetForm = () => {
     setFormData({
       type: '',
       prompt: '',
-      options: ['']
+      options: [''],
+      description: ''
     });
   };
 
@@ -283,14 +296,38 @@ const CreateQuestionDialog = ({
           {formData.type && (
             <div className="space-y-3">
               <Label htmlFor="prompt" className="text-base font-medium">
-                Question Prompt *
+                {formData.type === 'section' ? 'Title *' : 'Question Prompt *'}
               </Label>
               <Textarea
                 id="prompt"
-                placeholder="Enter your question here..."
+                placeholder={
+                  formData.type === 'section'
+                    ? 'Enter section title...'
+                    : 'Enter your question here...'
+                }
                 value={formData.prompt}
                 onChange={(e) =>
                   setFormData((prev) => ({ ...prev, prompt: e.target.value }))
+                }
+                className="min-h-[80px]"
+              />
+            </div>
+          )}
+
+          {formData.type === 'section' && (
+            <div className="space-y-3">
+              <Label htmlFor="description" className="text-base font-medium">
+                Description
+              </Label>
+              <Textarea
+                id="description"
+                placeholder="Enter section description..."
+                value={formData.description || ''}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    description: e.target.value
+                  }))
                 }
                 className="min-h-[80px]"
               />
@@ -342,9 +379,13 @@ const CreateQuestionDialog = ({
 // Draggable Question Item Component
 interface DraggableQuestionItemProps {
   question: Question;
+  displayNumber?: number;
 }
 
-const DraggableQuestionItem = ({ question }: DraggableQuestionItemProps) => {
+const DraggableQuestionItem = ({
+  question,
+  displayNumber
+}: DraggableQuestionItemProps) => {
   const controls = useDragControls();
   const isMobile = useMediaQuery('(max-width: 640px)');
 
@@ -369,7 +410,6 @@ const DraggableQuestionItem = ({ question }: DraggableQuestionItemProps) => {
       }}>
       <div className="bg-white border rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200 select-none relative">
         <div className="flex items-start gap-3 p-3 sm:p-4 select-none relative">
-          {/* Drag Handle - Larger on mobile for better touch target */}
           <div
             className={`flex-shrink-0 mt-1 cursor-grab active:cursor-grabbing select-none relative z-10 ${
               isMobile ? 'p-2 -ml-1' : ''
@@ -392,9 +432,11 @@ const DraggableQuestionItem = ({ question }: DraggableQuestionItemProps) => {
             />
           </div>
 
-          {/* Question Content */}
           <div className="flex-1 min-w-0 select-none relative">
-            <QuestionCard question={question} />
+            <QuestionCard
+              question={question}
+              displayNumber={displayNumber ?? null}
+            />
           </div>
         </div>
       </div>
@@ -421,10 +463,8 @@ export default function EditPage({ user }: EditPageProps) {
   const { formId, questions, isLoading, refetchQuestions } =
     useFormQuestions(formCode);
 
-  // Local state for question order
   const [orderedQuestions, setOrderedQuestions] = useState(questions);
 
-  // Update local state when questions change
   useEffect(() => {
     const sortedQuestions = [...questions].sort((a, b) => a.index - b.index);
     setOrderedQuestions(sortedQuestions);
@@ -448,10 +488,10 @@ export default function EditPage({ user }: EditPageProps) {
         formId,
         data.prompt.trim(),
         questionType.dbType,
-        questions.length + 1
+        questions.length + 1,
+        data.type === 'section' ? data.description?.trim() : undefined
       );
 
-      // Create options for MCQ and SELECT_ALL questions
       if (data.type === 'mcq' || data.type === 'sa') {
         const validOptions = data.options
           .map((label) => label.trim())
@@ -472,8 +512,9 @@ export default function EditPage({ user }: EditPageProps) {
       await queryClient.invalidateQueries({ queryKey: ['questions'] });
 
       toast.success('Question created successfully!');
-    } catch {
+    } catch (error) {
       toast.error('Failed to create question. Please try again.');
+      throw error;
     } finally {
       setIsSaving(false);
     }
@@ -525,7 +566,7 @@ export default function EditPage({ user }: EditPageProps) {
   }, [reorderTimeout]);
 
   const exitEdit = () => {
-    router.push(`/dashboard/past/form/${formCode}`);
+    router.push(`/dashboard/current/form/${formCode}`);
   };
 
   if (isLoading) {
@@ -544,9 +585,7 @@ export default function EditPage({ user }: EditPageProps) {
   return (
     <DashBoardLayout user={user}>
       <div className="max-w-4xl mx-auto px-3 sm:px-6 py-4 sm:py-6">
-        {/* Header */}
         <div className="mb-6 sm:mb-8">
-          {/* Title Section */}
           <div className="mb-4 sm:mb-6">
             <h2 className="text-xl sm:text-2xl font-bold text-foreground mb-2">
               Edit Questions
@@ -564,7 +603,6 @@ export default function EditPage({ user }: EditPageProps) {
             )}
           </div>
 
-          {/* Mobile-First Button Layout */}
           <div className="flex flex-col sm:flex-row gap-3 sm:gap-2 sm:justify-end">
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
@@ -589,7 +627,6 @@ export default function EditPage({ user }: EditPageProps) {
           </div>
         </div>
 
-        {/* Note Section */}
         <div className="mb-6 p-3 sm:p-4 bg-yellow-50 border-l-4 border-yellow-400 rounded-md">
           <p className="text-xs sm:text-sm text-yellow-800">
             <strong>Note:</strong> We recommend adding a question asking for the
@@ -598,7 +635,6 @@ export default function EditPage({ user }: EditPageProps) {
           </p>
         </div>
 
-        {/* Questions List */}
         <div className="space-y-0">
           {orderedQuestions.length === 0 ? (
             <div className="text-center py-8 sm:py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
@@ -625,14 +661,26 @@ export default function EditPage({ user }: EditPageProps) {
               onReorder={handleReorder}
               className="space-y-0 select-none"
               style={{ userSelect: 'none' }}>
-              {orderedQuestions.map((question) => (
-                <DraggableQuestionItem key={question.id} question={question} />
-              ))}
+              {(() => {
+                let questionCounter = 0;
+                return orderedQuestions.map((question) => {
+                  const displayNumber =
+                    question.type !== 'SECTION_HEADER'
+                      ? ++questionCounter
+                      : undefined;
+                  return (
+                    <DraggableQuestionItem
+                      key={question.id}
+                      question={question}
+                      displayNumber={displayNumber}
+                    />
+                  );
+                });
+              })()}
             </Reorder.Group>
           )}
         </div>
 
-        {/* Loading indicator for reordering */}
         {isReordering && (
           <div className="fixed bottom-4 right-4 left-4 sm:left-auto bg-blue-600 text-white px-4 py-2 rounded-lg shadow-lg flex items-center justify-center sm:justify-start gap-2 z-50">
             <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
@@ -640,7 +688,6 @@ export default function EditPage({ user }: EditPageProps) {
           </div>
         )}
 
-        {/* Create Question Dialog */}
         <CreateQuestionDialog
           isOpen={isDialogOpen}
           onOpenChange={setIsDialogOpen}
@@ -656,10 +703,18 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
   const supabase = createSupabaseServerClient(context);
   const { data: userData, error } = await supabase.auth.getUser();
 
+  if (!userData || error) {
+    return {
+      redirect: {
+        destination: '/login',
+        permanent: false
+      }
+    };
+  }
+
   const { 'form-code': formCode } = context.query;
   const currentPath = context.resolvedUrl;
 
-  // Validate form code first
   if (!formCode || typeof formCode !== 'string') {
     return {
       props: {
@@ -693,16 +748,7 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
       };
     }
   } catch {
-    toast.error('Failed to fetch form deadline');
-  }
-
-  if (!userData || error) {
-    return {
-      redirect: {
-        destination: '/login',
-        permanent: false
-      }
-    };
+    toast.error('Failed to fetch form deadline. Please try again later.');
   }
 
   return {
