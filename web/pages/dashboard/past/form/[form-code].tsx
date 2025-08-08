@@ -37,7 +37,7 @@ export type PastFormsPageProps = {
     id: string;
     title: string;
     description?: string;
-    deadline?: string; // ISO string for serialization
+    deadline?: string;
     formId: string;
     questions: Question[];
     formCode: string;
@@ -278,39 +278,34 @@ export default function FormPage({
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {isQuestionsLoading ? (
-              <div className="space-y-6">
-                {[...Array(3)].map((_, i) => (
-                  <div key={i} className="space-y-3">
-                    <Skeleton className="h-6 w-3/4" />
-                    <Skeleton className="h-10 w-full" />
-                  </div>
-                ))}
-              </div>
-            ) : sortedQuestions && sortedQuestions.length > 0 ? (
-              <div className="space-y-6">
-                {sortedQuestions.map((question, index) => (
-                  <div key={question.id} className="relative">
-                    <div className="absolute -left-4 top-0 text-xs text-gray-500 font-medium bg-gray-100 px-2 py-1 rounded">
-                      #{index + 1}
+            {(() => {
+              let questionCounter = 0;
+              return sortedQuestions.map((question) => {
+                if (question.type !== 'SECTION_HEADER') {
+                  questionCounter++;
+                  return (
+                    <div key={question.id} className="relative">
+                      <div className="absolute -left-4 top-0 text-xs text-slate-500 font-medium bg-slate-100 px-2 py-1 rounded">
+                        #{questionCounter}
+                      </div>
+                      <ReadOnlyQuestionCard
+                        question={question}
+                        displayNumber={questionCounter}
+                      />
                     </div>
-                    <ReadOnlyQuestionCard question={question} />
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-16">
-                <div className="mx-auto w-24 h-24 bg-gradient-to-br from-gray-100 to-gray-200 rounded-full flex items-center justify-center mb-6">
-                  <FileText className="w-10 h-10 text-gray-600" />
-                </div>
-                <h3 className="text-xl font-semibold text-gray-700 mb-2">
-                  No questions recorded
-                </h3>
-                <p className="text-gray-500 mb-6 max-w-md mx-auto">
-                  This archived form has no questions available.
-                </p>
-              </div>
-            )}
+                  );
+                } else {
+                  return (
+                    <div key={question.id} className="relative">
+                      <ReadOnlyQuestionCard
+                        question={question}
+                        displayNumber={questionCounter}
+                      />
+                    </div>
+                  );
+                }
+              });
+            })()}
           </CardContent>
         </Card>
       </div>
