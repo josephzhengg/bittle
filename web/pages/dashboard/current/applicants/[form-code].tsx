@@ -42,6 +42,7 @@ import ApplicantResponseDisplay from '@/components/dashboard-components/applican
 import FormNavigationTabs from '@/components/dashboard-components/form-navigation-tabs';
 import FormStatusBadge from '@/components/dashboard-components/form-status-badge';
 import { ProcessedSubmission } from '@/utils/types';
+import { useSupabase } from '@/lib/supabase';
 
 export type CurrentFormsPageProps = {
   user: User;
@@ -51,7 +52,7 @@ export type CurrentFormsPageProps = {
   questions: Question[];
   allOptions: Record<string, QuestionOption[]>;
   initialSubmissions: ProcessedSubmission[];
-  deadline?: string | null; // Ensure type matches the prop
+  deadline?: string | null;
 };
 
 export default function FormPage({
@@ -59,14 +60,15 @@ export default function FormPage({
   formTitle,
   formCode,
   questions,
+  allOptions,
   initialSubmissions,
   deadline
 }: CurrentFormsPageProps) {
   const router = useRouter();
-
-  // State for client-side filtering and interactions
+  const supabase = useSupabase();
   const [searchTerm, setSearchTerm] = useState('');
-  const [submissions] = useState<ProcessedSubmission[]>(initialSubmissions);
+  const [submissions, setSubmissions] =
+    useState<ProcessedSubmission[]>(initialSubmissions); // Added setSubmissions
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Sort questions by index for consistent column ordering
@@ -80,8 +82,6 @@ export default function FormPage({
       (a, b) =>
         new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime()
     );
-
-    // Apply search filter
     if (searchTerm) {
       filtered = filtered.filter((submission) => {
         const searchLower = searchTerm.toLowerCase();
@@ -95,7 +95,6 @@ export default function FormPage({
         );
       });
     }
-
     return filtered;
   }, [submissions, searchTerm]);
 
@@ -110,7 +109,6 @@ export default function FormPage({
             )
           )
         : null;
-
     return { total, latest };
   }, [submissions]);
 
@@ -119,23 +117,65 @@ export default function FormPage({
     setSearchTerm(value);
   }, []);
 
-  // Refresh data
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
     try {
-      // Trigger a page refresh to get fresh server-side data
-      router.replace(router.asPath);
+      const formId = await getFormIdByCode(supabase, formCode);
+      if (!formId) throw new Error('Form not found');
+      const newSubmissions = await getFormSubmissions(supabase, formId);
+      const processedSubmissions: ProcessedSubmission[] = [];
+      for (const submission of newSubmissions) {
+        const questionResponses = await getQuestionResponse(
+          supabase,
+          submission.id
+        );
+        const optionSelections = await getResponseOptionSelection(
+          supabase,
+          submission.id
+        );
+        const responses: Record<string, string> = {};
+        for (const response of questionResponses) {
+          const question = questions.find((q) => q.id === response.question_id);
+          if (!question) continue;
+          if (question.type === 'FREE_RESPONSE') {
+            responses[question.id] = response.free_text || '';
+          } else if (
+            question.type === 'MULTIPLE_CHOICE' ||
+            question.type === 'SELECT_ALL'
+          ) {
+            const selectedOptions = optionSelections
+              .filter((selection) => selection.response_id === response.id)
+              .map((selection) => {
+                const option = allOptions[response.question_id]?.find(
+                  (opt) => opt.id === selection.option_id
+                );
+                return option?.label || 'Unknown option';
+              });
+            responses[question.id] =
+              selectedOptions.length > 0 ? selectedOptions.join(', ') : '';
+          }
+        }
+        processedSubmissions.push({
+          id: submission.id,
+          submittedAt:
+            typeof submission.created_at === 'string'
+              ? submission.created_at
+              : submission.created_at.toISOString(),
+          responses
+        });
+      }
+      setSubmissions(processedSubmissions);
+      toast.success('Data refreshed successfully');
     } catch {
       toast.error('Failed to refresh data');
     } finally {
       setIsRefreshing(false);
     }
-  }, [router]);
+  }, [supabase, formCode, questions, allOptions]);
 
   // Export functionality
   const handleExport = useCallback(() => {
     if (!filteredSubmissions || !sortedQuestions) return;
-
     const headers = [
       'Submission Date',
       ...sortedQuestions.map((q) => q.prompt)
@@ -152,7 +192,6 @@ export default function FormPage({
         ].join(',')
       )
     ].join('\n');
-
     const blob = new Blob([csvContent], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -181,14 +220,13 @@ export default function FormPage({
                   className="text-xs w-fit bg-purple-50 text-purple-700 border-purple-200">
                   {formCode}
                 </Badge>
-                <FormStatusBadge deadline={deadline} /> {/* Moved here */}
+                <FormStatusBadge deadline={deadline} />
               </div>
             </div>
             <p className="text-muted-foreground text-sm">
               View and manage form responses
             </p>
           </div>
-
           <div className="flex flex-col sm:flex-row gap-2 sm:gap-2">
             <Button
               variant="outline"
@@ -218,14 +256,12 @@ export default function FormPage({
             </Button>
           </div>
         </div>
-
         {/* Navigation Tabs */}
         <FormNavigationTabs
           formCode={typeof formCode === 'string' ? formCode : ''}
           currentTab="applicants"
           basePath="current"
         />
-
         {/* Statistics */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <Card>
@@ -239,7 +275,6 @@ export default function FormPage({
               <div className="text-2xl font-bold">{stats?.total || 0}</div>
             </CardContent>
           </Card>
-
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
@@ -251,7 +286,6 @@ export default function FormPage({
               <div className="text-2xl font-bold">{sortedQuestions.length}</div>
             </CardContent>
           </Card>
-
           <Card className="sm:col-span-1 col-span-1">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
@@ -273,7 +307,6 @@ export default function FormPage({
             </CardContent>
           </Card>
         </div>
-
         {/* Search */}
         <Card>
           <CardContent className="pt-6">
@@ -294,7 +327,6 @@ export default function FormPage({
             </div>
           </CardContent>
         </Card>
-
         {/* Responses Table/Cards */}
         <Card>
           <CardHeader>
@@ -311,6 +343,11 @@ export default function FormPage({
               <ApplicantResponseDisplay
                 submissions={filteredSubmissions}
                 questions={sortedQuestions}
+                onSubmissionDeleted={(submissionId) => {
+                  setSubmissions((prev) =>
+                    prev.filter((sub) => sub.id !== submissionId)
+                  );
+                }}
               />
             ) : (
               <div className="text-center py-16">
@@ -347,7 +384,7 @@ export default function FormPage({
                         variant="outline"
                         onClick={() => {
                           navigator.clipboard.writeText(
-                            `${window.location.origin}/form/${formCode}`
+                            `${window.location.origin}/input-code/${formCode}`
                           );
                           toast('Copied link!');
                         }}>
@@ -368,7 +405,6 @@ export default function FormPage({
 export async function getServerSideProps(context: GetServerSidePropsContext) {
   const supabase = createSupabaseServerClient(context);
   const { data: userData, error } = await supabase.auth.getUser();
-
   if (!userData || error) {
     return {
       redirect: {
@@ -377,38 +413,29 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
       }
     };
   }
-
   const { 'form-code': formCode } = context.query;
-
   if (!formCode || typeof formCode !== 'string') {
     return {
       notFound: true
     };
   }
-
   try {
     const [formTitle, formId, deadline] = await Promise.all([
       getFormTitle(supabase, formCode),
       getFormIdByCode(supabase, formCode),
-      getFormDeadline(supabase, formCode) // Fetch deadline
+      getFormDeadline(supabase, formCode)
     ]);
-
-    // Convert deadline to a string if it’s a Date object
     const processedDeadline =
       deadline instanceof Date ? deadline.toISOString() : deadline;
-
     if (!formId) {
       return {
         notFound: true
       };
     }
-
     const [questions, submissions] = await Promise.all([
       getQuestions(supabase, formId),
       getFormSubmissions(supabase, formId)
     ]);
-
-    // Fetch all question options for MCQ and SELECT_ALL questions
     const allOptions: Record<string, QuestionOption[]> = {};
     for (const question of questions) {
       if (
@@ -419,8 +446,6 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
         allOptions[question.id] = options;
       }
     }
-
-    // Process all submissions with their responses
     const processedSubmissions: ProcessedSubmission[] = [];
     for (const submission of submissions) {
       const questionResponses = await getQuestionResponse(
@@ -431,21 +456,16 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
         supabase,
         submission.id
       );
-
       const responses: Record<string, string> = {};
-
-      // Process each question response
       for (const response of questionResponses) {
         const question = questions.find((q) => q.id === response.question_id);
         if (!question) continue;
-
         if (question.type === 'FREE_RESPONSE') {
           responses[question.id] = response.free_text || '';
         } else if (
           question.type === 'MULTIPLE_CHOICE' ||
           question.type === 'SELECT_ALL'
         ) {
-          // Find selected options for this response
           const selectedOptions = optionSelections
             .filter((selection) => selection.response_id === response.id)
             .map((selection) => {
@@ -454,12 +474,10 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
               );
               return option?.label || 'Unknown option';
             });
-
           responses[question.id] =
             selectedOptions.length > 0 ? selectedOptions.join(', ') : '';
         }
       }
-
       processedSubmissions.push({
         id: submission.id,
         submittedAt:
@@ -469,7 +487,6 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
         responses
       });
     }
-
     return {
       props: {
         user: userData.user,

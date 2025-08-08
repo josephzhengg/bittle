@@ -74,7 +74,6 @@ export const createTemplateQuestions = async (
     (q) => q.type === 'SELECT_ALL'
   );
 
-  // Create options for year question
   if (mcQuestion) {
     const mcQuestionOptions = [
       {
@@ -115,7 +114,6 @@ export const createTemplateQuestions = async (
     }
   }
 
-  // Create options for big/little question
   if (bigLittleQuestion) {
     const bigLittleOptions = [
       {
@@ -146,7 +144,6 @@ export const createTemplateQuestions = async (
     }
   }
 
-  // Create options for hobbies question
   if (hobbiesQuestion) {
     const hobbiesOptions = [
       {
@@ -243,13 +240,15 @@ export const createQuestion = async (
   form_id: string,
   prompt: string,
   type: string,
-  index: number
+  index: number,
+  description?: string
 ): Promise<z.infer<typeof Question>> => {
   const payload = {
     prompt: prompt,
     form_id: form_id,
     type: type,
-    index: index
+    index: index,
+    description: description || null
   };
 
   const { data: questionData, error: questionError } = await supabase
@@ -349,20 +348,25 @@ export const reorderQuestions = async (
   }
 };
 
-export const updateQuestion = async (
-  supabase: SupabaseClient,
-  question_id: string,
-  prompt: string
-): Promise<void> => {
-  const { error: questionError } = await supabase
-    .from('question')
-    .update({ prompt: prompt })
-    .eq('id', question_id);
+  export const updateQuestion = async (
+    supabase: SupabaseClient,
+    question_id: string,
+    prompt: string,
+    description?: string
+  ): Promise<void> => {
+    const updateData: { prompt: string; description?: string } = { prompt };
+    if (description !== undefined) {
+      updateData['description'] = description;
+    }
+    const { error: questionError } = await supabase
+      .from('question')
+      .update(updateData)
+      .eq('id', question_id);
 
-  if (questionError) {
-    throw new Error(`Error updating question prompt: ${questionError.message}`);
-  }
-};
+    if (questionError) {
+      throw new Error(`Error updating question prompt: ${questionError.message}`);
+    }
+  };
 
 export const updateOption = async (
   supabase: SupabaseClient,

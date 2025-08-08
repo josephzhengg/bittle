@@ -50,11 +50,13 @@ import { toast } from 'sonner';
 
 export type QuestionCardProps = {
   question: Question;
+  displayNumber: number | null;
   onAnswerChange?: (questionId: string, answer: string | string[]) => void;
 };
 
 export default function QuestionCard({
   question,
+  displayNumber,
   onAnswerChange
 }: QuestionCardProps) {
   const queryUtils = useQueryClient();
@@ -63,9 +65,11 @@ export default function QuestionCard({
   const [selectedValues, setSelectedValues] = useState<string[]>([]);
   const [textAnswer, setTextAnswer] = useState<string>('');
 
-  // Editing states
   const [isEditingPrompt, setIsEditingPrompt] = useState(false);
   const [editedPrompt, setEditedPrompt] = useState(question.prompt);
+  const [editedDescription, setEditedDescription] = useState(
+    question.description || ''
+  );
   const [editingOptionId, setEditingOptionId] = useState<string | null>(null);
   const [editedOptionLabel, setEditedOptionLabel] = useState('');
   const [isAddingOption, setIsAddingOption] = useState(false);
@@ -73,11 +77,7 @@ export default function QuestionCard({
 
   const supabase = useSupabase();
 
-  const {
-    data: questionOption,
-    isLoading,
-    error
-  } = useQuery({
+  const { data: questionOption } = useQuery({
     queryKey: ['options', question.id],
     queryFn: () => getOptions(supabase, question.id),
     enabled:
@@ -85,7 +85,6 @@ export default function QuestionCard({
       (question.type === 'MULTIPLE_CHOICE' || question.type === 'SELECT_ALL')
   });
 
-  // Helper function to format question type for display
   const getQuestionTypeDisplay = (type: string) => {
     switch (type) {
       case 'MULTIPLE_CHOICE':
@@ -94,6 +93,8 @@ export default function QuestionCard({
         return 'Select All That Apply';
       case 'FREE_RESPONSE':
         return 'Free Response';
+      case 'SECTION_HEADER':
+        return 'Section Header';
       default:
         return type;
     }
@@ -115,7 +116,12 @@ export default function QuestionCard({
 
   const handleSavePrompt = async () => {
     try {
-      await updateQuestion(supabase, question.id, editedPrompt);
+      await updateQuestion(
+        supabase,
+        question.id,
+        editedPrompt,
+        editedDescription
+      );
       setIsEditingPrompt(false);
       toast.success('Question updated successfully.');
       await queryUtils.refetchQueries({ queryKey: ['questions'] });
@@ -126,6 +132,7 @@ export default function QuestionCard({
 
   const handleCancelPromptEdit = () => {
     setEditedPrompt(question.prompt);
+    setEditedDescription(question.description || '');
     setIsEditingPrompt(false);
   };
 
@@ -152,7 +159,6 @@ export default function QuestionCard({
   };
 
   const handleDeleteOption = async (optionId: string) => {
-    // Prevent deleting if only one option remains
     if (questionOption && questionOption.length <= 2) {
       toast.error(
         'Cannot delete more options. Questions must have at least two options.'
@@ -162,8 +168,6 @@ export default function QuestionCard({
 
     try {
       await deleteOption(supabase, optionId);
-
-      // Remove from selected values if it was selected
       if (selectedValues.includes(optionId)) {
         const newSelectedValues = selectedValues.filter(
           (id) => id !== optionId
@@ -171,13 +175,10 @@ export default function QuestionCard({
         setSelectedValues(newSelectedValues);
         onAnswerChange?.(question.id, newSelectedValues);
       }
-
-      // Clear single selection if it was the selected option
       if (selectedValue === optionId) {
         setSelectedValue('');
         onAnswerChange?.(question.id, '');
       }
-
       toast.success('Option deleted successfully.');
       await queryUtils.refetchQueries({ queryKey: ['options', question.id] });
     } catch {
@@ -197,7 +198,6 @@ export default function QuestionCard({
           index: nextIndex
         }
       ]);
-
       setIsAddingOption(false);
       setNewOptionLabel('');
       toast.success('Option added successfully.');
@@ -212,62 +212,76 @@ export default function QuestionCard({
     setNewOptionLabel('');
   };
 
-  if (
-    isLoading &&
-    (question.type === 'MULTIPLE_CHOICE' || question.type === 'SELECT_ALL')
-  ) {
+  if (question.type === 'SECTION_HEADER') {
     return (
       <Card>
         <CardHeader>
           <div className="flex justify-between items-start">
-            <div className="flex-1">
-              <CardTitle>
-                Question {question.index}: {question.prompt}
-              </CardTitle>
-              <CardDescription className="mt-1">
-                {getQuestionTypeDisplay(question.type)}
-              </CardDescription>
+            <div className="flex-1 mr-4">
+              {isEditingPrompt ? (
+                <div className="space-y-2">
+                  <Input
+                    value={editedPrompt}
+                    onChange={(e) => setEditedPrompt(e.target.value)}
+                    className="text-lg font-semibold"
+                  />
+                  <Textarea
+                    value={editedDescription}
+                    onChange={(e) => setEditedDescription(e.target.value)}
+                    placeholder="Add a description (optional)"
+                    className="min-h-[60px]"
+                  />
+                  <div className="flex gap-2">
+                    <Button size="sm" onClick={handleSavePrompt}>
+                      <Save className="w-3 h-3 mr-1" />
+                      Save
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={handleCancelPromptEdit}>
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-start gap-2">
+                  <div className="flex-1">
+                    <CardTitle>
+                      {displayNumber
+                        ? `Section ${displayNumber}: ${question.prompt}`
+                        : question.prompt}
+                    </CardTitle>
+                    {question.description && (
+                      <CardDescription className="mt-1">
+                        {question.description}
+                      </CardDescription>
+                    )}
+                  </div>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    onClick={() => setIsEditingPrompt(true)}
+                    className="h-6 w-6">
+                    <Edit className="w-3 h-3" />
+                  </Button>
+                </div>
+              )}
             </div>
-
             <Button
               variant="destructive"
               size="icon"
               onClick={handleDelete}
-              aria-label="Delete question">
+              aria-label="Delete section">
               <X className="w-4 h-4" />
             </Button>
           </div>
         </CardHeader>
-        <CardContent>
-          <p>Loading options...</p>
-        </CardContent>
+        <CardContent />
       </Card>
     );
   }
 
-  if (error) {
-    return (
-      <Card>
-        <CardHeader>
-          <div className="flex justify-between items-start">
-            <div className="flex-1">
-              <CardTitle>
-                Question {question.index}: {question.prompt}
-              </CardTitle>
-              <CardDescription className="mt-1">
-                {getQuestionTypeDisplay(question.type)}
-              </CardDescription>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <p className="text-red-500">Error loading options</p>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  // Multiple Choice Implementation
   if (question.type === 'MULTIPLE_CHOICE') {
     const handleRadioChange = (value: string) => {
       setSelectedValue(value);
@@ -302,8 +316,8 @@ export default function QuestionCard({
               ) : (
                 <div className="flex items-start gap-2">
                   <div className="flex-1">
-                    <CardTitle className="flex-1">
-                      Question {question.index}: {question.prompt}
+                    <CardTitle>
+                      Question {displayNumber}: {question.prompt}
                     </CardTitle>
                     <CardDescription className="mt-1">
                       {getQuestionTypeDisplay(question.type)}
@@ -331,244 +345,12 @@ export default function QuestionCard({
         <CardContent>
           <RadioGroup value={selectedValue} onValueChange={handleRadioChange}>
             {questionOption?.map((option) => (
-              <div
-                key={option.id}
-                className="flex items-center space-x-2 group">
+              <div key={option.id} className="flex items-center space-x-2">
                 <RadioGroupItem value={option.id} id={option.id} />
-                {editingOptionId === option.id ? (
-                  <div className="flex-1 flex items-center gap-2">
-                    <Input
-                      value={editedOptionLabel}
-                      onChange={(e) => setEditedOptionLabel(e.target.value)}
-                      className="flex-1"
-                    />
-                    <Button
-                      size="sm"
-                      onClick={() => handleSaveOption(option.id)}>
-                      <Save className="w-3 h-3" />
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={handleCancelOptionEdit}>
-                      <X className="w-3 h-3" />
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="flex-1 flex items-center justify-between">
-                    <Label
-                      htmlFor={option.id}
-                      className="cursor-pointer flex-1">
-                      {option.label}
-                    </Label>
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        onClick={() =>
-                          handleEditOption(option.id, option.label)
-                        }
-                        className="h-6 w-6">
-                        <Edit className="w-3 h-3" />
-                      </Button>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        onClick={() => handleDeleteOption(option.id)}
-                        disabled={questionOption && questionOption.length <= 2}
-                        className={cn(
-                          'h-6 w-6',
-                          questionOption && questionOption.length <= 2
-                            ? 'text-gray-400 cursor-not-allowed'
-                            : 'text-red-500 hover:text-red-700'
-                        )}>
-                        <Trash2 className="w-3 h-3" />
-                      </Button>
-                    </div>
-                  </div>
-                )}
+                <Label htmlFor={option.id}>{option.label}</Label>
               </div>
             ))}
           </RadioGroup>
-
-          {/* Add new option */}
-          {isAddingOption ? (
-            <div className="mt-4 flex items-center gap-2">
-              <Input
-                placeholder="New option label"
-                value={newOptionLabel}
-                onChange={(e) => setNewOptionLabel(e.target.value)}
-                className="flex-1"
-              />
-              <Button size="sm" onClick={handleAddOption}>
-                <Save className="w-3 h-3" />
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={handleCancelAddOption}>
-                <X className="w-3 h-3" />
-              </Button>
-            </div>
-          ) : (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setIsAddingOption(true)}
-              className="mt-4">
-              <Plus className="w-3 h-3 mr-1" />
-              Add Option
-            </Button>
-          )}
-        </CardContent>
-      </Card>
-    );
-  }
-
-  // Select All Implementation (using combobox)
-  else if (question.type === 'SELECT_ALL') {
-    const toggleOption = (optionId: string) => {
-      let newSelectedValues: string[];
-
-      if (selectedValues.includes(optionId)) {
-        newSelectedValues = selectedValues.filter((id) => id !== optionId);
-      } else {
-        newSelectedValues = [...selectedValues, optionId];
-      }
-
-      setSelectedValues(newSelectedValues);
-      onAnswerChange?.(question.id, newSelectedValues);
-    };
-
-    const getSelectedLabels = () => {
-      if (selectedValues.length === 0) return 'Select options...';
-      if (selectedValues.length === 1) {
-        const option = questionOption?.find(
-          (opt) => opt.id === selectedValues[0]
-        );
-        return option?.label || '1 selected';
-      }
-      return `${selectedValues.length} selected`;
-    };
-
-    return (
-      <Card>
-        <CardHeader>
-          <div className="flex justify-between items-start">
-            <div className="flex-1 mr-4">
-              {isEditingPrompt ? (
-                <div className="space-y-2">
-                  <Input
-                    value={editedPrompt}
-                    onChange={(e) => setEditedPrompt(e.target.value)}
-                    className="text-lg font-semibold"
-                  />
-                  <div className="flex gap-2">
-                    <Button size="sm" onClick={handleSavePrompt}>
-                      <Save className="w-3 h-3 mr-1" />
-                      Save
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={handleCancelPromptEdit}>
-                      Cancel
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex items-start gap-2">
-                  <div className="flex-1">
-                    <CardTitle className="flex-1">
-                      Question {question.index}: {question.prompt}
-                    </CardTitle>
-                    <CardDescription className="mt-1">
-                      {getQuestionTypeDisplay(question.type)}
-                    </CardDescription>
-                  </div>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    onClick={() => setIsEditingPrompt(true)}
-                    className="h-6 w-6">
-                    <Edit className="w-3 h-3" />
-                  </Button>
-                </div>
-              )}
-            </div>
-            <Button
-              variant="destructive"
-              size="icon"
-              onClick={handleDelete}
-              aria-label="Delete question">
-              <X className="w-4 h-4" />
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <Popover open={open} onOpenChange={setOpen}>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                role="combobox"
-                aria-expanded={open}
-                className="w-full justify-between">
-                {getSelectedLabels()}
-                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-full p-0">
-              <Command>
-                <CommandInput placeholder="Search options..." className="h-9" />
-                <CommandList>
-                  <CommandEmpty>No options found.</CommandEmpty>
-                  <CommandGroup>
-                    {questionOption?.map((option) => (
-                      <CommandItem
-                        key={option.id}
-                        value={option.id}
-                        onSelect={() => toggleOption(option.id)}>
-                        <Check
-                          className={cn(
-                            'mr-2 h-4 w-4',
-                            selectedValues.includes(option.id)
-                              ? 'opacity-100'
-                              : 'opacity-0'
-                          )}
-                        />
-                        {option.label}
-                      </CommandItem>
-                    ))}
-                  </CommandGroup>
-                </CommandList>
-              </Command>
-            </PopoverContent>
-          </Popover>
-
-          {/* Show selected items */}
-          {selectedValues.length > 0 && (
-            <div className="mt-2 flex flex-wrap gap-1">
-              {selectedValues.map((valueId) => {
-                const option = questionOption?.find(
-                  (opt) => opt.id === valueId
-                );
-                return (
-                  <span
-                    key={valueId}
-                    className="inline-flex items-center px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-md">
-                    {option?.label}
-                    <button
-                      onClick={() => toggleOption(valueId)}
-                      className="ml-1 text-blue-600 hover:text-blue-800">
-                      ×
-                    </button>
-                  </span>
-                );
-              })}
-            </div>
-          )}
-
-          {/* Edit options section */}
           <div className="mt-4 space-y-2">
             <h4 className="text-sm font-medium">Edit Options:</h4>
             {questionOption?.map((option) => (
@@ -623,8 +405,6 @@ export default function QuestionCard({
                 )}
               </div>
             ))}
-
-            {/* Add new option */}
             {isAddingOption ? (
               <div className="flex items-center gap-2">
                 <Input
@@ -658,8 +438,198 @@ export default function QuestionCard({
     );
   }
 
-  // Free Response Implementation
-  else if (question.type === 'FREE_RESPONSE') {
+  if (question.type === 'SELECT_ALL') {
+    const toggleOption = (value: string) => {
+      const newSelectedValues = selectedValues.includes(value)
+        ? selectedValues.filter((v) => v !== value)
+        : [...selectedValues, value];
+      setSelectedValues(newSelectedValues);
+      onAnswerChange?.(question.id, newSelectedValues);
+    };
+
+    return (
+      <Card>
+        <CardHeader>
+          <div className="flex justify-between items-start">
+            <div className="flex-1 mr-4">
+              {isEditingPrompt ? (
+                <div className="space-y-2">
+                  <Input
+                    value={editedPrompt}
+                    onChange={(e) => setEditedPrompt(e.target.value)}
+                    className="text-lg font-semibold"
+                  />
+                  <div className="flex gap-2">
+                    <Button size="sm" onClick={handleSavePrompt}>
+                      <Save className="w-3 h-3 mr-1" />
+                      Save
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={handleCancelPromptEdit}>
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-start gap-2">
+                  <div className="flex-1">
+                    <CardTitle>
+                      Question {displayNumber}: {question.prompt}
+                    </CardTitle>
+                    <CardDescription className="mt-1">
+                      {getQuestionTypeDisplay(question.type)}
+                    </CardDescription>
+                  </div>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    onClick={() => setIsEditingPrompt(true)}
+                    className="h-6 w-6">
+                    <Edit className="w-3 h-3" />
+                  </Button>
+                </div>
+              )}
+            </div>
+            <Button
+              variant="destructive"
+              size="icon"
+              onClick={handleDelete}
+              aria-label="Delete question">
+              <X className="w-4 h-4" />
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <Popover open={open} onOpenChange={setOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                role="combobox"
+                aria-expanded={open}
+                className="w-full justify-between">
+                {selectedValues.length > 0
+                  ? `${selectedValues.length} selected`
+                  : 'Select options...'}
+                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[400px] p-0">
+              <Command>
+                <CommandInput placeholder="Search options..." />
+                <CommandList>
+                  <CommandEmpty>No options found.</CommandEmpty>
+                  <CommandGroup>
+                    {questionOption?.map((option) => (
+                      <CommandItem
+                        key={option.id}
+                        value={option.id}
+                        onSelect={() => toggleOption(option.id)}>
+                        <Check
+                          className={cn(
+                            'mr-2 h-4 w-4',
+                            selectedValues.includes(option.id)
+                              ? 'opacity-100'
+                              : 'opacity-0'
+                          )}
+                        />
+                        {option.label}
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
+          <div className="mt-4 space-y-2">
+            <h4 className="text-sm font-medium">Edit Options:</h4>
+            {questionOption?.map((option) => (
+              <div key={option.id} className="flex items-center gap-2 group">
+                {editingOptionId === option.id ? (
+                  <>
+                    <Input
+                      value={editedOptionLabel}
+                      onChange={(e) => setEditedOptionLabel(e.target.value)}
+                      className="flex-1"
+                    />
+                    <Button
+                      size="sm"
+                      onClick={() => handleSaveOption(option.id)}>
+                      <Save className="w-3 h-3" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={handleCancelOptionEdit}>
+                      <X className="w-3 h-3" />
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <span className="flex-1 text-sm">{option.label}</span>
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() =>
+                          handleEditOption(option.id, option.label)
+                        }
+                        className="h-6 w-6">
+                        <Edit className="w-3 h-3" />
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => handleDeleteOption(option.id)}
+                        disabled={questionOption && questionOption.length <= 2}
+                        className={cn(
+                          'h-6 w-6',
+                          questionOption && questionOption.length <= 2
+                            ? 'text-gray-400 cursor-not-allowed'
+                            : 'text-red-500 hover:text-red-700'
+                        )}>
+                        <Trash2 className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  </>
+                )}
+              </div>
+            ))}
+            {isAddingOption ? (
+              <div className="flex items-center gap-2">
+                <Input
+                  placeholder="New option label"
+                  value={newOptionLabel}
+                  onChange={(e) => setNewOptionLabel(e.target.value)}
+                  className="flex-1"
+                />
+                <Button size="sm" onClick={handleAddOption}>
+                  <Save className="w-3 h-3" />
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleCancelAddOption}>
+                  <X className="w-3 h-3" />
+                </Button>
+              </div>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsAddingOption(true)}>
+                <Plus className="w-3 h-3 mr-1" />
+                Add Option
+              </Button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (question.type === 'FREE_RESPONSE') {
     const handleTextChange = (value: string) => {
       setTextAnswer(value);
       onAnswerChange?.(question.id, value);
@@ -693,8 +663,8 @@ export default function QuestionCard({
               ) : (
                 <div className="flex items-start gap-2">
                   <div className="flex-1">
-                    <CardTitle className="flex-1">
-                      Question {question.index}: {question.prompt}
+                    <CardTitle>
+                      Question {displayNumber}: {question.prompt}
                     </CardTitle>
                     <CardDescription className="mt-1">
                       {getQuestionTypeDisplay(question.type)}
@@ -719,7 +689,6 @@ export default function QuestionCard({
             </Button>
           </div>
         </CardHeader>
-
         <CardContent>
           <Textarea
             placeholder="Write your response here..."
@@ -732,24 +701,21 @@ export default function QuestionCard({
     );
   }
 
-  // Fallback for unknown question types
-  else {
-    return (
-      <Card>
-        <CardHeader>
-          <div className="flex justify-between items-start">
-            <div className="flex-1">
-              <CardTitle>Unknown Question Type</CardTitle>
-              <CardDescription className="mt-1">
-                {getQuestionTypeDisplay(question.type)}
-              </CardDescription>
-            </div>
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex justify-between items-start">
+          <div className="flex-1">
+            <CardTitle>Unknown Question Type</CardTitle>
+            <CardDescription className="mt-1">
+              {getQuestionTypeDisplay(question.type)}
+            </CardDescription>
           </div>
-        </CardHeader>
-        <CardContent>
-          <p>Question type &quot;{question.type}&quot; is not supported.</p>
-        </CardContent>
-      </Card>
-    );
-  }
+        </div>
+      </CardHeader>
+      <CardContent>
+        <p>Question type &quot;{question.type}&quot; is not supported.</p>
+      </CardContent>
+    </Card>
+  );
 }

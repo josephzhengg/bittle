@@ -286,47 +286,30 @@ export default function FormPage({
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {isQuestionsLoading ? (
-              <div className="space-y-6">
-                {[...Array(3)].map((_, i) => (
-                  <div key={i} className="space-y-3">
-                    <Skeleton className="h-6 w-3/4" />
-                    <Skeleton className="h-10 w-full" />
-                  </div>
-                ))}
-              </div>
-            ) : sortedQuestions && sortedQuestions.length > 0 ? (
-              <div className="space-y-6">
-                {sortedQuestions.map((question, index) => (
-                  <div key={question.id} className="relative">
-                    <div className="absolute -left-4 top-0 text-xs text-slate-500 font-medium bg-slate-100 px-2 py-1 rounded">
-                      #{index + 1}
-                    </div>
-                    <ReadOnlyQuestionCard question={question} />
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-16">
-                <div className="mx-auto w-24 h-24 bg-gradient-to-br from-purple-100 to-pink-100 rounded-full flex items-center justify-center mb-6">
-                  <FileText className="w-10 h-10 text-purple-600" />
-                </div>
-                <h3 className="text-xl font-semibold text-slate-800 mb-2">
-                  No questions yet
-                </h3>
-                <p className="text-slate-600 mb-6 max-w-md mx-auto">
-                  Get started by adding questions to your form.
-                </p>
-                <Button
-                  onClick={() => {
-                    router.push(`/dashboard/current/form/${formCode}/edit`);
-                  }}
-                  className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white">
-                  <Edit className="w-4 h-4 mr-2" />
-                  Add Questions
-                </Button>
-              </div>
-            )}
+            <div className="space-y-6">
+              {(() => {
+                let questionCounter = 0;
+                return sortedQuestions.map((question) => {
+                  if (question.type !== 'SECTION_HEADER') {
+                    questionCounter++;
+                    return (
+                      <div key={question.id} className="relative">
+                        <div className="absolute -left-4 top-0 text-xs text-slate-500 font-medium bg-slate-100 px-2 py-1 rounded">
+                          #{questionCounter}
+                        </div>
+                        <ReadOnlyQuestionCard question={question} />
+                      </div>
+                    );
+                  } else {
+                    return (
+                      <div key={question.id} className="relative">
+                        <ReadOnlyQuestionCard question={question} />
+                      </div>
+                    );
+                  }
+                });
+              })()}
+            </div>
           </CardContent>
         </Card>
       </div>

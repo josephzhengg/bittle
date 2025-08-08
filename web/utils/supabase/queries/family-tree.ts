@@ -66,10 +66,6 @@ export const getIdentifier = async (
     throw new Error(`Error fetching identifier: ${error?.message}`);
   }
 
-  if (!data.identifier) {
-    console.warn(`Identifier missing for member_id ${member_id}:`, data);
-  }
-
   return data.identifier;
 };
 
@@ -490,10 +486,6 @@ export const deleteFamilyMember = async (
       .single();
 
     if (submissionError || !submissionData) {
-      console.warn(
-        `Submission ID ${submission_id} not found in form_submission, skipping deleted_member insertion:`,
-        submissionError?.message
-      );
     } else {
       const { error: insertError } = await supabase
         .from('deleted_member')
@@ -508,10 +500,6 @@ export const deleteFamilyMember = async (
         );
       }
     }
-  } else {
-    console.warn(
-      `No submission_id provided for family_tree_id ${family_tree_id}, skipping deleted_member insertion`
-    );
   }
 
   const { error: connectionError } = await supabase

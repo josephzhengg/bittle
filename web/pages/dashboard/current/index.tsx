@@ -31,7 +31,6 @@ export default function CurrentFormsPage({
   initialFormsData
 }: CurrentFormsPageProps) {
   const supabase = useSupabase();
-
   const { data: formsData = initialFormsData } = useQuery({
     queryKey: ['form'],
     queryFn: () => getForms(supabase, user.id),
