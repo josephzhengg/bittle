@@ -86,7 +86,9 @@ export default function QuestionnaireCard({
           {question.prompt}
         </h2>
         {question.description && (
-          <p className="text-blue-100 mb-6">{question.description}</p>
+          <p className="text-blue-100 mb-6" style={{ whiteSpace: 'pre-wrap' }}>
+            {question.description}
+          </p>
         )}
         <p className="text-sm text-blue-200">Click Next to continue</p>
       </div>
@@ -219,7 +221,6 @@ export default function QuestionnaireCard({
               {getQuestionTypeDisplay(question.type)}
             </Badge>
           </div>
-
           <Popover open={open} onOpenChange={setOpen}>
             <PopoverTrigger asChild>
               <Button
@@ -275,7 +276,6 @@ export default function QuestionnaireCard({
               </Command>
             </PopoverContent>
           </Popover>
-
           {/* Scrollable selected items display with blue-purple theme */}
           {selectedValues.length > 0 && (
             <div className="space-y-4">
@@ -297,7 +297,6 @@ export default function QuestionnaireCard({
                     </Button>
                   </div>
                 </div>
-
                 <div className="p-4 max-h-48 overflow-y-auto">
                   <div className="flex flex-wrap gap-2">
                     {selectedValues.map((valueId) => {

@@ -61,7 +61,9 @@ export default function QuestionnairePage() {
     queryKey: ['questionnaireQuestions', formData?.id],
     queryFn: async () => {
       if (!formData?.id) return [];
-      return getQuestions(supabase, formData.id);
+      const questions = await getQuestions(supabase, formData.id);
+
+      return questions.sort((a, b) => a.index - b.index);
     },
     enabled: !!formData?.id
   });
@@ -178,7 +180,6 @@ export default function QuestionnairePage() {
   const renderProgressDots = () => {
     if (!questionsData) return null;
     const totalQuestions = questionsData.length;
-
     if (totalQuestions > 15) {
       const answeredCount = questionsData.filter((question) =>
         isQuestionAnswered(question.id, question.type)
@@ -197,7 +198,6 @@ export default function QuestionnairePage() {
         </div>
       );
     }
-
     return (
       <div className="flex space-x-1.5">
         {questionsData.map((question, index) => (
@@ -411,7 +411,9 @@ export default function QuestionnairePage() {
           </div>
           <div className="max-w-2xl mx-auto">
             {formData?.description ? (
-              <p className="text-lg text-blue-100 mb-3 leading-relaxed">
+              <p
+                className="text-lg text-blue-100 mb-3 leading-relaxed"
+                style={{ whiteSpace: 'pre-wrap' }}>
                 {formData.description}
               </p>
             ) : (
@@ -463,27 +465,11 @@ export default function QuestionnairePage() {
               <div
                 key={currentQuestion.id}
                 className="animate-question-slide-in w-full max-h-full overflow-auto">
-                {currentQuestion.type === 'SECTION_HEADER' ? (
-                  <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
-                    <h2 className="text-2xl font-bold text-white mb-4">
-                      {currentQuestion.prompt}
-                    </h2>
-                    {currentQuestion.description && (
-                      <p className="text-blue-100 mb-6">
-                        {currentQuestion.description}
-                      </p>
-                    )}
-                    <p className="text-sm text-blue-200">
-                      Click Next to continue
-                    </p>
-                  </div>
-                ) : (
-                  <QuestionnaireCard
-                    question={currentQuestion}
-                    onAnswerChange={handleAnswerChange}
-                    currentAnswer={answers[currentQuestion.id]}
-                  />
-                )}
+                <QuestionnaireCard
+                  question={currentQuestion}
+                  onAnswerChange={handleAnswerChange}
+                  currentAnswer={answers[currentQuestion.id]}
+                />
               </div>
             )}
           </div>
