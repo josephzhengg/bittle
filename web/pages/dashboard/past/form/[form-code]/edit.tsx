@@ -73,7 +73,6 @@ const QUESTION_TYPES = [
 
 // Types
 type QuestionType = (typeof QUESTION_TYPES)[number]['id'];
-
 interface CreateQuestionFormData {
   type: QuestionType | '';
   prompt: string;
@@ -84,20 +83,17 @@ interface CreateQuestionFormData {
 // Custom Hooks
 const useFormQuestions = (formCode: string | string[] | undefined) => {
   const supabase = useSupabase();
-
   const { data: formId } = useQuery({
     queryKey: ['formId', formCode],
     queryFn: () => getFormIdByCode(supabase, z.string().parse(formCode)),
     enabled: !!formCode
   });
-
   const questionsQuery = useQuery({
     queryKey: ['questions', formId],
     queryFn: () =>
       formId ? getQuestions(supabase, formId) : Promise.resolve([]),
     enabled: !!formId
   });
-
   return {
     formId,
     questions: questionsQuery.data || [],
@@ -179,16 +175,13 @@ interface OptionsEditorProps {
 
 const OptionsEditor = ({ options, onOptionsChange }: OptionsEditorProps) => {
   const addOption = () => onOptionsChange([...options, '']);
-
   const removeOption = (index: number) =>
     onOptionsChange(options.filter((_, i) => i !== index));
-
   const updateOption = (index: number, value: string) => {
     const updated = [...options];
     updated[index] = value;
     onOptionsChange(updated);
   };
-
   return (
     <div className="space-y-3">
       <Label className="text-base font-medium">Options</Label>
@@ -250,7 +243,6 @@ const CreateQuestionDialog = ({
       toast.error('Please fill in all required fields');
       return;
     }
-
     if (
       (formData.type === 'mcq' || formData.type === 'sa') &&
       formData.options.filter((opt) => opt.trim()).length < 2
@@ -258,9 +250,12 @@ const CreateQuestionDialog = ({
       toast.error('Please add at least 2 options');
       return;
     }
-
     try {
-      await onSave(formData);
+      await onSave({
+        ...formData,
+        description:
+          formData.type === 'section' ? formData.description : undefined
+      });
       resetForm();
       onOpenChange(false);
     } catch {
@@ -286,13 +281,11 @@ const CreateQuestionDialog = ({
             Choose the type of question and configure its settings.
           </DialogDescription>
         </DialogHeader>
-
         <div className="space-y-6">
           <QuestionTypeSelect
             selectedType={formData.type}
             onTypeChange={(type) => setFormData((prev) => ({ ...prev, type }))}
           />
-
           {formData.type && (
             <div className="space-y-3">
               <Label htmlFor="prompt" className="text-base font-medium">
@@ -310,10 +303,10 @@ const CreateQuestionDialog = ({
                   setFormData((prev) => ({ ...prev, prompt: e.target.value }))
                 }
                 className="min-h-[80px]"
+                style={{ whiteSpace: 'pre-wrap' }}
               />
             </div>
           )}
-
           {formData.type === 'section' && (
             <div className="space-y-3">
               <Label htmlFor="description" className="text-base font-medium">
@@ -321,7 +314,7 @@ const CreateQuestionDialog = ({
               </Label>
               <Textarea
                 id="description"
-                placeholder="Enter section description..."
+                placeholder="Enter section description... (newlines and spacing will be preserved)"
                 value={formData.description || ''}
                 onChange={(e) =>
                   setFormData((prev) => ({
@@ -329,11 +322,11 @@ const CreateQuestionDialog = ({
                     description: e.target.value
                   }))
                 }
-                className="min-h-[80px]"
+                className="min-h-[120px]"
+                style={{ whiteSpace: 'pre-wrap' }}
               />
             </div>
           )}
-
           {hasOptions && (
             <OptionsEditor
               options={formData.options}
@@ -342,7 +335,6 @@ const CreateQuestionDialog = ({
               }
             />
           )}
-
           {formData.type === 'fr' && (
             <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
               <p className="text-sm text-blue-800">
@@ -352,7 +344,6 @@ const CreateQuestionDialog = ({
             </div>
           )}
         </div>
-
         <DialogFooter className="mt-6 flex-col sm:flex-row gap-2 sm:gap-0">
           <Button
             type="button"
@@ -388,7 +379,6 @@ const DraggableQuestionItem = ({
 }: DraggableQuestionItemProps) => {
   const controls = useDragControls();
   const isMobile = useMediaQuery('(max-width: 640px)');
-
   return (
     <Reorder.Item
       value={question}
@@ -431,7 +421,6 @@ const DraggableQuestionItem = ({
               } text-gray-400 hover:text-gray-600 transition-colors pointer-events-none`}
             />
           </div>
-
           <div className="flex-1 min-w-0 select-none relative">
             <QuestionCard
               question={question}
@@ -455,14 +444,11 @@ export default function EditPage({ user }: EditPageProps) {
   const { 'form-code': formCode } = router.query;
   const supabase = useSupabase();
   const isMobile = useMediaQuery('(max-width: 640px)');
-
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isReordering, setIsReordering] = useState(false);
-
   const { formId, questions, isLoading, refetchQuestions } =
     useFormQuestions(formCode);
-
   const [orderedQuestions, setOrderedQuestions] = useState(questions);
 
   useEffect(() => {
@@ -475,42 +461,34 @@ export default function EditPage({ user }: EditPageProps) {
       toast.error('Form not found');
       return;
     }
-
     setIsSaving(true);
-
     try {
       const questionType = QUESTION_TYPES.find(
         (type) => type.id === data.type
       )!;
-
       const newQuestion = await createQuestion(
         supabase,
         formId,
         data.prompt.trim(),
         questionType.dbType,
         questions.length + 1,
-        data.type === 'section' ? data.description?.trim() : undefined
+        data.type === 'section' ? data.description : undefined
       );
-
       if (data.type === 'mcq' || data.type === 'sa') {
         const validOptions = data.options
           .map((label) => label.trim())
           .filter((label) => label !== '');
-
         if (validOptions.length > 0) {
           const optionPayload = validOptions.map((label, index) => ({
             question_id: newQuestion.id,
             label,
             index: index + 1
           }));
-
           await createOption(supabase, newQuestion.id, optionPayload);
         }
       }
-
       await refetchQuestions();
       await queryClient.invalidateQueries({ queryKey: ['questions'] });
-
       toast.success('Question created successfully!');
     } catch (error) {
       toast.error('Failed to create question. Please try again.');
@@ -521,28 +499,22 @@ export default function EditPage({ user }: EditPageProps) {
   };
 
   const [reorderTimeout, setReorderTimeout] = useState<NodeJS.Timeout>();
-
   const handleReorder = (newOrder: Question[]) => {
     setOrderedQuestions(newOrder);
-
     if (reorderTimeout) {
       clearTimeout(reorderTimeout);
     }
-
     setReorderTimeout(
       setTimeout(async () => {
         setIsReordering(true);
-
         try {
           const updatedQuestions = newOrder.map((question, index) => ({
             ...question,
             index: index + 1
           }));
-
           await reorderQuestions(supabase, updatedQuestions);
           await refetchQuestions();
           await queryClient.invalidateQueries({ queryKey: ['questions'] });
-
           toast.success('Questions reordered successfully!');
         } catch {
           toast.error('Failed to reorder questions. Please try again.');
@@ -602,7 +574,6 @@ export default function EditPage({ user }: EditPageProps) {
               </p>
             )}
           </div>
-
           <div className="flex flex-col sm:flex-row gap-3 sm:gap-2 sm:justify-end">
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
@@ -615,7 +586,6 @@ export default function EditPage({ user }: EditPageProps) {
                 </Button>
               </DialogTrigger>
             </Dialog>
-
             <Button
               onClick={exitEdit}
               variant="outline"
@@ -626,7 +596,6 @@ export default function EditPage({ user }: EditPageProps) {
             </Button>
           </div>
         </div>
-
         <div className="mb-6 p-3 sm:p-4 bg-yellow-50 border-l-4 border-yellow-400 rounded-md">
           <p className="text-xs sm:text-sm text-yellow-800">
             <strong>Note:</strong> We recommend adding a question asking for the
@@ -634,7 +603,6 @@ export default function EditPage({ user }: EditPageProps) {
             submitted each response.
           </p>
         </div>
-
         <div className="space-y-0">
           {orderedQuestions.length === 0 ? (
             <div className="text-center py-8 sm:py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
@@ -680,14 +648,12 @@ export default function EditPage({ user }: EditPageProps) {
             </Reorder.Group>
           )}
         </div>
-
         {isReordering && (
           <div className="fixed bottom-4 right-4 left-4 sm:left-auto bg-blue-600 text-white px-4 py-2 rounded-lg shadow-lg flex items-center justify-center sm:justify-start gap-2 z-50">
             <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
             <span className="text-sm">Saving order...</span>
           </div>
         )}
-
         <CreateQuestionDialog
           isOpen={isDialogOpen}
           onOpenChange={setIsDialogOpen}
@@ -702,7 +668,6 @@ export default function EditPage({ user }: EditPageProps) {
 export async function getServerSideProps(context: GetServerSidePropsContext) {
   const supabase = createSupabaseServerClient(context);
   const { data: userData, error } = await supabase.auth.getUser();
-
   if (!userData || error) {
     return {
       redirect: {
@@ -711,10 +676,8 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
       }
     };
   }
-
   const { 'form-code': formCode } = context.query;
   const currentPath = context.resolvedUrl;
-
   if (!formCode || typeof formCode !== 'string') {
     return {
       props: {
@@ -724,12 +687,10 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
       }
     };
   }
-
   try {
     const deadline = await getFormDeadline(supabase, formCode);
     const now = new Date();
     const isDeadlinePassed = deadline ? new Date(deadline) < now : false;
-
     if (currentPath.includes('/dashboard/past/form/') && !isDeadlinePassed) {
       return {
         redirect: {
@@ -738,7 +699,6 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
         }
       };
     }
-
     if (currentPath.includes('/dashboard/current/form/') && isDeadlinePassed) {
       return {
         redirect: {
@@ -750,7 +710,6 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
   } catch {
     toast.error('Failed to fetch form deadline. Please try again later.');
   }
-
   return {
     props: {
       user: userData.user
