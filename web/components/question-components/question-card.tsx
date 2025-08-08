@@ -64,7 +64,6 @@ export default function QuestionCard({
   const [selectedValue, setSelectedValue] = useState<string>('');
   const [selectedValues, setSelectedValues] = useState<string[]>([]);
   const [textAnswer, setTextAnswer] = useState<string>('');
-
   const [isEditingPrompt, setIsEditingPrompt] = useState(false);
   const [editedPrompt, setEditedPrompt] = useState(question.prompt);
   const [editedDescription, setEditedDescription] = useState(
@@ -74,7 +73,6 @@ export default function QuestionCard({
   const [editedOptionLabel, setEditedOptionLabel] = useState('');
   const [isAddingOption, setIsAddingOption] = useState(false);
   const [newOptionLabel, setNewOptionLabel] = useState('');
-
   const supabase = useSupabase();
 
   const { data: questionOption } = useQuery({
@@ -120,7 +118,7 @@ export default function QuestionCard({
         supabase,
         question.id,
         editedPrompt,
-        editedDescription
+        question.type === 'SECTION_HEADER' ? editedDescription : undefined
       );
       setIsEditingPrompt(false);
       toast.success('Question updated successfully.');
@@ -165,7 +163,6 @@ export default function QuestionCard({
       );
       return;
     }
-
     try {
       await deleteOption(supabase, optionId);
       if (selectedValues.includes(optionId)) {
@@ -188,7 +185,6 @@ export default function QuestionCard({
 
   const handleAddOption = async () => {
     if (!newOptionLabel.trim()) return;
-
     try {
       const nextIndex = (questionOption?.length || 0) + 1;
       await createOption(supabase, question.id, [
@@ -228,8 +224,9 @@ export default function QuestionCard({
                   <Textarea
                     value={editedDescription}
                     onChange={(e) => setEditedDescription(e.target.value)}
-                    placeholder="Add a description (optional)"
+                    placeholder="Add a description (optional, newlines and spacing preserved)"
                     className="min-h-[60px]"
+                    style={{ whiteSpace: 'pre-wrap' }}
                   />
                   <div className="flex gap-2">
                     <Button size="sm" onClick={handleSavePrompt}>
@@ -253,7 +250,9 @@ export default function QuestionCard({
                         : question.prompt}
                     </CardTitle>
                     {question.description && (
-                      <CardDescription className="mt-1">
+                      <CardDescription
+                        className="mt-1"
+                        style={{ whiteSpace: 'pre-wrap' }}>
                         {question.description}
                       </CardDescription>
                     )}

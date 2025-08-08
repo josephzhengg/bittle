@@ -17,10 +17,12 @@ import type { Question } from '@/utils/supabase/models/question';
 
 export type ReadOnlyQuestionCardProps = {
   question: Question;
+  displayNumber: number | null;
 };
 
 export default function ReadOnlyQuestionCard({
-  question
+  question,
+  displayNumber
 }: ReadOnlyQuestionCardProps) {
   const supabase = useSupabase();
 
@@ -51,9 +53,17 @@ export default function ReadOnlyQuestionCard({
     return (
       <Card>
         <CardHeader>
-          <CardTitle>{question.prompt}</CardTitle>
+          <CardTitle>
+            {displayNumber
+              ? `Section ${displayNumber}: ${question.prompt}`
+              : question.prompt}
+          </CardTitle>
           {question.description && (
-            <CardDescription>{question.description}</CardDescription>
+            <CardDescription
+              className="mt-1"
+              style={{ whiteSpace: 'pre-wrap' }}>
+              {question.description}
+            </CardDescription>
           )}
         </CardHeader>
       </Card>
@@ -65,7 +75,7 @@ export default function ReadOnlyQuestionCard({
       <Card>
         <CardHeader>
           <CardTitle>
-            Question {question.index}: {question.prompt}
+            Question {displayNumber}: {question.prompt}
           </CardTitle>
           <CardDescription className="mt-1">
             {getQuestionTypeDisplay(question.type)}
@@ -92,7 +102,7 @@ export default function ReadOnlyQuestionCard({
       <Card>
         <CardHeader>
           <CardTitle>
-            Question {question.index}: {question.prompt}
+            Question {displayNumber}: {question.prompt}
           </CardTitle>
           <CardDescription className="mt-1">
             {getQuestionTypeDisplay(question.type)}
@@ -118,7 +128,7 @@ export default function ReadOnlyQuestionCard({
       <Card>
         <CardHeader>
           <CardTitle>
-            Question {question.index}: {question.prompt}
+            Question {displayNumber}: {question.prompt}
           </CardTitle>
           <CardDescription className="mt-1">
             {getQuestionTypeDisplay(question.type)}
