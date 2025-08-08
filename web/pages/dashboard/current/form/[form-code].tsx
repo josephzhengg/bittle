@@ -297,13 +297,19 @@ export default function FormPage({
                         <div className="absolute -left-4 top-0 text-xs text-slate-500 font-medium bg-slate-100 px-2 py-1 rounded">
                           #{questionCounter}
                         </div>
-                        <ReadOnlyQuestionCard question={question} />
+                        <ReadOnlyQuestionCard
+                          question={question}
+                          displayNumber={questionCounter}
+                        />
                       </div>
                     );
                   } else {
                     return (
                       <div key={question.id} className="relative">
-                        <ReadOnlyQuestionCard question={question} />
+                        <ReadOnlyQuestionCard
+                          question={question}
+                          displayNumber={questionCounter}
+                        />
                       </div>
                     );
                   }
