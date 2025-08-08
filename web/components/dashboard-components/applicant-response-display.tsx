@@ -65,22 +65,12 @@ const ApplicantResponseDisplay = ({
 
   const handleDeleteSubmission = async (submissionId: string) => {
     try {
-      console.log('handleDeleteSubmission triggered for:', submissionId);
-      console.log(
-        'Supabase session:',
-        (await supabase.auth.getSession()).data.session
-          ? 'Authenticated'
-          : 'Not authenticated'
-      );
       await deleteResponse(supabase, submissionId);
-      console.log('Submission deleted successfully:', submissionId);
       toast.success('Submission deleted successfully');
       if (onSubmissionDeleted) {
-        console.log('Triggering onSubmissionDeleted for:', submissionId);
         onSubmissionDeleted(submissionId);
       }
     } catch (error) {
-      console.error('Deletion error:', error);
       toast.error(
         `Failed to delete submission: ${
           error instanceof Error ? error.message : 'Unknown error'
@@ -129,10 +119,7 @@ const ApplicantResponseDisplay = ({
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="rounded-full bg-gradient-to-r from-red-500 to-pink-500 text-white hover:from-red-600 hover:to-pink-600 transition-all duration-300 shadow-sm hover:shadow-md p-2"
-                      onClick={() =>
-                        console.log('Delete button clicked for:', submission.id)
-                      }>
+                      className="rounded-full bg-gradient-to-r from-red-500 to-pink-500 text-white hover:from-red-600 hover:to-pink-600 transition-all duration-300 shadow-sm hover:shadow-md p-2">
                       <Trash2 className="w-4 h-4" />
                     </Button>
                   </DialogTrigger>
@@ -295,13 +282,7 @@ const ApplicantResponseDisplay = ({
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="rounded-full bg-red-500 text-white hover:bg-red-600 transition-all duration-200 p-1.5"
-                            onClick={() =>
-                              console.log(
-                                'Delete button clicked for:',
-                                submission.id
-                              )
-                            }>
+                            className="rounded-full bg-red-500 text-white hover:bg-red-600 transition-all duration-200 p-1.5">
                             <Trash2 className="w-3.5 h-3.5" />
                           </Button>
                         </DialogTrigger>
