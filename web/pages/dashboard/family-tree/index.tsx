@@ -1,6 +1,3 @@
-import { GetServerSidePropsContext } from 'next';
-import { createSupabaseServerClient } from '@/utils/supabase/clients/server-props';
-import { User } from '@supabase/supabase-js';
 import { Button } from '@/components/ui/button';
 import DashBoardLayout from '@/components/layouts/dashboard-layout';
 import {
@@ -18,6 +15,7 @@ import { Input } from '@/components/ui/input';
 import { useRouter } from 'next/router';
 import { toast } from 'sonner';
 import FamilyTreeCard from '@/components/family-tree-components/family-tree-card';
+import FamilyTreeCardSkeleton from '@/components/family-tree-components/family-tree-card-skeleton';
 import {
   Dialog,
   DialogContent,
@@ -41,21 +39,18 @@ import {
 } from '@/components/ui/command';
 import { TreePine, Plus, Search, ChevronsUpDown, Check } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
-import { FamilyTree } from '@/utils/supabase/models/family-tree';
+import { GetServerSidePropsContext } from 'next';
+import { createSupabaseServerClient } from '@/utils/supabase/clients/server-props';
+import type { User } from '@supabase/supabase-js';
 
 export type FamilyTreesPageProps = {
   user: User;
-  initialFamilyTreesData: FamilyTree[];
-  initialFormsData: Form[];
 };
 
-export default function FamilyTreesPage({
-  user,
-  initialFamilyTreesData,
-  initialFormsData
-}: FamilyTreesPageProps) {
+export default function FamilyTreesPage({ user }: FamilyTreesPageProps) {
   const supabase = useSupabase();
   const router = useRouter();
+
   const [familyTitle, setFamilyTitle] = useState('');
   const [familyDesc, setFamilyDesc] = useState('');
   const [selectedForm, setSelectedForm] = useState<Form | null>(null);
@@ -79,21 +74,23 @@ export default function FamilyTreesPage({
   };
 
   const familyTrees = useQuery({
-    queryKey: ['family-trees', user.id],
+    queryKey: ['family-trees', user?.id],
     queryFn: async () => {
+      if (!user) return [];
       return await getFamilyTrees(supabase, user.id);
     },
-    initialData: initialFamilyTreesData,
+    enabled: !!user,
     staleTime: 30 * 1000,
     refetchOnWindowFocus: true
   });
 
   const forms = useQuery({
-    queryKey: ['forms'],
+    queryKey: ['forms', user?.id],
     queryFn: async () => {
+      if (!user) return [];
       return await getForms(supabase, user.id);
     },
-    initialData: initialFormsData,
+    enabled: !!user,
     staleTime: 30 * 1000,
     refetchOnWindowFocus: true
   });
@@ -116,7 +113,7 @@ export default function FamilyTreesPage({
     }, {} as Record<string, Form>) || {};
 
   const questionsMap = useQuery({
-    queryKey: ['all-questions'],
+    queryKey: ['all-questions', user?.id],
     queryFn: async () => {
       if (!forms.data) return {};
       const questionsMap: Record<string, Question> = {};
@@ -132,7 +129,7 @@ export default function FamilyTreesPage({
   });
 
   const handleCreateFamilyTree = async () => {
-    if (!familyTitle || !selectedForm || !selectedQuestion) {
+    if (!familyTitle || !selectedForm || !selectedQuestion || !user) {
       toast.error('Please enter a title and select a form and question');
       return;
     }
@@ -409,26 +406,7 @@ export default function FamilyTreesPage({
           {familyTrees.isLoading && (
             <div className="space-y-4">
               {[...Array(3)].map((_, i) => (
-                <div key={i} className="w-full">
-                  <div className="relative bg-white/80 border border-slate-200 rounded-xl overflow-hidden">
-                    <div className="relative z-10 flex items-center p-6 gap-6">
-                      <div className="flex-1 min-w-0">
-                        <div className="w-20 h-1 rounded-full mb-3 bg-gray-200 animate-pulse"></div>
-                        <div className="h-6 w-3/4 bg-gray-200 rounded mb-2 animate-pulse"></div>
-                        <div className="h-4 w-full bg-gray-200 rounded mb-4 animate-pulse"></div>
-                        <div className="flex flex-wrap gap-4">
-                          <div className="h-3 w-24 bg-gray-200 rounded animate-pulse"></div>
-                          <div className="h-3 w-24 bg-gray-200 rounded animate-pulse"></div>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div className="h-10 w-10 bg-gray-200 rounded-lg animate-pulse"></div>
-                        <div className="h-10 w-10 bg-gray-200 rounded-lg animate-pulse"></div>
-                        <div className="h-10 w-10 bg-gray-200 rounded-lg animate-pulse"></div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                <FamilyTreeCardSkeleton key={i} />
               ))}
             </div>
           )}
@@ -486,10 +464,16 @@ export default function FamilyTreesPage({
   );
 }
 
-export async function getServerSideProps(context: GetServerSidePropsContext) {
+export const getServerSideProps = async (
+  context: GetServerSidePropsContext
+) => {
   const supabase = createSupabaseServerClient(context);
-  const { data: userData, error } = await supabase.auth.getUser();
-  if (!userData || error) {
+  const {
+    data: { user },
+    error
+  } = await supabase.auth.getUser();
+
+  if (error || !user) {
     return {
       redirect: {
         destination: '/login',
@@ -498,21 +482,9 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
     };
   }
 
-  let initialFamilyTreesData: FamilyTree[] = [];
-  let initialFormsData: Form[] = [];
-  try {
-    initialFamilyTreesData = await getFamilyTrees(supabase, userData.user.id);
-    initialFormsData = await getForms(supabase, userData.user.id);
-  } catch {
-    initialFamilyTreesData = [];
-    initialFormsData = [];
-  }
-
   return {
     props: {
-      user: userData.user,
-      initialFamilyTreesData,
-      initialFormsData
+      user
     }
   };
-}
+};
