@@ -8,7 +8,8 @@ import {
   FileText,
   AlertCircle,
   CheckCircle2,
-  GripVertical
+  GripVertical,
+  Paperclip
 } from 'lucide-react';
 import {
   getQuestionResponse,
@@ -20,12 +21,14 @@ import { QuestionResponse } from '@/utils/supabase/models/question-response';
 import { ResponseOptionSelection } from '@/utils/supabase/models/response-option-selection';
 import { QuestionOption } from '@/utils/supabase/models/question-option';
 import { toast } from 'sonner';
+
 interface SubmissionDetailsOverlayProps {
   formSubmissionId: string | null;
   formId: string;
   allOptions: Record<string, QuestionOption[]>;
   onClose: () => void;
 }
+
 const SubmissionDetailsOverlay: React.FC<SubmissionDetailsOverlayProps> = ({
   formSubmissionId,
   formId,
@@ -41,6 +44,7 @@ const SubmissionDetailsOverlay: React.FC<SubmissionDetailsOverlayProps> = ({
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isCollapsed, setIsCollapsed] = useState(false);
+
   useEffect(() => {
     const fetchSubmissionDetails = async () => {
       if (!formSubmissionId || !formId) {
@@ -69,7 +73,11 @@ const SubmissionDetailsOverlay: React.FC<SubmissionDetailsOverlayProps> = ({
     };
     fetchSubmissionDetails();
   }, [supabase, formSubmissionId, formId]);
-  const getResponseForQuestion = (questionId: string) => {
+
+  const getResponseForQuestion = (questionId: string, questionType: string) => {
+    if (questionType === 'SECTION_HEADER') {
+      return { text: '', hasResponse: true };
+    }
     const response = responses.find((r) => r.question_id === questionId);
     if (!response) {
       return { text: 'No response', hasResponse: false };
@@ -91,6 +99,7 @@ const SubmissionDetailsOverlay: React.FC<SubmissionDetailsOverlayProps> = ({
       hasResponse: selections.length > 0
     };
   };
+
   const getQuestionTypeIcon = (type: string) => {
     switch (type) {
       case 'FREE_RESPONSE':
@@ -99,10 +108,13 @@ const SubmissionDetailsOverlay: React.FC<SubmissionDetailsOverlayProps> = ({
         return <CheckCircle2 className="w-4 h-4 text-green-600" />;
       case 'SELECT_ALL':
         return <CheckCircle2 className="w-4 h-4 text-purple-600" />;
+      case 'SECTION_HEADER':
+        return <Paperclip className="w-4 h-4 text-orange-500" />;
       default:
         return <FileText className="w-4 h-4 text-gray-600" />;
     }
   };
+
   const getQuestionTypeLabel = (type: string) => {
     switch (type) {
       case 'FREE_RESPONSE':
@@ -111,10 +123,13 @@ const SubmissionDetailsOverlay: React.FC<SubmissionDetailsOverlayProps> = ({
         return 'Multiple Choice';
       case 'SELECT_ALL':
         return 'Select All';
+      case 'SECTION_HEADER':
+        return 'Section Header';
       default:
         return 'Unknown';
     }
   };
+
   return (
     <div className="fixed top-4 right-4 z-50 flex flex-col">
       {/* Floating Panel */}
@@ -202,7 +217,10 @@ const SubmissionDetailsOverlay: React.FC<SubmissionDetailsOverlayProps> = ({
             ) : questions.length > 0 ? (
               <div className="p-4 space-y-4">
                 {questions.map((question, index) => {
-                  const response = getResponseForQuestion(question.id);
+                  const response = getResponseForQuestion(
+                    question.id,
+                    question.type
+                  );
                   return (
                     <div
                       key={question.id}
@@ -220,35 +238,39 @@ const SubmissionDetailsOverlay: React.FC<SubmissionDetailsOverlayProps> = ({
                             </span>
                           </div>
                         </div>
-                        <div className="flex-shrink-0">
-                          {response.hasResponse ? (
-                            <CheckCircle2 className="w-4 h-4 text-green-500" />
-                          ) : (
-                            <AlertCircle className="w-4 h-4 text-orange-400" />
-                          )}
-                        </div>
+                        {question.type !== 'SECTION_HEADER' && (
+                          <div className="flex-shrink-0">
+                            {response.hasResponse ? (
+                              <CheckCircle2 className="w-4 h-4 text-green-500" />
+                            ) : (
+                              <AlertCircle className="w-4 h-4 text-orange-400" />
+                            )}
+                          </div>
+                        )}
                       </div>
                       {/* Question Text */}
                       <h4 className="text-xs font-medium text-gray-900 mb-3 leading-relaxed">
                         {question.prompt}
                       </h4>
                       {/* Response */}
-                      <div
-                        className={`p-3 rounded-lg border transition-all duration-200 ${
-                          response.hasResponse
-                            ? 'bg-green-50/80 border-green-200 text-gray-800'
-                            : 'bg-orange-50/80 border-orange-200 text-gray-600'
-                        }`}>
-                        {response.hasResponse ? (
-                          <p className="text-xs leading-relaxed whitespace-pre-wrap">
-                            {response.text}
-                          </p>
-                        ) : (
-                          <p className="text-xs italic text-gray-500">
-                            No response provided
-                          </p>
-                        )}
-                      </div>
+                      {question.type !== 'SECTION_HEADER' && (
+                        <div
+                          className={`p-3 rounded-lg border transition-all duration-200 ${
+                            response.hasResponse
+                              ? 'bg-green-50/80 border-green-200 text-gray-800'
+                              : 'bg-orange-50/80 border-orange-200 text-gray-600'
+                          }`}>
+                          {response.hasResponse ? (
+                            <p className="text-xs leading-relaxed whitespace-pre-wrap">
+                              {response.text}
+                            </p>
+                          ) : (
+                            <p className="text-xs italic text-gray-500">
+                              No response provided
+                            </p>
+                          )}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -272,4 +294,5 @@ const SubmissionDetailsOverlay: React.FC<SubmissionDetailsOverlayProps> = ({
     </div>
   );
 };
+
 export default SubmissionDetailsOverlay;

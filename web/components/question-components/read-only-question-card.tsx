@@ -32,6 +32,8 @@ export default function ReadOnlyQuestionCard({
         return 'Select All That Apply';
       case 'FREE_RESPONSE':
         return 'Free Response';
+      case 'SECTION_HEADER':
+        return 'Section Header';
       default:
         return type;
     }
@@ -44,6 +46,19 @@ export default function ReadOnlyQuestionCard({
       !!question.id &&
       (question.type === 'MULTIPLE_CHOICE' || question.type === 'SELECT_ALL')
   });
+
+  if (question.type === 'SECTION_HEADER') {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>{question.prompt}</CardTitle>
+          {question.description && (
+            <CardDescription>{question.description}</CardDescription>
+          )}
+        </CardHeader>
+      </Card>
+    );
+  }
 
   if (question.type === 'MULTIPLE_CHOICE') {
     return (
@@ -70,7 +85,9 @@ export default function ReadOnlyQuestionCard({
         </CardContent>
       </Card>
     );
-  } else if (question.type === 'SELECT_ALL') {
+  }
+
+  if (question.type === 'SELECT_ALL') {
     return (
       <Card>
         <CardHeader>
@@ -94,7 +111,9 @@ export default function ReadOnlyQuestionCard({
         </CardContent>
       </Card>
     );
-  } else if (question.type === 'FREE_RESPONSE') {
+  }
+
+  if (question.type === 'FREE_RESPONSE') {
     return (
       <Card>
         <CardHeader>
@@ -114,16 +133,16 @@ export default function ReadOnlyQuestionCard({
         </CardContent>
       </Card>
     );
-  } else {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Unknown Question Type</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p>Question type `{question.type}` is not supported.</p>
-        </CardContent>
-      </Card>
-    );
   }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Unknown Question Type</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <p>Question type `{question.type}` is not supported.</p>
+      </CardContent>
+    </Card>
+  );
 }

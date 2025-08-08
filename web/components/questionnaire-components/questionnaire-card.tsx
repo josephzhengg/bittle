@@ -40,7 +40,6 @@ export default function QuestionnaireCard({
   const [selectedValues, setSelectedValues] = useState<string[]>([]);
   const [textAnswer, setTextAnswer] = useState<string>('');
 
-  // Sync with current answer prop
   useEffect(() => {
     if (currentAnswer !== undefined) {
       if (question.type === 'MULTIPLE_CHOICE') {
@@ -65,7 +64,6 @@ export default function QuestionnaireCard({
       (question.type === 'MULTIPLE_CHOICE' || question.type === 'SELECT_ALL')
   });
 
-  // Helper function to format question type for display
   const getQuestionTypeDisplay = (type: string) => {
     switch (type) {
       case 'MULTIPLE_CHOICE':
@@ -74,10 +72,26 @@ export default function QuestionnaireCard({
         return 'Select all that apply';
       case 'FREE_RESPONSE':
         return 'Write your response';
+      case 'SECTION_HEADER':
+        return 'Section Header';
       default:
         return type;
     }
   };
+
+  if (question.type === 'SECTION_HEADER') {
+    return (
+      <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 border border-white/20">
+        <h2 className="text-3xl font-bold text-white mb-4">
+          {question.prompt}
+        </h2>
+        {question.description && (
+          <p className="text-blue-100 mb-6">{question.description}</p>
+        )}
+        <p className="text-sm text-blue-200">Click Next to continue</p>
+      </div>
+    );
+  }
 
   if (
     isLoading &&
@@ -123,7 +137,6 @@ export default function QuestionnaireCard({
     );
   }
 
-  // Multiple Choice Implementation
   if (question.type === 'MULTIPLE_CHOICE') {
     const handleRadioChange = (value: string) => {
       setSelectedValue(value);
@@ -143,7 +156,6 @@ export default function QuestionnaireCard({
               {getQuestionTypeDisplay(question.type)}
             </Badge>
           </div>
-
           <RadioGroup value={selectedValue} onValueChange={handleRadioChange}>
             {questionOption?.map((option) => {
               const isSelected = selectedValue === option.id;
@@ -163,7 +175,6 @@ export default function QuestionnaireCard({
                       className="text-lg text-white cursor-pointer flex-1">
                       {option.label}
                     </Label>
-                    {isSelected && <Check className="h-5 w-5 text-blue-300" />}
                   </div>
                 </div>
               );
@@ -172,10 +183,7 @@ export default function QuestionnaireCard({
         </div>
       </div>
     );
-  }
-
-  // Enhanced Select All Implementation with cohesive blue-purple theme
-  else if (question.type === 'SELECT_ALL') {
+  } else if (question.type === 'SELECT_ALL') {
     const toggleOption = (optionId: string) => {
       let newSelectedValues: string[];
       if (selectedValues.includes(optionId)) {
@@ -323,8 +331,7 @@ export default function QuestionnaireCard({
     );
   }
 
-  // Free Response Implementation
-  else if (question.type === 'FREE_RESPONSE') {
+  if (question.type === 'FREE_RESPONSE') {
     const handleTextChange = (value: string) => {
       setTextAnswer(value);
       onAnswerChange?.(question.id, value);
@@ -343,7 +350,6 @@ export default function QuestionnaireCard({
               {getQuestionTypeDisplay(question.type)}
             </Badge>
           </div>
-
           <div className="space-y-3">
             <Textarea
               placeholder="Type your response here..."
@@ -366,31 +372,28 @@ export default function QuestionnaireCard({
     );
   }
 
-  // Fallback for unknown question types
-  else {
-    return (
-      <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 border border-white/20 max-h-[80vh] overflow-y-auto">
-        <div className="text-center text-white">
-          <div className="mb-4">
-            <svg
-              className="w-12 h-12 mx-auto text-blue-200"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
-          </div>
-          <h3 className="text-xl font-semibold mb-2">Unknown Question Type</h3>
-          <p className="text-blue-200">
-            Question type &quot;{question.type}&quot; is not supported.
-          </p>
+  return (
+    <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 border border-white/20 max-h-[80vh] overflow-y-auto">
+      <div className="text-center text-white">
+        <div className="mb-4">
+          <svg
+            className="w-12 h-12 mx-auto text-blue-200"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24">
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+            />
+          </svg>
         </div>
+        <h3 className="text-xl font-semibold mb-2">Unknown Question Type</h3>
+        <p className="text-blue-200">
+          Question type &quot;{question.type}&quot; is not supported.
+        </p>
       </div>
-    );
-  }
+    </div>
+  );
 }

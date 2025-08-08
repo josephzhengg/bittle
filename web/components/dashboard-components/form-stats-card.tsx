@@ -35,7 +35,8 @@ export function FormStatsCards({
     const typeMap: Record<string, string> = {
       FREE_RESPONSE: 'Free Response',
       MULTIPLE_CHOICE: 'Multiple Choice',
-      SELECT_ALL: 'Select All'
+      SELECT_ALL: 'Select All',
+      SECTION_HEADER: 'Section Header'
     };
     return typeMap[type] || type;
   };
@@ -45,8 +46,11 @@ export function FormStatsCards({
 
   // Safely handle deadline date
   const safeDeadline = formData?.deadline ? new Date(formData.deadline) : null;
-  const isValidDate = safeDeadline instanceof Date && !isNaN(safeDeadline.getTime());
-  const formattedDeadline = isValidDate ? format(safeDeadline, 'MMM d, yyyy') : 'No deadline';
+  const isValidDate =
+    safeDeadline instanceof Date && !isNaN(safeDeadline.getTime());
+  const formattedDeadline = isValidDate
+    ? format(safeDeadline, 'MMM d, yyyy')
+    : 'No deadline';
   const formattedTime = isValidDate ? format(safeDeadline, 'h:mm a') : '';
 
   return (
@@ -56,7 +60,10 @@ export function FormStatsCards({
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <FileText className="w-5 h-5 text-purple-600" aria-label="Total Questions Icon" />
+              <FileText
+                className="w-5 h-5 text-purple-600"
+                aria-label="Total Questions Icon"
+              />
               Total Questions
             </CardTitle>
           </CardHeader>
@@ -74,7 +81,10 @@ export function FormStatsCards({
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <Eye className="w-5 h-5 text-blue-600" aria-label="Form Code Icon" />
+              <Eye
+                className="w-5 h-5 text-blue-600"
+                aria-label="Form Code Icon"
+              />
               Form Code
             </CardTitle>
           </CardHeader>
@@ -92,7 +102,10 @@ export function FormStatsCards({
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <Calendar className="w-5 h-5 text-pink-600" aria-label="Deadline Icon" />
+              <Calendar
+                className="w-5 h-5 text-pink-600"
+                aria-label="Deadline Icon"
+              />
               Deadline
             </CardTitle>
           </CardHeader>
@@ -117,7 +130,10 @@ export function FormStatsCards({
       <Card>
         <CardHeader>
           <CardTitle className="text-sm font-medium flex items-center gap-2">
-            <Users className="w-5 h-5 text-pink-600" aria-label="Question Types Icon" />
+            <Users
+              className="w-5 h-5 text-pink-600"
+              aria-label="Question Types Icon"
+            />
             Question Types
           </CardTitle>
         </CardHeader>
@@ -126,18 +142,20 @@ export function FormStatsCards({
             {isPageLoading ? (
               <Skeleton className="h-4 w-32" />
             ) : stats?.typeBreakdown ? (
-              Object.entries(stats?.typeBreakdown || {}).map(([type, count]) => (
-                <div key={type} className="flex justify-between items-center">
-                  <span className="text-sm text-muted-foreground">
-                    {formatQuestionType(type)}
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <Badge variant="secondary" className="text-xs">
-                      {count}
-                    </Badge>
+              Object.entries(stats?.typeBreakdown || {}).map(
+                ([type, count]) => (
+                  <div key={type} className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">
+                      {formatQuestionType(type)}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="secondary" className="text-xs">
+                        {count}
+                      </Badge>
+                    </div>
                   </div>
-                </div>
-              ))
+                )
+              )
             ) : (
               <span className="text-sm text-muted-foreground">
                 No questions

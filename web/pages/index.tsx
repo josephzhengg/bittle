@@ -25,7 +25,6 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
   } = await supabase.auth.getSession();
 
   if (error) {
-    console.error('Error fetching session:', error);
     return {
       redirect: {
         destination: '/login',
