@@ -133,14 +133,11 @@ export default function LoginCard({ supabase, router }: LoginCardProps) {
             )}
           </Button>
           <div className="flex justify-center">
-            <Button
-              name="forgot-password-button"
-              type="button"
-              variant="ghost"
-              className="text-purple-600 hover:text-purple-800 hover:bg-purple-50 p-0 h-auto font-medium text-sm"
-              onClick={() => router.push('/forgot-password')}>
+            <Link
+              href="/forgot-password"
+              className="text-lg font-semibold text-purple-600 hover:text-purple-800 hover:underline transition-colors duration-200">
               Forgot password?
-            </Button>
+            </Link>
           </div>
           <div className="text-center pt-6 border-t border-gray-100">
             <p className="text-gray-600 mb-2">Don&apos;t have an account?</p>
