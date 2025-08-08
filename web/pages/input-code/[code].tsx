@@ -465,11 +465,27 @@ export default function QuestionnairePage() {
               <div
                 key={currentQuestion.id}
                 className="animate-question-slide-in w-full max-h-full overflow-auto">
-                <QuestionnaireCard
-                  question={currentQuestion}
-                  onAnswerChange={handleAnswerChange}
-                  currentAnswer={answers[currentQuestion.id]}
-                />
+                {currentQuestion.type === 'SECTION_HEADER' ? (
+                  <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
+                    <h2 className="text-2xl font-bold text-white mb-4">
+                      {currentQuestion.prompt}
+                    </h2>
+                    {currentQuestion.description && (
+                      <p className="text-blue-100 mb-6">
+                        {currentQuestion.description}
+                      </p>
+                    )}
+                    <p className="text-sm text-blue-200">
+                      Click Next to continue
+                    </p>
+                  </div>
+                ) : (
+                  <QuestionnaireCard
+                    question={currentQuestion}
+                    onAnswerChange={handleAnswerChange}
+                    currentAnswer={answers[currentQuestion.id]}
+                  />
+                )}
               </div>
             )}
           </div>
