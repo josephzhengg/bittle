@@ -53,11 +53,7 @@ export default function ReadOnlyQuestionCard({
     return (
       <Card>
         <CardHeader>
-          <CardTitle>
-            {displayNumber
-              ? `Section ${displayNumber}: ${question.prompt}`
-              : question.prompt}
-          </CardTitle>
+          <CardTitle>{question.prompt}</CardTitle>
           {question.description && (
             <CardDescription
               className="mt-1"
