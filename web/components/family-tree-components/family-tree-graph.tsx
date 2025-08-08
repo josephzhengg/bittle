@@ -121,9 +121,6 @@ const createStyledEdge = (
   const sourceNode = nodes.find((n) => n.id === source);
   const targetNode = nodes.find((n) => n.id === target);
   if (!sourceNode || !targetNode) {
-    console.warn(
-      `Missing node for edge ${edgeId}: source=${source}, target=${target}`
-    );
     return {
       id: edgeId,
       source,
@@ -137,9 +134,6 @@ const createStyledEdge = (
   const sourceX = sourceNode.position?.x ?? 0;
   const targetX = targetNode.position?.x ?? 0;
   if (isNaN(sourceX) || isNaN(targetX)) {
-    console.warn(
-      `Invalid positions for edge ${edgeId}: sourceX=${sourceX}, targetX=${targetX}`
-    );
     return {
       id: edgeId,
       source,
@@ -286,7 +280,6 @@ const CustomNode: React.FC<{ data: NodeData; selected: boolean }> = ({
 
   const truncateText = (text: string, maxLength: number) => {
     if (text.length <= maxLength) return text;
-    console.log(`Truncating text: ${text} to maxLength: ${maxLength}`);
     return text.substring(0, maxLength - 3) + '...';
   };
 

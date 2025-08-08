@@ -361,7 +361,7 @@ export default function QuestionnairePage() {
           <div className="bg-blob-2"></div>
           <div className="bg-blob-3"></div>
         </div>
-        <div className="relative z-10 h-screen flex maladie-center justify-center">
+        <div className="relative z-10 h-screen flex items-center justify-center">
           <div className="text-center animate-bounce-in">
             <div className="mb-8">
               <CheckCircle className="w-24 h-24 text-green-400 mx-auto mb-4" />

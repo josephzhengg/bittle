@@ -24,20 +24,24 @@ import {
   DialogTrigger
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { useSupabase } from '@/lib/supabase';
+import { deleteResponse } from '@/utils/supabase/queries/response';
+import { toast } from 'sonner';
 
 interface ApplicantResponseDisplayProps {
   submissions: ProcessedSubmission[];
   questions: Question[];
   onToggleSubmission?: (submissionId: string) => void;
-  onDeleteSubmission?: (submissionId: string) => void;
+  onSubmissionDeleted?: (submissionId: string) => void;
 }
 
 const ApplicantResponseDisplay = ({
   submissions,
   questions,
   onToggleSubmission,
-  onDeleteSubmission
+  onSubmissionDeleted
 }: ApplicantResponseDisplayProps) => {
+  const supabase = useSupabase();
   const [expandedSubmissions, setExpandedSubmissions] = useState<Set<string>>(
     new Set()
   );
@@ -59,11 +63,40 @@ const ApplicantResponseDisplay = ({
     [onToggleSubmission]
   );
 
+  const handleDeleteSubmission = async (submissionId: string) => {
+    try {
+      console.log('handleDeleteSubmission triggered for:', submissionId);
+      console.log(
+        'Supabase session:',
+        (await supabase.auth.getSession()).data.session
+          ? 'Authenticated'
+          : 'Not authenticated'
+      );
+      await deleteResponse(supabase, submissionId);
+      console.log('Submission deleted successfully:', submissionId);
+      toast.success('Submission deleted successfully');
+      if (onSubmissionDeleted) {
+        console.log('Triggering onSubmissionDeleted for:', submissionId);
+        onSubmissionDeleted(submissionId);
+      }
+    } catch (error) {
+      console.error('Deletion error:', error);
+      toast.error(
+        `Failed to delete submission: ${
+          error instanceof Error ? error.message : 'Unknown error'
+        }`
+      );
+    } finally {
+      setOpenDialog(null);
+    }
+  };
+
   const formatQuestionType = (type: string) => {
     const typeMap: Record<string, string> = {
       FREE_RESPONSE: 'Free Response',
       MULTIPLE_CHOICE: 'Multiple Choice',
-      SELECT_ALL: 'Select All'
+      SELECT_ALL: 'Select All',
+      SECTION_HEADER: 'Section Header'
     };
     return typeMap[type] || type;
   };
@@ -76,7 +109,6 @@ const ApplicantResponseDisplay = ({
     index: number;
   }) => {
     const isExpanded = expandedSubmissions.has(submission.id);
-
     return (
       <Card className="w-full">
         <CardHeader
@@ -84,8 +116,52 @@ const ApplicantResponseDisplay = ({
           onClick={() => toggleSubmission(submission.id)}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-sm font-medium">
-                {index + 1}
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-sm font-medium">
+                  {index + 1}
+                </div>
+                <Dialog
+                  open={openDialog === submission.id}
+                  onOpenChange={(open) =>
+                    setOpenDialog(open ? submission.id : null)
+                  }>
+                  <DialogTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="rounded-full bg-gradient-to-r from-red-500 to-pink-500 text-white hover:from-red-600 hover:to-pink-600 transition-all duration-300 shadow-sm hover:shadow-md p-2"
+                      onClick={() =>
+                        console.log('Delete button clicked for:', submission.id)
+                      }>
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Delete Submission</DialogTitle>
+                      <DialogDescription>
+                        Are you sure you want to delete this submission from{' '}
+                        {format(
+                          new Date(submission.submittedAt),
+                          'MMM d, yyyy'
+                        )}
+                        ? This action cannot be undone.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                      <Button
+                        variant="outline"
+                        onClick={() => setOpenDialog(null)}>
+                        Cancel
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        onClick={() => handleDeleteSubmission(submission.id)}>
+                        Delete
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
               </div>
               <div>
                 <div className="font-medium text-sm">
@@ -96,47 +172,7 @@ const ApplicantResponseDisplay = ({
                 </div>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <Dialog
-                open={openDialog === submission.id}
-                onOpenChange={(open) =>
-                  setOpenDialog(open ? submission.id : null)
-                }>
-                <DialogTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-red-600 hover:text-red-700 hover:bg-red-50">
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Delete Submission</DialogTitle>
-                    <DialogDescription>
-                      Are you sure you want to delete this submission from{' '}
-                      {format(new Date(submission.submittedAt), 'MMM d, yyyy')}?
-                      This action cannot be undone.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <DialogFooter>
-                    <Button
-                      variant="outline"
-                      onClick={() => setOpenDialog(null)}>
-                      Cancel
-                    </Button>
-                    <Button
-                      variant="destructive"
-                      onClick={() => {
-                        if (onDeleteSubmission)
-                          onDeleteSubmission(submission.id);
-                        setOpenDialog(null);
-                      }}>
-                      Delete
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
+            <div className="flex items-center">
               {isExpanded ? (
                 <ChevronDown className="w-4 h-4 text-muted-foreground" />
               ) : (
@@ -161,6 +197,8 @@ const ApplicantResponseDisplay = ({
                             ? 'bg-blue-100 text-blue-800'
                             : question.type === 'SELECT_ALL'
                             ? 'bg-red-100 text-red-800'
+                            : question.type === 'SECTION_HEADER'
+                            ? 'bg-orange-100 text-orange-800'
                             : 'bg-purple-100 text-purple-800'
                         }`}>
                         {formatQuestionType(question.type)}
@@ -211,19 +249,14 @@ const ApplicantResponseDisplay = ({
           <Table className="w-full">
             <TableHeader>
               <TableRow className="bg-muted/80 border-b-2">
-                <TableHead className="w-16 text-center font-semibold py-4">
+                <TableHead className="w-24 text-center font-semibold py-3">
                   #
                 </TableHead>
-                <TableHead className="w-40 font-semibold py-4">
-                  <div className="flex items-center gap-2">
-                    <span className="w-4 h-4" />
-                    Date
-                  </div>
-                </TableHead>
+                <TableHead className="w-40 font-semibold py-3">Date</TableHead>
                 {questions.map((question) => (
                   <TableHead
                     key={question.id}
-                    className="min-w-[200px] font-semibold py-4">
+                    className="min-w-[200px] font-semibold py-3">
                     <div className="space-y-2">
                       <div className="font-medium text-sm leading-tight break-words">
                         {question.prompt}
@@ -234,6 +267,8 @@ const ApplicantResponseDisplay = ({
                             ? 'bg-blue-100 text-blue-800'
                             : question.type === 'SELECT_ALL'
                             ? 'bg-red-100 text-red-800'
+                            : question.type === 'SECTION_HEADER'
+                            ? 'bg-orange-100 text-orange-800'
                             : 'bg-purple-100 text-purple-800'
                         }`}>
                         {formatQuestionType(question.type)}
@@ -241,9 +276,6 @@ const ApplicantResponseDisplay = ({
                     </div>
                   </TableHead>
                 ))}
-                <TableHead className="w-20 text-center font-semibold py-4">
-                  Actions
-                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -251,10 +283,60 @@ const ApplicantResponseDisplay = ({
                 <TableRow
                   key={submission.id}
                   className="hover:bg-muted/20 transition-colors border-b border-border/50 last:border-b-0">
-                  <TableCell className="text-center font-medium text-muted-foreground py-6">
-                    {index + 1}
+                  <TableCell className="text-center font-medium text-muted-foreground py-3">
+                    <div className="flex items-center justify-center gap-3">
+                      <span className="w-6 text-sm">{index + 1}</span>
+                      <Dialog
+                        open={openDialog === submission.id}
+                        onOpenChange={(open) =>
+                          setOpenDialog(open ? submission.id : null)
+                        }>
+                        <DialogTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="rounded-full bg-red-500 text-white hover:bg-red-600 transition-all duration-200 p-1.5"
+                            onClick={() =>
+                              console.log(
+                                'Delete button clicked for:',
+                                submission.id
+                              )
+                            }>
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent>
+                          <DialogHeader>
+                            <DialogTitle>Delete Submission</DialogTitle>
+                            <DialogDescription>
+                              Are you sure you want to delete this submission
+                              from{' '}
+                              {format(
+                                new Date(submission.submittedAt),
+                                'MMM d, yyyy'
+                              )}
+                              ? This action cannot be undone.
+                            </DialogDescription>
+                          </DialogHeader>
+                          <DialogFooter>
+                            <Button
+                              variant="outline"
+                              onClick={() => setOpenDialog(null)}>
+                              Cancel
+                            </Button>
+                            <Button
+                              variant="destructive"
+                              onClick={() =>
+                                handleDeleteSubmission(submission.id)
+                              }>
+                              Delete
+                            </Button>
+                          </DialogFooter>
+                        </DialogContent>
+                      </Dialog>
+                    </div>
                   </TableCell>
-                  <TableCell className="p-6">
+                  <TableCell className="p-3">
                     <div className="space-y-1">
                       <div className="font-medium text-sm">
                         {format(
@@ -268,12 +350,13 @@ const ApplicantResponseDisplay = ({
                     </div>
                   </TableCell>
                   {questions.map((question) => (
-                    <TableCell key={question.id} className="p-6 align-top">
-                      <div className="min-h-[50px] flex items-start">
-                        {submission.responses[question.id] ? (
+                    <TableCell key={question.id} className="p-3 align-top">
+                      <div className="min-h-[40px] flex items-start">
+                        {question.type === 'SECTION_HEADER' ? null : submission
+                            .responses[question.id] ? (
                           <div className="w-full">
                             {question.type === 'FREE_RESPONSE' ? (
-                              <div className="text-sm leading-relaxed break-words whitespace-pre-wrap max-h-32 overflow-y-auto p-3 bg-muted/30 rounded-md">
+                              <div className="text-sm leading-relaxed break-words whitespace-pre-wrap max-h-24 overflow-y-auto p-2 bg-muted/30 rounded-md">
                                 {submission.responses[question.id]}
                               </div>
                             ) : (
@@ -293,65 +376,19 @@ const ApplicantResponseDisplay = ({
                             )}
                           </div>
                         ) : (
-                          <div className="w-full flex items-center justify-center text-muted-foreground text-xs italic py-4 bg-muted/20 rounded-md">
+                          <div className="w-full flex items-center justify-center text-muted-foreground text-xs italic py-3 bg-muted/20 rounded-md">
                             No response
                           </div>
                         )}
                       </div>
                     </TableCell>
                   ))}
-                  <TableCell className="text-center py-6">
-                    <Dialog
-                      open={openDialog === submission.id}
-                      onOpenChange={(open) =>
-                        setOpenDialog(open ? submission.id : null)
-                      }>
-                      <DialogTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50">
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent>
-                        <DialogHeader>
-                          <DialogTitle>Delete Submission</DialogTitle>
-                          <DialogDescription>
-                            Are you sure you want to delete this submission from{' '}
-                            {format(
-                              new Date(submission.submittedAt),
-                              'MMM d, yyyy'
-                            )}
-                            ? This action cannot be undone.
-                          </DialogDescription>
-                        </DialogHeader>
-                        <DialogFooter>
-                          <Button
-                            variant="outline"
-                            onClick={() => setOpenDialog(null)}>
-                            Cancel
-                          </Button>
-                          <Button
-                            variant="destructive"
-                            onClick={() => {
-                              if (onDeleteSubmission)
-                                onDeleteSubmission(submission.id);
-                              setOpenDialog(null);
-                            }}>
-                            Delete
-                          </Button>
-                        </DialogFooter>
-                      </DialogContent>
-                    </Dialog>
-                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
         </div>
       </div>
-
       {/* Mobile Card View */}
       <div className="lg:hidden space-y-4">
         {submissions.map((submission, index) => (

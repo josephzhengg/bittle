@@ -19,7 +19,6 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { createSupabaseServerClient } from '@/utils/supabase/clients/server-props';
-import { deleteResponse } from '@/utils/supabase/queries/response';
 import {
   getFormTitle,
   getFormIdByCode,
@@ -61,16 +60,15 @@ export default function FormPage({
   formTitle,
   formCode,
   questions,
+  allOptions,
   initialSubmissions,
   deadline
 }: CurrentFormsPageProps) {
   const router = useRouter();
   const supabase = useSupabase();
-
-  // State for client-side filtering and interactions
   const [searchTerm, setSearchTerm] = useState('');
   const [submissions, setSubmissions] =
-    useState<ProcessedSubmission[]>(initialSubmissions);
+    useState<ProcessedSubmission[]>(initialSubmissions); // Added setSubmissions
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Sort questions by index for consistent column ordering
@@ -84,7 +82,6 @@ export default function FormPage({
       (a, b) =>
         new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime()
     );
-
     if (searchTerm) {
       filtered = filtered.filter((submission) => {
         const searchLower = searchTerm.toLowerCase();
@@ -98,7 +95,6 @@ export default function FormPage({
         );
       });
     }
-
     return filtered;
   }, [submissions, searchTerm]);
 
@@ -113,7 +109,6 @@ export default function FormPage({
             )
           )
         : null;
-
     return { total, latest };
   }, [submissions]);
 
@@ -122,38 +117,65 @@ export default function FormPage({
     setSearchTerm(value);
   }, []);
 
-  // Refresh data
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
     try {
-      router.replace(router.asPath);
-    } catch (error) {
-      console.error('Error refreshing data:', error);
+      const formId = await getFormIdByCode(supabase, formCode);
+      if (!formId) throw new Error('Form not found');
+      const newSubmissions = await getFormSubmissions(supabase, formId);
+      const processedSubmissions: ProcessedSubmission[] = [];
+      for (const submission of newSubmissions) {
+        const questionResponses = await getQuestionResponse(
+          supabase,
+          submission.id
+        );
+        const optionSelections = await getResponseOptionSelection(
+          supabase,
+          submission.id
+        );
+        const responses: Record<string, string> = {};
+        for (const response of questionResponses) {
+          const question = questions.find((q) => q.id === response.question_id);
+          if (!question) continue;
+          if (question.type === 'FREE_RESPONSE') {
+            responses[question.id] = response.free_text || '';
+          } else if (
+            question.type === 'MULTIPLE_CHOICE' ||
+            question.type === 'SELECT_ALL'
+          ) {
+            const selectedOptions = optionSelections
+              .filter((selection) => selection.response_id === response.id)
+              .map((selection) => {
+                const option = allOptions[response.question_id]?.find(
+                  (opt) => opt.id === selection.option_id
+                );
+                return option?.label || 'Unknown option';
+              });
+            responses[question.id] =
+              selectedOptions.length > 0 ? selectedOptions.join(', ') : '';
+          }
+        }
+        processedSubmissions.push({
+          id: submission.id,
+          submittedAt:
+            typeof submission.created_at === 'string'
+              ? submission.created_at
+              : submission.created_at.toISOString(),
+          responses
+        });
+      }
+      setSubmissions(processedSubmissions);
+      toast.success('Data refreshed successfully');
+    } catch {
       toast.error('Failed to refresh data');
     } finally {
       setIsRefreshing(false);
     }
-  }, [router]);
-
-  // Delete submission
-  const handleDeleteSubmission = useCallback(
-    async (submissionId: string) => {
-      try {
-        await deleteResponse(supabase, submissionId);
-        setSubmissions((prev) => prev.filter((sub) => sub.id !== submissionId));
-        toast.success('Submission deleted successfully');
-      } catch (error) {
-        console.error('Error deleting submission:', error);
-        toast.error('Failed to delete submission');
-      }
-    },
-    [supabase]
-  );
+  }, [supabase, formCode, questions, allOptions]);
 
   // Export functionality
   const handleExport = useCallback(() => {
     if (!filteredSubmissions || !sortedQuestions) return;
-
     const headers = [
       'Submission Date',
       ...sortedQuestions.map((q) => q.prompt)
@@ -170,7 +192,6 @@ export default function FormPage({
         ].join(',')
       )
     ].join('\n');
-
     const blob = new Blob([csvContent], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -206,7 +227,6 @@ export default function FormPage({
               View and manage form responses
             </p>
           </div>
-
           <div className="flex flex-col sm:flex-row gap-2 sm:gap-2">
             <Button
               variant="outline"
@@ -236,14 +256,12 @@ export default function FormPage({
             </Button>
           </div>
         </div>
-
         {/* Navigation Tabs */}
         <FormNavigationTabs
           formCode={typeof formCode === 'string' ? formCode : ''}
           currentTab="applicants"
           basePath="current"
         />
-
         {/* Statistics */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <Card>
@@ -257,7 +275,6 @@ export default function FormPage({
               <div className="text-2xl font-bold">{stats?.total || 0}</div>
             </CardContent>
           </Card>
-
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
@@ -269,7 +286,6 @@ export default function FormPage({
               <div className="text-2xl font-bold">{sortedQuestions.length}</div>
             </CardContent>
           </Card>
-
           <Card className="sm:col-span-1 col-span-1">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
@@ -291,7 +307,6 @@ export default function FormPage({
             </CardContent>
           </Card>
         </div>
-
         {/* Search */}
         <Card>
           <CardContent className="pt-6">
@@ -312,7 +327,6 @@ export default function FormPage({
             </div>
           </CardContent>
         </Card>
-
         {/* Responses Table/Cards */}
         <Card>
           <CardHeader>
@@ -329,7 +343,11 @@ export default function FormPage({
               <ApplicantResponseDisplay
                 submissions={filteredSubmissions}
                 questions={sortedQuestions}
-                onDeleteSubmission={handleDeleteSubmission}
+                onSubmissionDeleted={(submissionId) => {
+                  setSubmissions((prev) =>
+                    prev.filter((sub) => sub.id !== submissionId)
+                  );
+                }}
               />
             ) : (
               <div className="text-center py-16">
@@ -387,7 +405,6 @@ export default function FormPage({
 export async function getServerSideProps(context: GetServerSidePropsContext) {
   const supabase = createSupabaseServerClient(context);
   const { data: userData, error } = await supabase.auth.getUser();
-
   if (!userData || error) {
     return {
       redirect: {
@@ -396,36 +413,29 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
       }
     };
   }
-
   const { 'form-code': formCode } = context.query;
-
   if (!formCode || typeof formCode !== 'string') {
     return {
       notFound: true
     };
   }
-
   try {
     const [formTitle, formId, deadline] = await Promise.all([
       getFormTitle(supabase, formCode),
       getFormIdByCode(supabase, formCode),
       getFormDeadline(supabase, formCode)
     ]);
-
     const processedDeadline =
       deadline instanceof Date ? deadline.toISOString() : deadline;
-
     if (!formId) {
       return {
         notFound: true
       };
     }
-
     const [questions, submissions] = await Promise.all([
       getQuestions(supabase, formId),
       getFormSubmissions(supabase, formId)
     ]);
-
     const allOptions: Record<string, QuestionOption[]> = {};
     for (const question of questions) {
       if (
@@ -436,7 +446,6 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
         allOptions[question.id] = options;
       }
     }
-
     const processedSubmissions: ProcessedSubmission[] = [];
     for (const submission of submissions) {
       const questionResponses = await getQuestionResponse(
@@ -447,13 +456,10 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
         supabase,
         submission.id
       );
-
       const responses: Record<string, string> = {};
-
       for (const response of questionResponses) {
         const question = questions.find((q) => q.id === response.question_id);
         if (!question) continue;
-
         if (question.type === 'FREE_RESPONSE') {
           responses[question.id] = response.free_text || '';
         } else if (
@@ -468,12 +474,10 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
               );
               return option?.label || 'Unknown option';
             });
-
           responses[question.id] =
             selectedOptions.length > 0 ? selectedOptions.join(', ') : '';
         }
       }
-
       processedSubmissions.push({
         id: submission.id,
         submittedAt:
@@ -483,7 +487,6 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
         responses
       });
     }
-
     return {
       props: {
         user: userData.user,
@@ -496,8 +499,7 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
         deadline: processedDeadline
       }
     };
-  } catch (error) {
-    console.error('Error fetching server-side data:', error);
+  } catch {
     return {
       notFound: true
     };
