@@ -31,7 +31,7 @@ import { FormStatsCards } from '@/components/dashboard-components/form-stats-car
 import FormNavigationTabs from '@/components/dashboard-components/form-navigation-tabs';
 import FormStatusBadge from '@/components/dashboard-components/form-status-badge';
 
-export type CurrentFormsPageProps = {
+export type PastFormsPageProps = {
   user: User;
   initialFormData: {
     id: string;
@@ -49,7 +49,7 @@ export default function FormPage({
   user,
   initialFormData,
   error
-}: CurrentFormsPageProps) {
+}: PastFormsPageProps) {
   const router = useRouter();
   const supabase = useSupabase();
   const { 'form-code': formCode } = router.query;
@@ -250,7 +250,11 @@ export default function FormPage({
 
             <Button
               onClick={() => {
-                router.push(`/dashboard/current/form/${formCode}/edit`);
+                router.push(
+                  `/dashboard/past/${
+                    typeof formCode === 'string' ? formCode.toUpperCase() : ''
+                  }/form/edit`
+                );
               }}
               className="w-full sm:w-auto sm:min-w-[120px]">
               <Edit className="w-4 h-4 mr-2" />
@@ -263,7 +267,7 @@ export default function FormPage({
         <FormNavigationTabs
           formCode={typeof formCode === 'string' ? formCode : ''}
           currentTab="forms"
-          basePath="current"
+          basePath="past"
         />
 
         {/* Statistics Cards */}

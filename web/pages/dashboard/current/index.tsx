@@ -5,6 +5,8 @@ import { useSupabase } from '@/lib/supabase';
 import type { User } from '@supabase/supabase-js';
 import { GetServerSidePropsContext } from 'next';
 import { getForms } from '@/utils/supabase/queries/form';
+import FormCardSkeleton from '@/components/dashboard-components/form-card-skeleton';
+import { createSupabaseServerClient } from '@/utils/supabase/clients/server-props';
 
 const DashBoardLayout = dynamic(
   () => import('@/components/layouts/dashboard-layout'),
@@ -19,24 +21,18 @@ const FileText = dynamic(
   { ssr: false }
 );
 
-type Form = Awaited<ReturnType<typeof getForms>>[0];
-
 export type CurrentFormsPageProps = {
   user: User;
-  initialFormsData: Form[];
 };
 
-export default function CurrentFormsPage({
-  user,
-  initialFormsData
-}: CurrentFormsPageProps) {
+export default function CurrentFormsPage({ user }: CurrentFormsPageProps) {
   const supabase = useSupabase();
-  const { data: formsData = initialFormsData } = useQuery({
-    queryKey: ['form'],
+  const { data: formsData, isLoading } = useQuery({
+    queryKey: ['form', user.id],
     queryFn: () => getForms(supabase, user.id),
-    initialData: initialFormsData,
     staleTime: 60 * 1000,
-    refetchOnWindowFocus: false
+    refetchOnWindowFocus: false,
+    retry: 1
   });
 
   const activeFormsData = useMemo(() => {
@@ -56,7 +52,6 @@ export default function CurrentFormsPage({
   return (
     <DashBoardLayout user={user}>
       <div className="space-y-6">
-        {/* Header Section */}
         <div>
           <h1 className="text-3xl font-bold text-slate-800 mb-2">
             Your Current Forms
@@ -65,9 +60,13 @@ export default function CurrentFormsPage({
             Manage and view all your active forms in one place
           </p>
         </div>
-
-        {/* Forms Grid - Renders instantly with server data */}
-        {activeFormsData && activeFormsData.length > 0 ? (
+        {isLoading || !formsData ? (
+          <div className="space-y-4">
+            {[...Array(3)].map((_, i) => (
+              <FormCardSkeleton key={i} />
+            ))}
+          </div>
+        ) : activeFormsData && activeFormsData.length > 0 ? (
           <div className="space-y-4">
             {activeFormsData.map((form) => (
               <FormCard key={form.id} form={form} />
@@ -86,8 +85,6 @@ export default function CurrentFormsPage({
             </p>
           </div>
         )}
-
-        {/* Statistics Section */}
         {formsData && formsData.length > 0 && (
           <div className="mt-8 p-6 bg-white/60 backdrop-blur-sm rounded-xl border border-slate-200">
             <h2 className="text-lg font-semibold text-slate-800 mb-4">
@@ -121,13 +118,13 @@ export default function CurrentFormsPage({
 }
 
 export async function getServerSideProps(context: GetServerSidePropsContext) {
-  const { createSupabaseServerClient } = await import(
-    '@/utils/supabase/clients/server-props'
-  );
   const supabase = createSupabaseServerClient(context);
-  const { data: userData, error } = await supabase.auth.getUser();
+  const {
+    data: { user },
+    error
+  } = await supabase.auth.getUser();
 
-  if (error || !userData?.user) {
+  if (error || !user) {
     return {
       redirect: {
         destination: '/login',
@@ -136,17 +133,9 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
     };
   }
 
-  let initialFormsData: Form[] = [];
-  try {
-    initialFormsData = await getForms(supabase, userData.user.id);
-  } catch {
-    initialFormsData = [];
-  }
-
   return {
     props: {
-      user: userData.user,
-      initialFormsData: initialFormsData || []
+      user
     }
   };
 }

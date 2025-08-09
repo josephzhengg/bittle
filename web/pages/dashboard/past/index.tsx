@@ -1,8 +1,12 @@
 import { useMemo } from 'react';
 import dynamic from 'next/dynamic';
+import { useQuery } from '@tanstack/react-query';
+import { useSupabase } from '@/lib/supabase';
 import type { User } from '@supabase/supabase-js';
 import { GetServerSidePropsContext } from 'next';
 import { getForms } from '@/utils/supabase/queries/form';
+import FormCardSkeleton from '@/components/dashboard-components/form-card-skeleton';
+import { createSupabaseServerClient } from '@/utils/supabase/clients/server-props';
 
 const DashBoardLayout = dynamic(
   () => import('@/components/layouts/dashboard-layout'),
@@ -17,14 +21,20 @@ const FileText = dynamic(
   { ssr: false }
 );
 
-type Form = Awaited<ReturnType<typeof getForms>>[0];
-
 export type PastFormsPageProps = {
   user: User;
-  formsData: Form[];
 };
 
-export default function PastFormsPage({ user, formsData }: PastFormsPageProps) {
+export default function PastFormsPage({ user }: PastFormsPageProps) {
+  const supabase = useSupabase();
+  const { data: formsData, isLoading } = useQuery({
+    queryKey: ['form', user.id],
+    queryFn: () => getForms(supabase, user.id),
+    staleTime: 60 * 1000,
+    refetchOnWindowFocus: false,
+    retry: 1
+  });
+
   const pastFormsData = useMemo(() => {
     return formsData
       ?.filter((form) => form.deadline && new Date(form.deadline) < new Date())
@@ -42,7 +52,6 @@ export default function PastFormsPage({ user, formsData }: PastFormsPageProps) {
   return (
     <DashBoardLayout user={user}>
       <div className="space-y-6">
-        {/* Header Section */}
         <div>
           <h1 className="text-3xl font-bold text-slate-800 mb-2">
             Your Past Forms
@@ -51,9 +60,13 @@ export default function PastFormsPage({ user, formsData }: PastFormsPageProps) {
             Review and manage all your expired forms
           </p>
         </div>
-
-        {/* Forms Grid */}
-        {pastFormsData && pastFormsData.length > 0 ? (
+        {isLoading || !formsData ? (
+          <div className="space-y-4">
+            {[...Array(3)].map((_, i) => (
+              <FormCardSkeleton key={i} />
+            ))}
+          </div>
+        ) : pastFormsData && pastFormsData.length > 0 ? (
           <div className="space-y-4">
             {pastFormsData.map((form) => (
               <FormCard key={form.id} form={form} />
@@ -72,8 +85,6 @@ export default function PastFormsPage({ user, formsData }: PastFormsPageProps) {
             </p>
           </div>
         )}
-
-        {/* Statistics Section */}
         {formsData && formsData.length > 0 && (
           <div className="mt-8 p-6 bg-white/60 backdrop-blur-sm rounded-xl border border-slate-200">
             <h2 className="text-lg font-semibold text-slate-800 mb-4">
@@ -107,13 +118,13 @@ export default function PastFormsPage({ user, formsData }: PastFormsPageProps) {
 }
 
 export async function getServerSideProps(context: GetServerSidePropsContext) {
-  const { createSupabaseServerClient } = await import(
-    '@/utils/supabase/clients/server-props'
-  );
   const supabase = createSupabaseServerClient(context);
-  const { data: userData, error } = await supabase.auth.getUser();
+  const {
+    data: { user },
+    error
+  } = await supabase.auth.getUser();
 
-  if (error || !userData?.user) {
+  if (error || !user) {
     return {
       redirect: {
         destination: '/login',
@@ -122,17 +133,9 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
     };
   }
 
-  let formsData: Form[] = [];
-  try {
-    formsData = await getForms(supabase, userData.user.id);
-  } catch {
-    formsData = [];
-  }
-
   return {
     props: {
-      user: userData.user,
-      formsData: formsData || []
+      user
     }
   };
 }

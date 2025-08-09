@@ -25,6 +25,7 @@ import {
   updateFamilyTree
 } from '@/utils/supabase/queries/family-tree';
 import { Textarea } from '@/components/ui/textarea';
+import FamilyTreeCardSkeleton from './family-tree-card-skeleton';
 
 export type FamilyTreeCardProps = {
   familyTree: FamilyTree;
@@ -128,29 +129,9 @@ export default function FamilyTreeCard({
     return 'bg-gradient-to-r from-purple-400 to-pink-400';
   };
 
+  // Return skeleton while loading
   if (isLoading) {
-    return (
-      <div className="w-full my-2 sm:my-3">
-        <Card className="relative bg-white/80 border border-slate-200 rounded-xl overflow-hidden w-full">
-          <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center p-4 sm:p-6 gap-4 sm:gap-6">
-            <div className="flex-1 min-w-0">
-              <div className="w-16 sm:w-20 h-1 rounded-full mb-2 sm:mb-3 bg-gray-200 animate-pulse"></div>
-              <div className="h-5 sm:h-6 w-3/4 bg-gray-200 rounded mb-2 animate-pulse"></div>
-              <div className="space-y-2 mb-3 sm:mb-4">
-                <div className="h-4 w-full bg-gray-200 rounded animate-pulse"></div>
-              </div>
-              <div className="flex flex-wrap gap-3 sm:gap-4">
-                <div className="h-3 w-20 sm:w-24 bg-gray-200 rounded animate-pulse"></div>
-              </div>
-            </div>
-            <div className="flex flex-row sm:flex-col gap-2">
-              <div className="h-9 w-9 sm:h-10 sm:w-10 bg-gray-200 rounded-lg animate-pulse"></div>
-              <div className="h-9 w-9 sm:h-10 sm:w-10 bg-gray-200 rounded-lg animate-pulse"></div>
-            </div>
-          </div>
-        </Card>
-      </div>
-    );
+    return <FamilyTreeCardSkeleton />;
   }
 
   return (

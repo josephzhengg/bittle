@@ -248,7 +248,9 @@ export default function FormPage({
             </Button>
             <Button
               onClick={() =>
-                router.push(`/dashboard/current/form/${formCode}/edit`)
+                router.push(
+                  `/dashboard/current/${formCode.toUpperCase()}/form/edit`
+                )
               }
               className="w-full sm:w-auto sm:min-w-[120px]">
               <Edit className="w-4 h-4 mr-2" />

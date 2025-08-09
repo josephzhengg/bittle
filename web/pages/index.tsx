@@ -6,10 +6,10 @@ export default function Home() {
   return (
     <>
       <Head>
-        <title>Home - My App</title>
+        <title>Bittle</title>
         <meta
           name="description"
-          content="Welcome to My App, your starting point for managing forms and data."
+          content="Welcome to Bittle, your companion for creating families in your organization."
         />
       </Head>
       {null}
@@ -18,13 +18,23 @@ export default function Home() {
 }
 
 export async function getServerSideProps(context: GetServerSidePropsContext) {
+  const accessToken = context.req.cookies['sb-access-token'];
+  if (!accessToken) {
+    return {
+      redirect: {
+        destination: '/login',
+        permanent: false
+      }
+    };
+  }
+
   const supabase = createSupabaseServerClient(context);
   const {
     data: { session },
     error
   } = await supabase.auth.getSession();
 
-  if (error) {
+  if (error || !session?.user) {
     return {
       redirect: {
         destination: '/login',
@@ -35,7 +45,7 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
 
   return {
     redirect: {
-      destination: session?.user ? '/dashboard/current' : '/login',
+      destination: '/dashboard/current',
       permanent: false
     }
   };

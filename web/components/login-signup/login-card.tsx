@@ -45,7 +45,7 @@ export default function LoginCard({ supabase, router }: LoginCardProps) {
       );
     } else {
       toast.success('Logged in successfully!');
-      router.push('/');
+      router.push('/dashboard/current');
     }
   };
 

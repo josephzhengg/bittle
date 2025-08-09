@@ -138,9 +138,9 @@ export default function FormCard({ form }: FormCardProps) {
   const handleCardClick = () => {
     if (!isEditModalOpen && !isDeleteModalOpen && !preventNavigation) {
       if (isFormActive()) {
-        router.push(`/dashboard/current/form/${form.code}`);
+        router.push(`/dashboard/current/${form.code}/form`);
       } else {
-        router.push(`/dashboard/past/form/${form.code}`);
+        router.push(`/dashboard/past/${form.code}/form`);
       }
     }
   };
