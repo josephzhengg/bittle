@@ -284,7 +284,8 @@ const SubmissionDetailsOverlay: React.FC<SubmissionDetailsOverlayProps> = ({
                   No Responses Found
                 </h3>
                 <p className="text-xs text-gray-600 text-center">
-                  This submission doesn&apos;t contain any responses yet.
+                  This submission doesn&apos;t contain any responses yet or have
+                  been deleted.
                 </p>
               </div>
             )}

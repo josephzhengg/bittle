@@ -1,5 +1,6 @@
+import { useState, useMemo, useEffect } from 'react';
+import dynamic from 'next/dynamic';
 import { Button } from '@/components/ui/button';
-import DashBoardLayout from '@/components/layouts/dashboard-layout';
 import {
   getFamilyTrees,
   createFamilyTree
@@ -10,11 +11,9 @@ import { useQuery } from '@tanstack/react-query';
 import { useSupabase } from '@/lib/supabase';
 import { Form } from '@/utils/supabase/models/form';
 import { Question } from '@/utils/supabase/models/question';
-import { useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { useRouter } from 'next/router';
 import { toast } from 'sonner';
-import FamilyTreeCard from '@/components/family-tree-components/family-tree-card';
 import FamilyTreeCardSkeleton from '@/components/family-tree-components/family-tree-card-skeleton';
 import {
   Dialog,
@@ -42,6 +41,19 @@ import { Textarea } from '@/components/ui/textarea';
 import { GetServerSidePropsContext } from 'next';
 import { createSupabaseServerClient } from '@/utils/supabase/clients/server-props';
 import type { User } from '@supabase/supabase-js';
+import { Label } from '@/components/ui/label';
+
+const DashBoardLayout = dynamic(
+  () => import('@/components/layouts/dashboard-layout'),
+  { ssr: true }
+);
+const FamilyTreeCard = dynamic(
+  () => import('@/components/family-tree-components/family-tree-card'),
+  {
+    ssr: false,
+    loading: () => <FamilyTreeCardSkeleton />
+  }
+);
 
 export type FamilyTreesPageProps = {
   user: User;
@@ -62,37 +74,42 @@ export default function FamilyTreesPage({ user }: FamilyTreesPageProps) {
   const [formPopoverOpen, setFormPopoverOpen] = useState(false);
   const [questionPopoverOpen, setQuestionPopoverOpen] = useState(false);
 
-  const handleFormSelect = (form: Form) => {
+  useEffect(() => {
+    router.prefetch('/dashboard/family-tree/[code]');
+  }, [router]);
+
+  const handleFormSelect = (form: Form): void => {
     setSelectedForm(form);
     setSelectedQuestion(null);
     setFormPopoverOpen(false);
   };
 
-  const handleQuestionSelect = (question: Question) => {
+  const handleQuestionSelect = (question: Question): void => {
     setSelectedQuestion(question);
     setQuestionPopoverOpen(false);
   };
 
   const familyTrees = useQuery({
-    queryKey: ['family-trees', user?.id],
+    queryKey: ['family-trees', user.id],
     queryFn: async () => {
-      if (!user) return [];
       return await getFamilyTrees(supabase, user.id);
     },
-    enabled: !!user,
-    staleTime: 30 * 1000,
-    refetchOnWindowFocus: true
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    retry: 2,
+    retryDelay: 1000
   });
 
   const forms = useQuery({
-    queryKey: ['forms', user?.id],
+    queryKey: ['forms', user.id],
     queryFn: async () => {
-      if (!user) return [];
       return await getForms(supabase, user.id);
     },
-    enabled: !!user,
-    staleTime: 30 * 1000,
-    refetchOnWindowFocus: true
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    retry: 2
   });
 
   const questions = useQuery({
@@ -103,18 +120,23 @@ export default function FamilyTreesPage({ user }: FamilyTreesPageProps) {
       }
       return [];
     },
-    enabled: !!selectedForm
+    enabled: !!selectedForm,
+    staleTime: 2 * 60 * 1000,
+    gcTime: 5 * 60 * 1000
   });
 
-  const formsMap =
-    forms.data?.reduce((acc: Record<string, Form>, form: Form) => {
-      acc[form.id] = form;
-      return acc;
-    }, {} as Record<string, Form>) || {};
+  const formsMap = useMemo((): Record<string, Form> => {
+    return (
+      forms.data?.reduce((acc: Record<string, Form>, form: Form) => {
+        acc[form.id] = form;
+        return acc;
+      }, {} as Record<string, Form>) || {}
+    );
+  }, [forms.data]);
 
   const questionsMap = useQuery({
-    queryKey: ['all-questions', user?.id],
-    queryFn: async () => {
+    queryKey: ['all-questions', user.id],
+    queryFn: async (): Promise<Record<string, Question>> => {
       if (!forms.data) return {};
       const questionsMap: Record<string, Question> = {};
       for (const form of forms.data) {
@@ -125,14 +147,17 @@ export default function FamilyTreesPage({ user }: FamilyTreesPageProps) {
       }
       return questionsMap;
     },
-    enabled: !!forms.data
+    enabled: !!forms.data,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000
   });
 
-  const handleCreateFamilyTree = async () => {
+  const handleCreateFamilyTree = async (): Promise<void> => {
     if (!familyTitle || !selectedForm || !selectedQuestion || !user) {
       toast.error('Please enter a title and select a form and question');
       return;
     }
+
     try {
       const familyTree = await createFamilyTree(supabase, {
         form_id: selectedForm.id,
@@ -142,14 +167,15 @@ export default function FamilyTreesPage({ user }: FamilyTreesPageProps) {
         description: familyDesc,
         author_id: user.id
       });
+
       setCreateModalOpen(false);
       setFamilyTitle('');
       setFamilyDesc('');
       setSelectedForm(null);
       setSelectedQuestion(null);
       toast('Family tree created successfully!');
-      familyTrees.refetch();
-      router.push(`/dashboard/family-tree/${familyTree.code}`);
+      await familyTrees.refetch();
+      await router.push(`/dashboard/family-tree/${familyTree.code}`);
     } catch {
       toast(
         'Duplicate family tree found, please use the existing tree, or delete it before proceeding!'
@@ -157,18 +183,24 @@ export default function FamilyTreesPage({ user }: FamilyTreesPageProps) {
     }
   };
 
-  const filteredAndSortedTrees =
-    familyTrees.data?.filter(
-      (tree) =>
-        tree.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        tree.code.toLowerCase().includes(searchTerm.toLowerCase())
-    ) || [];
+  const filteredAndSortedTrees = useMemo(() => {
+    return (
+      familyTrees.data?.filter(
+        (tree) =>
+          tree.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          tree.code.toLowerCase().includes(searchTerm.toLowerCase())
+      ) || []
+    );
+  }, [familyTrees.data, searchTerm]);
 
-  const availableForms =
-    forms.data?.filter(
-      (form: Form) =>
-        !familyTrees.data?.some((tree) => tree.form_id === form.id)
-    ) || [];
+  const availableForms = useMemo(() => {
+    return (
+      forms.data?.filter(
+        (form: Form) =>
+          !familyTrees.data?.some((tree) => tree.form_id === form.id)
+      ) || []
+    );
+  }, [forms.data, familyTrees.data]);
 
   return (
     <DashBoardLayout user={user}>
@@ -202,174 +234,121 @@ export default function FamilyTreesPage({ user }: FamilyTreesPageProps) {
                   Create New Tree
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-2xl bg-gradient-to-br from-slate-900/95 to-purple-900/95 backdrop-blur-xl border border-white/20 text-white">
+              <DialogContent className="max-w-2xl bg-white/95 backdrop-blur-xl border-0 shadow-2xl text-gray-900 rounded-2xl">
                 <DialogHeader>
-                  <DialogTitle className="text-3xl font-black bg-gradient-to-r from-pink-400 to-purple-400 bg-clip-text text-transparent">
+                  <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
                     Create New Family Tree
                   </DialogTitle>
                 </DialogHeader>
                 <div className="space-y-6 py-4">
-                  <Input
-                    placeholder="Enter Family Tree Title"
-                    value={familyTitle}
-                    onChange={(e) => setFamilyTitle(e.target.value)}
-                    className="bg-white/10 backdrop-blur-lg border border-white/20 text-white placeholder:text-white/50 focus:border-pink-500/50 focus:ring-pink-500/20"
-                  />
-                  <Textarea
-                    placeholder="Enter Family Tree Description (optional)"
-                    value={familyDesc}
-                    onChange={(e) => setFamilyDesc(e.target.value)}
-                    className="bg-white/10 backdrop-blur-lg border border-white/20 text-white placeholder:text-white/50 focus:border-pink-500/50 focus:ring-pink-500/20"
-                  />
-                  <Popover
-                    open={formPopoverOpen}
-                    onOpenChange={setFormPopoverOpen}
-                    modal={true}>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        role="combobox"
-                        aria-expanded={formPopoverOpen}
-                        className="w-full justify-between text-left h-auto py-4 px-4 bg-white/10 backdrop-blur-lg border border-white/20 text-white hover:bg-white/20">
-                        <div className="flex items-center gap-2">
-                          <span className="truncate">
-                            {selectedForm ? selectedForm.title : 'Select Form'}
-                          </span>
-                        </div>
-                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-full p-0 bg-slate-900/95 backdrop-blur-lg border border-white/20">
-                      <Command className="bg-transparent">
-                        <CommandInput
-                          placeholder="Search forms..."
-                          className="text-white placeholder:text-white/60 border-b border-white/20"
-                        />
-                        <CommandEmpty className="text-white/80 py-6 text-center">
-                          No forms found.
-                        </CommandEmpty>
-                        <CommandGroup>
-                          <CommandList className="max-h-64 overflow-y-auto">
-                            <div
-                              className="overscroll-contain"
-                              style={{
-                                scrollbarWidth: 'thin',
-                                scrollbarColor:
-                                  'rgba(255,255,255,0.2) transparent'
-                              }}
-                              tabIndex={0}
-                              onFocus={(e) => e.currentTarget.focus()}>
-                              {forms.isLoading && (
-                                <div className="p-4 text-center text-white/70">
-                                  Loading forms...
-                                </div>
-                              )}
-                              {forms.error && (
-                                <div className="p-4 text-center text-red-400">
-                                  Error loading forms
-                                </div>
-                              )}
-                              {availableForms.map((form) => (
-                                <CommandItem
-                                  key={form.id}
-                                  onSelect={() => handleFormSelect(form)}
-                                  className={`text-lg py-4 px-4 rounded-lg cursor-pointer transition-all duration-200 ${
-                                    selectedForm?.id === form.id
-                                      ? 'bg-gradient-to-r from-purple-500/30 to-pink-500/30 text-white border border-purple-400/40 shadow-md'
-                                      : 'text-white/90 hover:bg-purple-500/15 hover:text-white'
-                                  }`}>
-                                  <div className="flex items-center justify-between w-full">
-                                    <div>
-                                      <span className="font-semibold">
-                                        {form.title}
-                                      </span>
-                                      <p className="text-sm text-white/70">
-                                        {form.code}
-                                      </p>
-                                    </div>
-                                    {selectedForm?.id === form.id && (
-                                      <Check className="h-4 w-4 text-purple-300" />
-                                    )}
-                                  </div>
-                                </CommandItem>
-                              ))}
-                            </div>
-                          </CommandList>
-                        </CommandGroup>
-                      </Command>
-                    </PopoverContent>
-                  </Popover>
-                  {selectedForm && (
+                  <div>
+                    <Label
+                      htmlFor="familyTitle"
+                      className="text-gray-700 font-medium text-sm">
+                      Family Tree Title *
+                    </Label>
+                    <Input
+                      id="familyTitle"
+                      placeholder="Enter family tree title"
+                      value={familyTitle}
+                      onChange={(e) => setFamilyTitle(e.target.value)}
+                      className="mt-1 bg-gray-50 border-gray-200 text-gray-900 placeholder:text-gray-400 focus:border-purple-400 focus:ring-purple-400/20 rounded-lg"
+                    />
+                  </div>
+
+                  <div>
+                    <Label
+                      htmlFor="familyDesc"
+                      className="text-gray-700 font-medium text-sm">
+                      Description{' '}
+                      <span className="text-gray-500 font-normal">
+                        (Optional)
+                      </span>
+                    </Label>
+                    <Textarea
+                      id="familyDesc"
+                      placeholder="Brief description of your family tree"
+                      value={familyDesc}
+                      onChange={(e) => setFamilyDesc(e.target.value)}
+                      className="mt-1 bg-gray-50 border-gray-200 text-gray-900 placeholder:text-gray-400 focus:border-purple-400 focus:ring-purple-400/20 rounded-lg resize-none"
+                      rows={3}
+                    />
+                  </div>
+
+                  <div>
+                    <Label className="text-gray-700 font-medium text-sm">
+                      Select Form *
+                    </Label>
                     <Popover
-                      open={questionPopoverOpen}
-                      onOpenChange={setQuestionPopoverOpen}
+                      open={formPopoverOpen}
+                      onOpenChange={setFormPopoverOpen}
                       modal={true}>
                       <PopoverTrigger asChild>
                         <Button
                           variant="outline"
                           role="combobox"
-                          aria-expanded={questionPopoverOpen}
-                          className="w-full justify-between text-left h-auto py-4 px-4 bg-white/10 backdrop-blur-lg border border-white/20 text-white hover:bg-white/20">
+                          aria-expanded={formPopoverOpen}
+                          className="w-full justify-between text-left h-auto py-4 px-4 bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100 rounded-lg mt-1">
                           <div className="flex items-center gap-2">
                             <span className="truncate">
-                              {selectedQuestion
-                                ? selectedQuestion.prompt
-                                : 'Select Question'}
+                              {selectedForm
+                                ? selectedForm.title
+                                : 'Select a form'}
                             </span>
                           </div>
                           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                         </Button>
                       </PopoverTrigger>
-                      <PopoverContent className="w-full p-0 bg-slate-900/95 backdrop-blur-lg border border-white/20">
+                      <PopoverContent className="w-full p-0 bg-white border-gray-200 shadow-xl rounded-xl">
                         <Command className="bg-transparent">
                           <CommandInput
-                            placeholder="Search questions..."
-                            className="text-white placeholder:text-white/60 border-b border-white/20"
+                            placeholder="Search forms..."
+                            className="text-gray-900 placeholder:text-gray-400 border-b border-gray-200"
                           />
-                          <CommandEmpty className="text-white/80 py-6 text-center">
-                            No questions found.
+                          <CommandEmpty className="text-gray-500 py-6 text-center">
+                            No forms found.
                           </CommandEmpty>
                           <CommandGroup>
-                            <div className="p-3 border-b border-white/20 bg-slate-900/50 sticky top-0 z-10">
-                              <h3 className="font-semibold text-white">
-                                {selectedForm.title}
-                              </h3>
-                            </div>
                             <CommandList className="max-h-64 overflow-y-auto">
                               <div
                                 className="overscroll-contain"
                                 style={{
                                   scrollbarWidth: 'thin',
                                   scrollbarColor:
-                                    'rgba(255,255,255,0.2) transparent'
+                                    'rgba(156,163,175,0.5) transparent'
                                 }}
                                 tabIndex={0}
                                 onFocus={(e) => e.currentTarget.focus()}>
-                                {questions.isLoading && (
-                                  <div className="p-4 text-center text-white/70">
-                                    Loading questions...
+                                {forms.isLoading && (
+                                  <div className="p-4 text-center text-gray-500">
+                                    Loading forms...
                                   </div>
                                 )}
-                                {questions.error && (
-                                  <div className="p-4 text-center text-red-400">
-                                    Error loading questions
+                                {forms.error && (
+                                  <div className="p-4 text-center text-red-500">
+                                    Error loading forms
                                   </div>
                                 )}
-                                {questions.data?.map((question) => (
+                                {availableForms.map((form) => (
                                   <CommandItem
-                                    key={question.id}
-                                    onSelect={() =>
-                                      handleQuestionSelect(question)
-                                    }
+                                    key={form.id}
+                                    onSelect={() => handleFormSelect(form)}
                                     className={`text-lg py-4 px-4 rounded-lg cursor-pointer transition-all duration-200 ${
-                                      selectedQuestion?.id === question.id
-                                        ? 'bg-gradient-to-r from-purple-500/30 to-pink-500/30 text-white border border-purple-400/40 shadow-md'
-                                        : 'text-white/90 hover:bg-purple-500/15 hover:text-white'
+                                      selectedForm?.id === form.id
+                                        ? 'bg-gradient-to-r from-purple-100 to-pink-100 text-gray-900 border border-purple-300 shadow-sm'
+                                        : 'text-gray-700 hover:bg-purple-50 hover:text-gray-900'
                                     }`}>
                                     <div className="flex items-center justify-between w-full">
-                                      <span>{question.prompt}</span>
-                                      {selectedQuestion?.id === question.id && (
-                                        <Check className="h-4 w-4 text-purple-300" />
+                                      <div>
+                                        <span className="font-semibold">
+                                          {form.title}
+                                        </span>
+                                        <p className="text-sm text-gray-500">
+                                          {form.code}
+                                        </p>
+                                      </div>
+                                      {selectedForm?.id === form.id && (
+                                        <Check className="h-4 w-4 text-purple-600" />
                                       )}
                                     </div>
                                   </CommandItem>
@@ -380,21 +359,122 @@ export default function FamilyTreesPage({ user }: FamilyTreesPageProps) {
                         </Command>
                       </PopoverContent>
                     </Popover>
+                    {selectedForm && (
+                      <p className="text-xs text-gray-500 mt-2 px-2">
+                        💡 This form will serve as the foundation for your
+                        family tree structure
+                      </p>
+                    )}
+                  </div>
+
+                  {selectedForm && (
+                    <div>
+                      <Label className="text-gray-700 font-medium text-sm">
+                        Select Question *
+                      </Label>
+                      <Popover
+                        open={questionPopoverOpen}
+                        onOpenChange={setQuestionPopoverOpen}
+                        modal={true}>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            role="combobox"
+                            aria-expanded={questionPopoverOpen}
+                            className="w-full justify-between text-left h-auto py-4 px-4 bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100 rounded-lg mt-1">
+                            <div className="flex items-center gap-2">
+                              <span className="truncate">
+                                {selectedQuestion
+                                  ? selectedQuestion.prompt
+                                  : 'Select a question'}
+                              </span>
+                            </div>
+                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-full p-0 bg-white border-gray-200 shadow-xl rounded-xl">
+                          <Command className="bg-transparent">
+                            <CommandInput
+                              placeholder="Search questions..."
+                              className="text-gray-900 placeholder:text-gray-400 border-b border-gray-200"
+                            />
+                            <CommandEmpty className="text-gray-500 py-6 text-center">
+                              No questions found.
+                            </CommandEmpty>
+                            <CommandGroup>
+                              <div className="p-3 border-b border-gray-200 bg-gray-50 sticky top-0 z-10">
+                                <h3 className="font-semibold text-gray-900">
+                                  {selectedForm.title}
+                                </h3>
+                              </div>
+                              <CommandList className="max-h-64 overflow-y-auto">
+                                <div
+                                  className="overscroll-contain"
+                                  style={{
+                                    scrollbarWidth: 'thin',
+                                    scrollbarColor:
+                                      'rgba(156,163,175,0.5) transparent'
+                                  }}
+                                  tabIndex={0}
+                                  onFocus={(e) => e.currentTarget.focus()}>
+                                  {questions.isLoading && (
+                                    <div className="p-4 text-center text-gray-500">
+                                      Loading questions...
+                                    </div>
+                                  )}
+                                  {questions.error && (
+                                    <div className="p-4 text-center text-red-500">
+                                      Error loading questions
+                                    </div>
+                                  )}
+                                  {questions.data?.map((question) => (
+                                    <CommandItem
+                                      key={question.id}
+                                      onSelect={() =>
+                                        handleQuestionSelect(question)
+                                      }
+                                      className={`text-lg py-4 px-4 rounded-lg cursor-pointer transition-all duration-200 ${
+                                        selectedQuestion?.id === question.id
+                                          ? 'bg-gradient-to-r from-purple-100 to-pink-100 text-gray-900 border border-purple-300 shadow-sm'
+                                          : 'text-gray-700 hover:bg-purple-50 hover:text-gray-900'
+                                      }`}>
+                                      <div className="flex items-center justify-between w-full">
+                                        <span>{question.prompt}</span>
+                                        {selectedQuestion?.id ===
+                                          question.id && (
+                                          <Check className="h-4 w-4 text-purple-600" />
+                                        )}
+                                      </div>
+                                    </CommandItem>
+                                  ))}
+                                </div>
+                              </CommandList>
+                            </CommandGroup>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
+                      {selectedQuestion && (
+                        <p className="text-xs text-gray-500 mt-2 px-2">
+                          🏷️ Responses to this question will be used as node
+                          identifiers in your family tree
+                        </p>
+                      )}
+                    </div>
                   )}
                 </div>
-                <DialogFooter>
+                <DialogFooter className="gap-3">
                   <Button
                     variant="outline"
                     onClick={() => setCreateModalOpen(false)}
-                    className="bg-white/10 backdrop-blur-lg border border-white/20 text-white hover:bg-white/20">
+                    className="bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100 rounded-lg">
                     Cancel
                   </Button>
                   <Button
                     disabled={
                       !familyTitle || !selectedForm || !selectedQuestion
                     }
-                    onClick={handleCreateFamilyTree}
-                    className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
+                    onClick={() => void handleCreateFamilyTree()}
+                    className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 rounded-lg">
                     Create Tree
                   </Button>
                 </DialogFooter>
@@ -402,15 +482,14 @@ export default function FamilyTreesPage({ user }: FamilyTreesPageProps) {
             </Dialog>
           </div>
 
-          {/* Family Trees Grid */}
-          {familyTrees.isLoading && (
+          {/* Family Trees Grid - Optimized rendering */}
+          {familyTrees.isLoading ? (
             <div className="space-y-4">
               {[...Array(3)].map((_, i) => (
                 <FamilyTreeCardSkeleton key={i} />
               ))}
             </div>
-          )}
-          {familyTrees.error && (
+          ) : familyTrees.error ? (
             <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
               <div className="text-red-600 font-semibold">
                 Error loading family trees
@@ -419,8 +498,7 @@ export default function FamilyTreesPage({ user }: FamilyTreesPageProps) {
                 Please try refreshing the page
               </div>
             </div>
-          )}
-          {familyTrees.data && filteredAndSortedTrees.length === 0 && (
+          ) : familyTrees.data && filteredAndSortedTrees.length === 0 ? (
             <div className="text-center py-16">
               <div className="mx-auto w-24 h-24 bg-gradient-to-br from-purple-100 to-pink-100 rounded-full flex items-center justify-center mb-6">
                 <TreePine className="w-10 h-10 text-purple-600" />
@@ -442,21 +520,25 @@ export default function FamilyTreesPage({ user }: FamilyTreesPageProps) {
                 </Button>
               )}
             </div>
-          )}
-          {familyTrees.data && filteredAndSortedTrees.length > 0 && (
-            <div className="space-y-4">
-              {filteredAndSortedTrees.map((tree) => (
-                <FamilyTreeCard
-                  key={tree.id}
-                  familyTree={tree}
-                  formTitle={formsMap[tree.form_id]?.title || 'Unknown Form'}
-                  questionPrompt={
-                    questionsMap.data?.[tree.question_id]?.prompt ||
-                    'Unknown Question'
-                  }
-                />
-              ))}
-            </div>
+          ) : (
+            familyTrees.data &&
+            filteredAndSortedTrees.length > 0 && (
+              <div className="space-y-4">
+                {filteredAndSortedTrees.map((tree) => (
+                  <FamilyTreeCard
+                    key={tree.id}
+                    familyTree={tree}
+                    formTitle={
+                      formsMap[tree.form_id]?.title || 'Unknown or Deleted Form'
+                    }
+                    questionPrompt={
+                      questionsMap.data?.[tree.question_id]?.prompt ||
+                      'Unknown or Deleted Question'
+                    }
+                  />
+                ))}
+              </div>
+            )
           )}
         </div>
       </div>
@@ -479,12 +561,12 @@ export const getServerSideProps = async (
         destination: '/login',
         permanent: false
       }
-    };
+    } as const;
   }
 
   return {
     props: {
       user
     }
-  };
+  } as const;
 };

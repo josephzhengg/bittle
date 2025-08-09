@@ -7,6 +7,8 @@ import { GetServerSidePropsContext } from 'next';
 import { getForms } from '@/utils/supabase/queries/form';
 import FormCardSkeleton from '@/components/dashboard-components/form-card-skeleton';
 import { createSupabaseServerClient } from '@/utils/supabase/clients/server-props';
+import { FileText } from 'lucide-react';
+import { Form } from '@/utils/supabase/models/form';
 
 const DashBoardLayout = dynamic(
   () => import('@/components/layouts/dashboard-layout'),
@@ -14,11 +16,10 @@ const DashBoardLayout = dynamic(
 );
 const FormCard = dynamic(
   () => import('@/components/dashboard-components/form-card'),
-  { ssr: true }
-);
-const FileText = dynamic(
-  () => import('lucide-react').then((mod) => mod.FileText),
-  { ssr: false }
+  {
+    ssr: false,
+    loading: () => <FormCardSkeleton />
+  }
 );
 
 export type CurrentFormsPageProps = {
@@ -27,12 +28,15 @@ export type CurrentFormsPageProps = {
 
 export default function CurrentFormsPage({ user }: CurrentFormsPageProps) {
   const supabase = useSupabase();
+
   const { data: formsData, isLoading } = useQuery({
     queryKey: ['form', user.id],
     queryFn: () => getForms(supabase, user.id),
-    staleTime: 60 * 1000,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
     refetchOnWindowFocus: false,
-    retry: 1
+    retry: 2,
+    retryDelay: 1000
   });
 
   const activeFormsData = useMemo(() => {
@@ -60,15 +64,16 @@ export default function CurrentFormsPage({ user }: CurrentFormsPageProps) {
             Manage and view all your active forms in one place
           </p>
         </div>
-        {isLoading || !formsData ? (
+
+        {isLoading ? (
           <div className="space-y-4">
             {[...Array(3)].map((_, i) => (
               <FormCardSkeleton key={i} />
             ))}
           </div>
-        ) : activeFormsData && activeFormsData.length > 0 ? (
+        ) : formsData && activeFormsData && activeFormsData.length > 0 ? (
           <div className="space-y-4">
-            {activeFormsData.map((form) => (
+            {activeFormsData.map((form: Form) => (
               <FormCard key={form.id} form={form} />
             ))}
           </div>
@@ -85,6 +90,7 @@ export default function CurrentFormsPage({ user }: CurrentFormsPageProps) {
             </p>
           </div>
         )}
+
         {formsData && formsData.length > 0 && (
           <div className="mt-8 p-6 bg-white/60 backdrop-blur-sm rounded-xl border border-slate-200">
             <h2 className="text-lg font-semibold text-slate-800 mb-4">

@@ -1,7 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { SupabaseClient } from '@supabase/supabase-js';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Card,
   CardContent,
@@ -26,6 +26,10 @@ export default function LoginCard({ supabase, router }: LoginCardProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
+  useEffect(() => {
+    router.prefetch('/dashboard/current');
+  }, [router]);
+
   const logIn = async () => {
     if (!email || !password) {
       toast.error('Please fill in all fields.');
@@ -33,19 +37,26 @@ export default function LoginCard({ supabase, router }: LoginCardProps) {
     }
 
     setIsLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password
-    });
-    setIsLoading(false);
 
-    if (error) {
-      toast.error(
-        error.message || 'Invalid email or password. Please try again.'
-      );
-    } else {
-      toast.success('Logged in successfully!');
-      router.push('/dashboard/current');
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
+
+      if (error) {
+        toast.error(
+          error.message || 'Invalid email or password. Please try again.'
+        );
+        setIsLoading(false);
+      } else {
+        toast.success('Logged in successfully!');
+        router.push('/dashboard/current');
+      }
+    } catch (err) {
+      console.error('Login error:', err);
+      toast.error('An unexpected error occurred. Please try again.');
+      setIsLoading(false);
     }
   };
 
