@@ -135,7 +135,7 @@ export default function DashboardHeader({ user }: DashboardHeaderProps) {
       queryUtils.invalidateQueries({ queryKey: ['codes'] });
 
       setCreateFormOpen(false);
-      router.push(`/dashboard/current/form/${code}/edit`);
+      router.push(`/dashboard/current/${code}/form/edit`);
     } catch (error) {
       if (error instanceof Error) {
         if (error.message.includes('template questions')) {
@@ -144,7 +144,7 @@ export default function DashboardHeader({ user }: DashboardHeaderProps) {
           });
 
           setCreateFormOpen(false);
-          router.push(`/dashboard/current/form/${code}/edit`);
+          router.push(`/dashboard/current/${code}/form/edit`);
         } else {
           toast('Failed to create form', {
             description: error.message
