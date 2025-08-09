@@ -207,7 +207,6 @@ export default function DashboardHeader({ user }: DashboardHeaderProps) {
             </div>
           </div>
 
-          {/* Edit button with modern styling */}
           <Dialog
             open={editInfoOpen}
             onOpenChange={(isOpen) => setEditInfoOpen(isOpen)}>
@@ -215,49 +214,66 @@ export default function DashboardHeader({ user }: DashboardHeaderProps) {
               <Button
                 variant="ghost"
                 size="icon"
-                className="shrink-0 bg-white/10 backdrop-blur-lg border border-white/20 rounded-xl hover:bg-white/20 hover:scale-105 transition-all duration-300 text-white">
+                className="shrink-0 bg-white/90 backdrop-blur-lg border border-gray-200 rounded-xl hover:bg-gray-50 hover:scale-105 transition-all duration-300 text-gray-700 shadow-sm">
                 <Edit className="h-4 w-4" />
                 <span className="sr-only">Edit organization info</span>
               </Button>
             </DialogTrigger>
-            <DialogContent className="bg-gradient-to-br from-slate-900/95 to-purple-900/95 backdrop-blur-xl border border-white/20 text-white">
+            <DialogContent className="bg-white/95 backdrop-blur-xl border-0 shadow-2xl text-gray-900 max-w-lg rounded-2xl">
               <DialogHeader>
-                <DialogTitle className="text-3xl font-black bg-gradient-to-r from-pink-400 to-purple-400 bg-clip-text text-transparent">
+                <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-pink-600 to-purple-600 bg-clip-text text-transparent">
                   Edit your info
                 </DialogTitle>
+                <DialogDescription className="text-gray-600 text-sm">
+                  Change your profile content to your liking here!
+                </DialogDescription>
               </DialogHeader>
-              <DialogDescription className="text-blue-200">
-                Change your profile content to your liking here!
-              </DialogDescription>
-              <div className="flex flex-col gap-3 py-3">
-                <div className="flex flex-col gap-2">
-                  <Label htmlFor="name" className="text-blue-100 font-semibold">
-                    Display Name
-                  </Label>
-                  <Input
-                    id="name"
-                    value={renameText}
-                    onChange={(e) => setRenameText(e.target.value)}
-                    className="bg-white/10 backdrop-blur-lg border border-white/20 text-white placeholder:text-white/50 focus:border-pink-500/50 focus:ring-pink-500/20"
-                  />
-                  <Label
-                    htmlFor="affiliation"
-                    className="text-blue-100 font-semibold">
-                    Affiliation
-                  </Label>
-                  <Input
-                    id="affiliation"
-                    value={updateAffiliation}
-                    onChange={(e) => setUpdateAffiliation(e.target.value)}
-                    className="bg-white/10 backdrop-blur-lg border border-white/20 text-white placeholder:text-white/50 focus:border-pink-500/50 focus:ring-pink-500/20"
-                  />
+
+              <div className="flex flex-col gap-4 py-4">
+                <div className="flex flex-col gap-4 space-y-1">
+                  <div>
+                    <Label
+                      htmlFor="name"
+                      className="text-gray-700 font-medium text-sm">
+                      Display Name
+                    </Label>
+                    <Input
+                      id="name"
+                      value={renameText}
+                      onChange={(e) => setRenameText(e.target.value)}
+                      className="mt-1 bg-gray-50 border-gray-200 text-gray-900 placeholder:text-gray-400 focus:border-pink-400 focus:ring-pink-400/20 rounded-lg"
+                      placeholder="Enter display name"
+                    />
+                  </div>
+
+                  <div>
+                    <Label
+                      htmlFor="affiliation"
+                      className="text-gray-700 font-medium text-sm">
+                      Affiliation
+                    </Label>
+                    <Input
+                      id="affiliation"
+                      value={updateAffiliation}
+                      onChange={(e) => setUpdateAffiliation(e.target.value)}
+                      className="mt-1 bg-gray-50 border-gray-200 text-gray-900 placeholder:text-gray-400 focus:border-pink-400 focus:ring-pink-400/20 rounded-lg"
+                      placeholder="Enter affiliation"
+                    />
+                  </div>
                 </div>
               </div>
-              <DialogFooter>
+
+              <DialogFooter className="gap-2 flex-col sm:flex-row">
+                <Button
+                  variant="outline"
+                  onClick={() => setEditInfoOpen(false)}
+                  className="bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100 rounded-lg w-full sm:w-auto">
+                  Cancel
+                </Button>
                 <Button
                   disabled={renameText.length < 1}
                   type="submit"
-                  className="bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg w-full sm:w-auto"
                   onClick={async () => {
                     try {
                       if (organization?.affiliation != updateAffiliation) {

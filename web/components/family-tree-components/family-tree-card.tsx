@@ -203,63 +203,71 @@ export default function FamilyTreeCard({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-9 w-9 sm:h-10 sm:w-10 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg text-blue-600 hover:text-blue-700 transition-all duration-300"
+                  className="h-9 w-9 sm:h-10 sm:w-10 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg text-blue-600 hover:text-blue-700 transition-all duration-300 shadow-sm"
                   aria-label="Edit family tree"
                   onClick={(e) => e.stopPropagation()}>
                   <Edit3 className="w-4 sm:w-5 h-4 sm:h-5" />
                 </Button>
               </DialogTrigger>
-              <DialogContent className="bg-gradient-to-br from-slate-900/95 to-purple-900/95 backdrop-blur-xl border border-white/20 text-white max-w-[90vw] sm:max-w-lg">
+              <DialogContent className="bg-white/95 backdrop-blur-xl border-0 shadow-2xl text-gray-900 max-w-lg rounded-2xl">
                 <DialogHeader>
-                  <DialogTitle className="text-2xl sm:text-3xl font-black bg-gradient-to-r from-pink-400 to-purple-400 bg-clip-text text-transparent">
+                  <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-pink-600 to-purple-600 bg-clip-text text-transparent">
                     Edit Family Tree
                   </DialogTitle>
-                  <DialogDescription className="text-blue-200 text-sm sm:text-base">
+                  <DialogDescription className="text-gray-600 text-sm">
                     Update the family tree details below.
                   </DialogDescription>
                 </DialogHeader>
-                <div className="space-y-4 py-4">
-                  <div className="space-y-2">
-                    <Label
-                      htmlFor="title"
-                      className="text-blue-100 font-semibold text-sm sm:text-base">
-                      Title
-                    </Label>
-                    <Input
-                      id="title"
-                      value={editTitle}
-                      onChange={(e) => setEditTitle(e.target.value)}
-                      className="bg-white/10 backdrop-blur-lg border border-white/20 text-white placeholder:text-white/50 focus:border-pink-500/50 focus:ring-pink-500/20 text-sm sm:text-base"
-                      placeholder="Enter family tree title"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label
-                      htmlFor="description"
-                      className="text-blue-100 font-semibold text-sm sm:text-base">
-                      Description
-                    </Label>
-                    <Textarea
-                      id="description"
-                      value={description}
-                      onChange={(e) => setDescription(e.target.value)}
-                      className="bg-white/10 backdrop-blur-lg border border-white/20 text-white placeholder:text-white/50 focus:border-pink-500/50 focus:ring-pink-500/20 text-sm sm:text-base"
-                      placeholder="Enter family tree description"
-                      rows={3}
-                    />
+
+                <div className="flex flex-col gap-4 py-4">
+                  <div className="flex flex-col gap-4 space-y-1">
+                    <div>
+                      <Label
+                        htmlFor="title"
+                        className="text-gray-700 font-medium text-sm">
+                        Title *
+                      </Label>
+                      <Input
+                        id="title"
+                        value={editTitle}
+                        onChange={(e) => setEditTitle(e.target.value)}
+                        className="mt-1 bg-gray-50 border-gray-200 text-gray-900 placeholder:text-gray-400 focus:border-pink-400 focus:ring-pink-400/20 rounded-lg"
+                        placeholder="Enter family tree title"
+                      />
+                    </div>
+
+                    <div>
+                      <Label
+                        htmlFor="description"
+                        className="text-gray-700 font-medium text-sm">
+                        Description{' '}
+                        <span className="text-gray-500 font-normal">
+                          (Optional)
+                        </span>
+                      </Label>
+                      <Textarea
+                        id="description"
+                        value={description}
+                        onChange={(e) => setDescription(e.target.value)}
+                        className="mt-1 bg-gray-50 border-gray-200 text-gray-900 placeholder:text-gray-400 focus:border-pink-400 focus:ring-pink-400/20 rounded-lg min-h-[80px] resize-none"
+                        placeholder="Enter family tree description"
+                        rows={3}
+                      />
+                    </div>
                   </div>
                 </div>
+
                 <DialogFooter className="gap-2 flex-col sm:flex-row">
                   <Button
                     variant="outline"
                     onClick={handleCancelEdit}
-                    className="bg-white/10 backdrop-blur-lg border border-white/20 text-white hover:bg-white/20 text-sm sm:text-base w-full sm:w-auto">
+                    className="bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100 rounded-lg w-full sm:w-auto">
                     Cancel
                   </Button>
                   <Button
                     onClick={handleSaveEdit}
                     disabled={!editTitle.trim()}
-                    className="bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 text-sm sm:text-base w-full sm:w-auto">
+                    className="bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg w-full sm:w-auto">
                     Save Changes
                   </Button>
                 </DialogFooter>

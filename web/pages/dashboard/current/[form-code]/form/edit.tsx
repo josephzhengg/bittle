@@ -12,7 +12,8 @@ import {
 import { useEffect } from 'react';
 import {
   getFormIdByCode,
-  getFormDeadline
+  getFormDeadline,
+  getFormByCode
 } from '@/utils/supabase/queries/form';
 import { useSupabase } from '@/lib/supabase';
 import { useRouter } from 'next/router';
@@ -38,8 +39,8 @@ import { toast } from 'sonner';
 import { Reorder, useDragControls } from 'framer-motion';
 import { Question } from '@/utils/supabase/models/question';
 import { useMediaQuery } from '@/hooks/use-media-query';
+import { Badge } from '@/components/ui/badge';
 
-// Constants
 const QUESTION_TYPES = [
   {
     id: 'mcq',
@@ -71,7 +72,6 @@ const QUESTION_TYPES = [
   }
 ] as const;
 
-// Types
 type QuestionType = (typeof QUESTION_TYPES)[number]['id'];
 interface CreateQuestionFormData {
   type: QuestionType | '';
@@ -80,7 +80,6 @@ interface CreateQuestionFormData {
   description?: string;
 }
 
-// Custom Hooks
 const useFormQuestions = (formCode: string | string[] | undefined) => {
   const supabase = useSupabase();
   const { data: formId } = useQuery({
@@ -102,7 +101,6 @@ const useFormQuestions = (formCode: string | string[] | undefined) => {
   };
 };
 
-// Components
 interface OptionInputProps {
   value: string;
   index: number;
@@ -367,11 +365,12 @@ const CreateQuestionDialog = ({
   );
 };
 
-// Draggable Question Item Component
 interface DraggableQuestionItemProps {
   question: Question;
   displayNumber?: number;
 }
+
+import { useRef } from 'react';
 
 const DraggableQuestionItem = ({
   question,
@@ -379,6 +378,8 @@ const DraggableQuestionItem = ({
 }: DraggableQuestionItemProps) => {
   const controls = useDragControls();
   const isMobile = useMediaQuery('(max-width: 640px)');
+  const dragHandleRef = useRef<HTMLDivElement>(null);
+
   return (
     <Reorder.Item
       value={question}
@@ -386,42 +387,48 @@ const DraggableQuestionItem = ({
       dragControls={controls}
       className="mb-4 sm:mb-6 select-none touch-none"
       whileDrag={{
-        scale: 1.02,
-        boxShadow: '0 10px 25px rgba(0,0,0,0.15)',
+        scale: 1.03,
+        boxShadow: '0 12px 30px rgba(0,0,0,0.15)',
         zIndex: 9999,
-        position: 'relative'
+        position: 'relative',
+        borderRadius: '0.5rem'
       }}
       transition={{ duration: 0.2 }}
       style={{
         userSelect: 'none',
         position: 'relative',
-        zIndex: 1,
-        touchAction: 'none'
+        zIndex: 1
       }}>
       <div className="bg-white border rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200 select-none relative">
         <div className="flex items-start gap-3 p-3 sm:p-4 select-none relative">
           <div
-            className={`flex-shrink-0 mt-1 cursor-grab active:cursor-grabbing select-none relative z-10 ${
-              isMobile ? 'p-2 -ml-1' : ''
-            }`}
+            ref={dragHandleRef}
+            className={`flex-shrink-0 flex items-center justify-center cursor-grab active:cursor-grabbing rounded-md transition-colors
+              ${
+                isMobile ? 'w-12 h-12 -ml-2 touch-manipulation' : 'w-8 h-8'
+              } bg-gray-100 hover:bg-gray-200 text-gray-500`}
             onPointerDown={(e) => {
               e.preventDefault();
-              controls.start(e);
+              controls.start(e, { snapToCursor: false });
             }}
             style={{
-              userSelect: 'none',
-              WebkitUserSelect: 'none',
-              MozUserSelect: 'none',
-              msUserSelect: 'none',
-              touchAction: 'none'
+              touchAction: 'none',
+              userSelect: 'none'
+            }}
+            aria-label="Drag to reorder question"
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+              }
             }}>
             <GripVertical
-              className={`${
-                isMobile ? 'w-6 h-6' : 'w-5 h-5'
-              } text-gray-400 hover:text-gray-600 transition-colors pointer-events-none`}
+              className={`${isMobile ? 'w-6 h-6' : 'w-5 h-5'}`}
+              aria-hidden="true"
             />
           </div>
-          <div className="flex-1 min-w-0 select-none relative">
+          <div className="flex-1 min-w-0 select-text relative">
             <QuestionCard
               question={question}
               displayNumber={displayNumber ?? null}
@@ -433,7 +440,6 @@ const DraggableQuestionItem = ({
   );
 };
 
-// Main Component
 export type EditPageProps = {
   user: User;
 };
@@ -450,6 +456,11 @@ export default function EditPage({ user }: EditPageProps) {
   const { formId, questions, isLoading, refetchQuestions } =
     useFormQuestions(formCode);
   const [orderedQuestions, setOrderedQuestions] = useState(questions);
+
+  const { data: formTitle } = useQuery({
+    queryKey: ['formTitle', formCode],
+    queryFn: () => getFormByCode(supabase, formCode as string)
+  });
 
   useEffect(() => {
     const sortedQuestions = [...questions].sort((a, b) => a.index - b.index);
@@ -558,10 +569,18 @@ export default function EditPage({ user }: EditPageProps) {
     <DashBoardLayout user={user}>
       <div className="max-w-4xl mx-auto px-3 sm:px-6 py-4 sm:py-6">
         <div className="mb-6 sm:mb-8">
+          <div className="mb-6 flex items-center justify-between flex-wrap gap-3">
+            <h1 className="text-3xl font-semibold text-gray-900">
+              {formTitle ? `Editing form: ${formTitle.title}` : 'Edit Form'}
+            </h1>
+            <Badge
+              variant="outline"
+              className="text-sm font-medium px-3 py-1 rounded-md bg-purple-100 text-purple-800 border-purple-300 whitespace-nowrap">
+              {formCode ? formCode.toUpperCase() : 'N/A'}
+            </Badge>
+          </div>
+
           <div className="mb-4 sm:mb-6">
-            <h2 className="text-xl sm:text-2xl font-bold text-foreground mb-2">
-              Edit Questions
-            </h2>
             <p className="text-sm sm:text-base text-muted-foreground leading-relaxed">
               Manage your questions and form structure
             </p>
