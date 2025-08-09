@@ -441,7 +441,7 @@ export type EditPageProps = {
 export default function EditPage({ user }: EditPageProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const { 'form-code': formCode } = router.query;
+  const { 'form-code': formCode } = router.query as { 'form-code'?: string };
   const supabase = useSupabase();
   const isMobile = useMediaQuery('(max-width: 640px)');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -538,7 +538,7 @@ export default function EditPage({ user }: EditPageProps) {
   }, [reorderTimeout]);
 
   const exitEdit = () => {
-    router.push(`/dashboard/current/form/${formCode}`);
+    router.push(`/dashboard/current/${formCode?.toUpperCase()}/form/`);
   };
 
   if (isLoading) {

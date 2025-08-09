@@ -32,6 +32,7 @@ import {
 } from '@/utils/supabase/queries/response';
 import type { User } from '@supabase/supabase-js';
 import { GetServerSidePropsContext } from 'next';
+import { useRouter } from 'next/router';
 import { useMemo, useState, useCallback } from 'react';
 import { format } from 'date-fns';
 import { QuestionOption } from '@/utils/supabase/models/question-option';
@@ -48,21 +49,22 @@ export type PastFormsPageProps = {
   formTitle: string;
   formCode: string;
   formId: string;
-  deadline?: string | null;
   questions: Question[];
   allOptions: Record<string, QuestionOption[]>;
   initialSubmissions: ProcessedSubmission[];
+  deadline?: string | null;
 };
 
 export default function FormPage({
   user,
   formTitle,
   formCode,
-  deadline,
   questions,
   allOptions,
-  initialSubmissions
+  initialSubmissions,
+  deadline
 }: PastFormsPageProps) {
+  const router = useRouter();
   const supabase = useSupabase();
   const [searchTerm, setSearchTerm] = useState('');
   const [submissions, setSubmissions] =
@@ -115,7 +117,6 @@ export default function FormPage({
     setSearchTerm(value);
   }, []);
 
-  // Refresh data
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
     try {
@@ -216,10 +217,10 @@ export default function FormPage({
               <div className="flex items-center gap-2">
                 <Badge
                   variant="outline"
-                  className="text-xs w-fit bg-gray-100 text-gray-600 border-gray-300">
+                  className="text-xs w-fit bg-purple-50 text-purple-700 border-purple-200">
                   {formCode}
                 </Badge>
-                {deadline && <FormStatusBadge deadline={deadline} />}
+                <FormStatusBadge deadline={deadline} />
               </div>
             </div>
             <p className="text-muted-foreground text-sm">
@@ -246,10 +247,14 @@ export default function FormPage({
               Export CSV
             </Button>
             <Button
-              disabled
-              className="w-full sm:w-auto sm:min-w-[120px] bg-gray-300 text-gray-600 cursor-not-allowed">
+              onClick={() =>
+                router.push(
+                  `/dashboard/past/${formCode.toUpperCase()}/form/edit`
+                )
+              }
+              className="w-full sm:w-auto sm:min-w-[120px]">
               <Edit className="w-4 h-4 mr-2" />
-              Edit Form (Disabled)
+              Edit Form
             </Button>
           </div>
         </div>
@@ -379,8 +384,12 @@ export default function FormPage({
                       </p>
                       <Button
                         variant="outline"
-                        disabled
-                        className="bg-gray-300 text-gray-600 cursor-not-allowed">
+                        onClick={() => {
+                          navigator.clipboard.writeText(
+                            `${window.location.origin}/input-code/${formCode}`
+                          );
+                          toast('Copied link!');
+                        }}>
                         Copy form link
                       </Button>
                     </>

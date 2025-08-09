@@ -1,30 +1,20 @@
-import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'next/router';
-import { getForms } from '@/utils/supabase/queries/form';
-import type { User } from '@supabase/supabase-js';
 import { createSupabaseServerClient } from '@/utils/supabase/clients/server-props';
 import { GetServerSidePropsContext } from 'next';
-import { useSupabase } from '@/lib/supabase';
 import { useEffect } from 'react';
 
-type FormPageProps = {
-  user: User;
-};
-
-export default function FormPage({ user }: FormPageProps) {
-  const supabase = useSupabase();
+export default function FormPage() {
   const router = useRouter();
-
-  const { data: formData } = useQuery({
-    queryKey: ['form'],
-    queryFn: () => getForms(supabase, user.id)
-  });
+  const formCode = router.query['form-code'] as string | undefined;
 
   useEffect(() => {
-    if (formData && formData[0]) {
-      router.push(`/dashboard/current`);
+    if (formCode === undefined) return;
+    if (!formCode) {
+      router.push('/dashboard/current');
+    } else {
+      router.push(`/dashboard/current/${formCode.toUpperCase()}/form`);
     }
-  }, [router, formData, supabase]);
+  }, [formCode, router]);
 
   return (
     <div className="flex items-center justify-center h-screen bg-gray-100">
@@ -48,10 +38,7 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
       }
     };
   }
-
   return {
-    props: {
-      user: userData.user
-    }
+    props: {}
   };
 }

@@ -8,7 +8,11 @@ interface FormNavigationTabsProps {
   basePath: 'current' | 'past';
 }
 
-export default function FormNavigationTabs({ formCode, currentTab, basePath }: FormNavigationTabsProps) {
+export default function FormNavigationTabs({
+  formCode,
+  currentTab,
+  basePath
+}: FormNavigationTabsProps) {
   const router = useRouter();
 
   return (
@@ -17,14 +21,18 @@ export default function FormNavigationTabs({ formCode, currentTab, basePath }: F
         <TabsList className="h-12 p-1 bg-transparent rounded-lg w-full grid grid-cols-2">
           <TabsTrigger
             value="forms"
-            onClick={() => router.push(`/dashboard/${basePath}/form/${formCode}`)}
+            onClick={() =>
+              router.push(`/dashboard/${basePath}/${formCode}/form/`)
+            }
             className="flex items-center gap-2 h-10 px-3 sm:px-6 rounded-md font-medium transition-all data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-slate-800 text-slate-600 hover:text-slate-800">
             <FileText className="w-4 h-4" />
             <span className="hidden xs:inline">Forms</span>
           </TabsTrigger>
           <TabsTrigger
             value="applicants"
-            onClick={() => router.push(`/dashboard/${basePath}/applicants/${formCode}`)}
+            onClick={() =>
+              router.push(`/dashboard/${basePath}/${formCode}/applicants/`)
+            }
             className="flex items-center gap-2 h-10 px-3 sm:px-6 rounded-md font-medium transition-all data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-slate-800 text-slate-600 hover:text-slate-800">
             <Users className="w-4 h-4" />
             <span className="hidden xs:inline">Applicants</span>

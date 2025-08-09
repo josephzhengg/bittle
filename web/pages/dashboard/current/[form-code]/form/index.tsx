@@ -31,13 +31,13 @@ import { FormStatsCards } from '@/components/dashboard-components/form-stats-car
 import FormNavigationTabs from '@/components/dashboard-components/form-navigation-tabs';
 import FormStatusBadge from '@/components/dashboard-components/form-status-badge';
 
-export type PastFormsPageProps = {
+export type CurrentFormsPageProps = {
   user: User;
   initialFormData: {
     id: string;
     title: string;
     description?: string;
-    deadline?: string;
+    deadline?: string; // ISO string for serialization
     formId: string;
     questions: Question[];
     formCode: string;
@@ -49,7 +49,7 @@ export default function FormPage({
   user,
   initialFormData,
   error
-}: PastFormsPageProps) {
+}: CurrentFormsPageProps) {
   const router = useRouter();
   const supabase = useSupabase();
   const { 'form-code': formCode } = router.query;
@@ -169,13 +169,13 @@ export default function FormPage({
         <div className="flex flex-col space-y-4">
           <div className="space-y-2">
             <div className="flex flex-col sm:flex-row sm:items-start gap-2 sm:gap-3">
-              <h1 className="text-2xl sm:text-3xl font-bold text-gray-700 break-words min-w-0 flex-1">
+              <h1 className="text-2xl sm:text-3xl font-bold text-foreground break-words min-w-0 flex-1">
                 {formData?.title || <Skeleton className="h-8 w-64" />}
               </h1>
               <div className="flex items-center gap-2">
                 <Badge
                   variant="outline"
-                  className="text-xs w-fit bg-gray-100 text-gray-600 border-gray-300">
+                  className="text-xs w-fit bg-purple-50 text-purple-700 border-purple-200">
                   {formCode}
                 </Badge>
                 {formData?.deadline && (
@@ -183,15 +183,15 @@ export default function FormPage({
                 )}
               </div>
             </div>
-            <p className="text-gray-500 text-sm">
-              Archived form preview and structure
+            <p className="text-muted-foreground text-sm">
+              Form preview and structure
             </p>
           </div>
 
           {/* Description Section */}
           {formData?.description && (
-            <div className="bg-gray-50/50 rounded-lg p-4 border border-gray-100">
-              <p className="text-sm text-gray-600 leading-relaxed">
+            <div className="bg-slate-50/50 rounded-lg p-4 border border-slate-100">
+              <p className="text-sm text-slate-700 leading-relaxed">
                 {formData.description}
               </p>
             </div>
@@ -199,11 +199,17 @@ export default function FormPage({
 
           {/* Deadline Section */}
           {formData?.deadline && (
-            <div className="bg-gradient-to-r from-gray-50 to-gray-100 rounded-lg p-4 border border-gray-200">
+            <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg p-4 border border-purple-100">
               <div className="flex items-center gap-2 text-sm">
-                <Clock className="w-4 h-4 text-gray-500" />
-                <span className="text-gray-500 font-medium">Deadline:</span>
-                <span className="font-semibold text-gray-500">
+                <Clock
+                  className={`w-4 h-4 ${
+                    formData.deadline
+                      ? 'text-green-600'
+                      : 'text-muted-foreground'
+                  }`}
+                />
+                <span className="text-slate-600 font-medium">Deadline:</span>
+                <span className="font-semibold text-green-600">
                   {formatDateTime(formData.deadline)}
                 </span>
               </div>
@@ -215,7 +221,7 @@ export default function FormPage({
               variant="outline"
               onClick={handleRefresh}
               disabled={isPageLoading || isRefreshing}
-              className="w-full sm:w-auto sm:min-w-[120px] bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200">
+              className="w-full sm:w-auto sm:min-w-[120px]">
               <RefreshCw
                 className={`w-4 h-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`}
               />
@@ -233,8 +239,8 @@ export default function FormPage({
                 onSuccess={handleRefresh}
                 trigger={
                   <Button
-                    disabled
-                    className="w-full sm:w-auto sm:min-w-[120px] bg-gray-300 text-gray-500 cursor-not-allowed">
+                    variant="outline"
+                    className="w-full sm:w-auto sm:min-w-[140px]">
                     <Settings className="w-4 h-4 mr-2" />
                     Edit Form Info
                   </Button>
@@ -243,10 +249,16 @@ export default function FormPage({
             )}
 
             <Button
-              disabled
-              className="w-full sm:w-auto sm:min-w-[120px] bg-gray-300 text-gray-500 cursor-not-allowed">
+              onClick={() => {
+                router.push(
+                  `/dashboard/current/${
+                    typeof formCode === 'string' ? formCode.toUpperCase() : ''
+                  }/form/edit`
+                );
+              }}
+              className="w-full sm:w-auto sm:min-w-[120px]">
               <Edit className="w-4 h-4 mr-2" />
-              Edit Questions (Disabled)
+              Edit Questions
             </Button>
           </div>
         </div>
@@ -255,7 +267,7 @@ export default function FormPage({
         <FormNavigationTabs
           formCode={typeof formCode === 'string' ? formCode : ''}
           currentTab="forms"
-          basePath="past"
+          basePath="current"
         />
 
         {/* Statistics Cards */}
@@ -270,42 +282,44 @@ export default function FormPage({
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Eye className="w-5 h-5 text-gray-600" />
-              Form Preview (Archived)
+              <Eye className="w-5 h-5" />
+              Form Preview
             </CardTitle>
             <CardDescription>
-              This is how your form appeared to respondents
+              This is how your form will appear to respondents
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {(() => {
-              let questionCounter = 0;
-              return sortedQuestions.map((question) => {
-                if (question.type !== 'SECTION_HEADER') {
-                  questionCounter++;
-                  return (
-                    <div key={question.id} className="relative">
-                      <div className="absolute -left-4 top-0 text-xs text-slate-500 font-medium bg-slate-100 px-2 py-1 rounded">
-                        #{questionCounter}
+            <div className="space-y-6">
+              {(() => {
+                let questionCounter = 0;
+                return sortedQuestions.map((question) => {
+                  if (question.type !== 'SECTION_HEADER') {
+                    questionCounter++;
+                    return (
+                      <div key={question.id} className="relative">
+                        <div className="absolute -left-4 top-0 text-xs text-slate-500 font-medium bg-slate-100 px-2 py-1 rounded">
+                          #{questionCounter}
+                        </div>
+                        <ReadOnlyQuestionCard
+                          question={question}
+                          displayNumber={questionCounter}
+                        />
                       </div>
-                      <ReadOnlyQuestionCard
-                        question={question}
-                        displayNumber={questionCounter}
-                      />
-                    </div>
-                  );
-                } else {
-                  return (
-                    <div key={question.id} className="relative">
-                      <ReadOnlyQuestionCard
-                        question={question}
-                        displayNumber={questionCounter}
-                      />
-                    </div>
-                  );
-                }
-              });
-            })()}
+                    );
+                  } else {
+                    return (
+                      <div key={question.id} className="relative">
+                        <ReadOnlyQuestionCard
+                          question={question}
+                          displayNumber={questionCounter}
+                        />
+                      </div>
+                    );
+                  }
+                });
+              })()}
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -344,7 +358,7 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
     const now = new Date();
     const isDeadlinePassed = deadline ? new Date(deadline) < now : false;
 
-    if (currentPath.includes('/dashboard/current/form/') && !isDeadlinePassed) {
+    if (currentPath.includes('/dashboard/past/form/') && !isDeadlinePassed) {
       return {
         redirect: {
           destination: `/dashboard/current/form/${formCode}`,
@@ -353,10 +367,10 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
       };
     }
 
-    if (currentPath.includes('/dashboard/past/form/') && !isDeadlinePassed) {
+    if (currentPath.includes('/dashboard/current/form/') && isDeadlinePassed) {
       return {
         redirect: {
-          destination: `/dashboard/current/form/${formCode}`,
+          destination: `/dashboard/past/form/${formCode}`,
           permanent: false
         }
       };
