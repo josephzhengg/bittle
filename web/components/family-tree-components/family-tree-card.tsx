@@ -26,6 +26,7 @@ import {
 } from '@/utils/supabase/queries/family-tree';
 import { Textarea } from '@/components/ui/textarea';
 import FamilyTreeCardSkeleton from './family-tree-card-skeleton';
+import { Badge } from '@/components/ui/badge';
 
 export type FamilyTreeCardProps = {
   familyTree: FamilyTree;
@@ -35,8 +36,8 @@ export type FamilyTreeCardProps = {
 
 export default function FamilyTreeCard({
   familyTree,
-  formTitle = 'Unknown Form',
-  questionPrompt = 'Unknown Question'
+  formTitle = 'Unknown or Deleted Form',
+  questionPrompt = 'Unknown or Deleted Question'
 }: FamilyTreeCardProps) {
   const router = useRouter();
   const supabase = useSupabase();
@@ -129,7 +130,6 @@ export default function FamilyTreeCard({
     return 'bg-gradient-to-r from-purple-400 to-pink-400';
   };
 
-  // Return skeleton while loading
   if (isLoading) {
     return <FamilyTreeCardSkeleton />;
   }
@@ -152,12 +152,16 @@ export default function FamilyTreeCard({
             <div
               className={`w-16 sm:w-20 h-1 rounded-full mb-2 sm:mb-3 ${getStatusBarColor()}`}></div>
             <CardTitle className="text-lg sm:text-xl font-bold text-slate-800 mb-2 truncate sm:line-clamp-2">
-              {familyTree.title}
+              <span>
+                {familyTree.title}{' '}
+                <Badge
+                  variant="outline"
+                  className="text-xs w-fit bg-purple-50 text-purple-700 border-purple-200">
+                  {familyTree.code}
+                </Badge>
+              </span>
             </CardTitle>
-            {/*
-              Show CardDescription only on non-mobile (sm and up) screens.
-              Use "hidden sm:block" to hide on mobile, show on sm+.
-            */}
+
             <CardDescription className="hidden sm:block text-sm text-slate-600 mb-3 sm:mb-4 truncate sm:line-clamp-2 bg-slate-50/50 rounded-lg p-2 sm:p-3 border border-slate-100">
               {familyTree.description
                 ? familyTree.description.length > 120
@@ -276,30 +280,30 @@ export default function FamilyTreeCard({
                   <Trash2 className="w-4 sm:w-5 h-4 sm:h-5" />
                 </Button>
               </DialogTrigger>
-              <DialogContent className="bg-gradient-to-br from-slate-900/95 to-purple-900/95 backdrop-blur-xl border border-white/20 text-white max-w-[90vw] sm:max-w-lg">
+              <DialogContent className="bg-white/95 backdrop-blur-xl border-0 shadow-2xl text-gray-900 max-w-[90vw] sm:max-w-lg rounded-2xl">
                 <DialogHeader>
-                  <DialogTitle className="text-2xl sm:text-3xl font-black bg-gradient-to-r from-red-400 to-pink-400 bg-clip-text text-transparent">
+                  <DialogTitle className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-red-600 to-pink-600 bg-clip-text text-transparent">
                     Delete Family Tree?
                   </DialogTitle>
-                  <DialogDescription className="text-blue-200 text-sm sm:text-base">
+                  <DialogDescription className="text-gray-600 text-sm sm:text-base">
                     This action cannot be undone. This will permanently delete
-                    <span className="font-semibold text-white">
+                    <span className="font-semibold text-gray-900">
                       {' '}
                       &quot;{familyTree.title}&quot;{' '}
                     </span>
                     and all of its members and connections.
                   </DialogDescription>
                 </DialogHeader>
-                <DialogFooter className="gap-2 flex-col sm:flex-row">
+                <DialogFooter className="gap-3 flex-col sm:flex-row">
                   <Button
                     variant="outline"
                     onClick={() => setIsDeleteModalOpen(false)}
-                    className="bg-white/10 backdrop-blur-lg border border-white/20 text-white hover:bg-white/20 text-sm sm:text-base w-full sm:w-auto">
+                    className="bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100 text-sm sm:text-base w-full sm:w-auto rounded-lg">
                     Cancel
                   </Button>
                   <Button
                     onClick={handleDelete}
-                    className="bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 text-sm sm:text-base w-full sm:w-auto">
+                    className="bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 text-sm sm:text-base w-full sm:w-auto rounded-lg">
                     <Trash2 className="w-4 h-4 mr-2" />
                     Delete Forever
                   </Button>

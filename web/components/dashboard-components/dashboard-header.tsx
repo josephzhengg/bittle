@@ -51,14 +51,14 @@ export default function DashboardHeader({ user }: DashboardHeaderProps) {
   const [description, setDescription] = useState<string | undefined>(undefined);
   const [code, setCode] = useState('');
   const [deadline, setDeadline] = useState<Date | undefined>(new Date());
-  const [deadlineTime, setDeadlineTime] = useState('23:59'); // Default to end of day
+  const [deadlineTime, setDeadlineTime] = useState('23:59');
   const [isCreatingForm, setIsCreatingForm] = useState(false);
 
   useEffect(() => {
     if (!createFormOpen) {
       setDeadline(undefined);
       setDeadlineTime('23:59');
-      // Reset form when dialog closes
+
       setTitle('');
       setDescription(undefined);
       setCode('');
@@ -87,7 +87,6 @@ export default function DashboardHeader({ user }: DashboardHeaderProps) {
     router.push('/login');
   };
 
-  // Helper function to combine date and time
   const getDeadlineWithTime = () => {
     if (!deadline) return undefined;
 
@@ -109,17 +108,14 @@ export default function DashboardHeader({ user }: DashboardHeaderProps) {
     setIsCreatingForm(true);
 
     try {
-      // Check if code is taken first
       const isCodeTaken = codes?.includes(code);
       if (isCodeTaken) {
         toast('Code already taken! Please choose another.');
         return;
       }
 
-      // Get the deadline with time combined
       const finalDeadline = getDeadlineWithTime();
 
-      // Create the form
       const form = await createForm(
         supabase,
         user.id,
@@ -129,30 +125,24 @@ export default function DashboardHeader({ user }: DashboardHeaderProps) {
         title
       );
 
-      // Create template questions
       await createTemplateQuestions(supabase, form.id);
 
-      // Success - show toast and navigate
       toast('Form successfully created!', {
         description:
           'Template questions have been added automatically. Please give us a moment.'
       });
 
-      // Refresh codes cache
       queryUtils.invalidateQueries({ queryKey: ['codes'] });
 
-      // Close dialog and navigate
       setCreateFormOpen(false);
       router.push(`/dashboard/current/form/${code}/edit`);
     } catch (error) {
-
-      // More specific error handling
       if (error instanceof Error) {
         if (error.message.includes('template questions')) {
           toast('Form created but failed to add template questions', {
             description: 'You can add questions manually in the form editor.'
           });
-          // Still navigate to the form editor
+
           setCreateFormOpen(false);
           router.push(`/dashboard/current/form/${code}/edit`);
         } else {
@@ -173,7 +163,6 @@ export default function DashboardHeader({ user }: DashboardHeaderProps) {
     setUpdateAffiliation(organization?.affiliation ?? '');
   }, [organization]);
 
-  // Format display text for deadline
   const getDeadlineDisplayText = () => {
     if (!deadline) return 'Select a deadline';
 
@@ -289,7 +278,6 @@ export default function DashboardHeader({ user }: DashboardHeaderProps) {
                       queryUtils.refetchQueries({ queryKey: ['organization'] });
                       setEditInfoOpen(false);
                     } catch {
-
                       toast('Failed to edit profile. Please try again.');
                     }
                   }}>
@@ -311,104 +299,125 @@ export default function DashboardHeader({ user }: DashboardHeaderProps) {
                 Create Form
               </Button>
             </DialogTrigger>
-            <DialogContent className="bg-gradient-to-br from-slate-900/95 to-purple-900/95 backdrop-blur-xl border border-white/20 text-white max-w-lg">
+            <DialogContent className="bg-white/95 backdrop-blur-xl border-0 shadow-2xl text-gray-900 max-w-lg rounded-2xl">
               <DialogHeader>
-                <DialogTitle className="text-3xl font-black bg-gradient-to-r from-pink-400 to-purple-400 bg-clip-text text-transparent">
+                <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-pink-600 to-purple-600 bg-clip-text text-transparent">
                   Create your form
                 </DialogTitle>
               </DialogHeader>
-              <DialogDescription className="text-blue-200">
+              <DialogDescription className="text-gray-600 text-sm">
                 This is the beginning of crafting perfect families in your
                 organization! Template questions will be added automatically.
               </DialogDescription>
-              <div className="flex flex-col gap-3 py-3">
-                <div className="flex flex-col gap-2 space-y-2">
-                  <Label
-                    htmlFor="title"
-                    className="text-blue-100 font-semibold">
-                    Title *
-                  </Label>
-                  <Input
-                    id="title"
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    placeholder="Enter form title"
-                    className="bg-white/10 backdrop-blur-lg border border-white/20 text-white placeholder:text-white/50 focus:border-pink-500/50 focus:ring-pink-500/20"
-                  />
-                  <Label htmlFor="code" className="text-blue-100 font-semibold">
-                    Code * (the code to let other people submit your form!)
-                  </Label>
-                  <Input
-                    id="code"
-                    value={code}
-                    onChange={(e) =>
-                      setCode(e.target.value.replace(/\s+/g, '').toUpperCase())
-                    }
-                    placeholder="FORM_CODE"
-                    className="bg-white/10 backdrop-blur-lg border border-white/20 text-white placeholder:text-white/50 focus:border-pink-500/50 focus:ring-pink-500/20 font-mono"
-                  />
-                  <Label
-                    htmlFor="description"
-                    className="text-blue-100 font-semibold">
-                    Description (Optional)
-                  </Label>
-                  <Input
-                    id="description"
-                    value={description ?? ''}
-                    onChange={(e) => setDescription(e.target.value)}
-                    placeholder="Brief description of your form"
-                    className="bg-white/10 backdrop-blur-lg border border-white/20 text-white placeholder:text-white/50 focus:border-pink-500/50 focus:ring-pink-500/20"
-                  />
-                  <Label
-                    htmlFor="deadline"
-                    className="text-blue-100 font-semibold">
-                    Deadline (Form&apos;s closing date & time / Optional)
-                  </Label>
-                  <div className="space-y-2">
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          className="bg-white/10 backdrop-blur-lg border border-white/20 text-white hover:bg-white/20 justify-start w-full">
-                          <CalendarIcon className="mr-2 h-4 w-4 opacity-50" />
-                          {getDeadlineDisplayText()}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="bg-gradient-to-br from-slate-900/95 to-purple-900/95 backdrop-blur-xl border border-white/20 w-auto p-0">
-                        <div className="p-4">
-                          <Calendar
-                            mode="single"
-                            selected={deadline}
-                            onSelect={setDeadline}
-                            disabled={(date) => {
-                              const today = new Date();
-                              today.setHours(0, 0, 0, 0);
-                              return date < today;
-                            }}
-                            className="text-white"
-                          />
-                          {deadline && (
-                            <div className="mt-4 pt-4 border-t border-white/20">
-                              <Label className="text-blue-100 font-semibold text-sm mb-2 block">
-                                <Clock className="inline w-4 h-4 mr-1" />
-                                Set Time
-                              </Label>
-                              <Input
-                                type="time"
-                                value={deadlineTime}
-                                onChange={(e) =>
-                                  setDeadlineTime(e.target.value)
-                                }
-                                className="bg-white/10 backdrop-blur-lg border border-white/20 text-white focus:border-pink-500/50 focus:ring-pink-500/20"
-                              />
-                              <p className="text-xs text-blue-200/70 mt-2">
-                                Final deadline: {getDeadlineDisplayText()}
-                              </p>
-                            </div>
-                          )}
-                        </div>
-                      </PopoverContent>
-                    </Popover>
+              <div className="flex flex-col gap-4 py-4">
+                <div className="flex flex-col gap-4 space-y-1">
+                  <div>
+                    <Label
+                      htmlFor="title"
+                      className="text-gray-700 font-medium text-sm">
+                      Title *
+                    </Label>
+                    <Input
+                      id="title"
+                      value={title}
+                      onChange={(e) => setTitle(e.target.value)}
+                      placeholder="Enter form title"
+                      className="mt-1 bg-gray-50 border-gray-200 text-gray-900 placeholder:text-gray-400 focus:border-pink-400 focus:ring-pink-400/20 rounded-lg"
+                    />
+                  </div>
+                  <div>
+                    <Label
+                      htmlFor="code"
+                      className="text-gray-700 font-medium text-sm">
+                      Code *{' '}
+                      <span className="text-gray-500 font-normal">
+                        (the code to let other people submit your form!)
+                      </span>
+                    </Label>
+                    <Input
+                      id="code"
+                      value={code}
+                      onChange={(e) =>
+                        setCode(
+                          e.target.value.replace(/\s+/g, '').toUpperCase()
+                        )
+                      }
+                      placeholder="FORM_CODE"
+                      className="mt-1 bg-gray-50 border-gray-200 text-gray-900 placeholder:text-gray-400 focus:border-pink-400 focus:ring-pink-400/20 font-mono rounded-lg"
+                    />
+                  </div>
+                  <div>
+                    <Label
+                      htmlFor="description"
+                      className="text-gray-700 font-medium text-sm">
+                      Description{' '}
+                      <span className="text-gray-500 font-normal">
+                        (Optional)
+                      </span>
+                    </Label>
+                    <Input
+                      id="description"
+                      value={description ?? ''}
+                      onChange={(e) => setDescription(e.target.value)}
+                      placeholder="Brief description of your form"
+                      className="mt-1 bg-gray-50 border-gray-200 text-gray-900 placeholder:text-gray-400 focus:border-pink-400 focus:ring-pink-400/20 rounded-lg"
+                    />
+                  </div>
+                  <div>
+                    <Label
+                      htmlFor="deadline"
+                      className="text-gray-700 font-medium text-sm">
+                      Deadline{' '}
+                      <span className="text-gray-500 font-normal">
+                        (Form&#39;s closing date & time / Optional)
+                      </span>
+                    </Label>
+                    <div className="mt-1">
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className="bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100 justify-start w-full rounded-lg">
+                            <CalendarIcon className="mr-2 h-4 w-4 opacity-60" />
+                            {getDeadlineDisplayText()}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="bg-white border-gray-200 shadow-xl w-auto p-0 rounded-xl">
+                          <div className="p-4">
+                            <Calendar
+                              mode="single"
+                              selected={deadline}
+                              onSelect={setDeadline}
+                              disabled={(date) => {
+                                const today = new Date();
+                                today.setHours(0, 0, 0, 0);
+                                return date < today;
+                              }}
+                              className="text-gray-900"
+                            />
+                            {deadline && (
+                              <div className="mt-4 pt-4 border-t border-gray-200">
+                                <Label className="text-gray-700 font-medium text-sm mb-2 block">
+                                  <Clock className="inline w-4 h-4 mr-1" />
+                                  Set Time
+                                </Label>
+                                <Input
+                                  type="time"
+                                  value={deadlineTime}
+                                  onChange={(e) =>
+                                    setDeadlineTime(e.target.value)
+                                  }
+                                  className="bg-gray-50 border-gray-200 text-gray-900 focus:border-pink-400 focus:ring-pink-400/20 rounded-lg"
+                                />
+                                <p className="text-xs text-gray-500 mt-2">
+                                  Final deadline: {getDeadlineDisplayText()}
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -416,7 +425,7 @@ export default function DashboardHeader({ user }: DashboardHeaderProps) {
                 <Button
                   onClick={handleCreateForm}
                   disabled={isCreatingForm || !title || !code}
-                  className="bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed">
+                  className="bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed w-full rounded-lg">
                   {isCreatingForm ? (
                     <>
                       <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2" />
