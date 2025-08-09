@@ -47,6 +47,15 @@ import {
   deleteOption
 } from '@/utils/supabase/queries/question';
 import { toast } from 'sonner';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTrigger,
+  DialogDescription,
+  DialogTitle,
+  DialogFooter
+} from '@/components/ui/dialog';
 
 export type QuestionCardProps = {
   question: Question;
@@ -76,6 +85,7 @@ export default function QuestionCard({
   const supabase = useSupabase();
   const toggleOpen = () => setIsOpen((v) => !v);
   const [openPopover, setOpenPopover] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
   const { data: questionOption } = useQuery({
     queryKey: ['options', question.id],
@@ -275,17 +285,57 @@ export default function QuestionCard({
                     <Edit className="w-4 h-4" />
                   </Button>
                 )}
-                <Button
-                  variant="destructive"
-                  size="icon"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDelete();
-                  }}
-                  aria-label="Delete section"
-                  className="h-8 w-8">
-                  <X className="w-4 h-4" />
-                </Button>
+                <Dialog
+                  open={isDeleteModalOpen}
+                  onOpenChange={(open) => setIsDeleteModalOpen(open)}>
+                  <DialogTrigger asChild>
+                    <Button
+                      variant="destructive"
+                      size="icon"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setIsDeleteModalOpen(true);
+                      }}
+                      aria-label="Delete question"
+                      className="h-8 w-8">
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </DialogTrigger>
+
+                  <DialogContent className="bg-white/95 backdrop-blur-xl border-0 shadow-2xl text-gray-900 max-w-[90vw] sm:max-w-lg rounded-2xl">
+                    <DialogHeader>
+                      <DialogTitle className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-red-600 to-pink-600 bg-clip-text text-transparent">
+                        Delete Question?
+                      </DialogTitle>
+                      <DialogDescription className="text-gray-600 text-sm sm:text-base">
+                        This action cannot be undone. This will permanently
+                        delete
+                        <span className="font-semibold text-gray-900">
+                          {' '}
+                          “{question.prompt}”
+                        </span>
+                        and all of its options.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter className="gap-3 flex-col sm:flex-row">
+                      <Button
+                        variant="outline"
+                        onClick={() => setIsDeleteModalOpen(false)}
+                        className="bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100 text-sm sm:text-base w-full sm:w-auto rounded-lg">
+                        Cancel
+                      </Button>
+                      <Button
+                        onClick={async () => {
+                          await handleDelete();
+                          setIsDeleteModalOpen(false);
+                        }}
+                        className="bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 text-sm sm:text-base w-full sm:w-auto rounded-lg">
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        Delete Forever
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
               </div>
 
               {!isEditingPrompt && (
@@ -390,17 +440,57 @@ export default function QuestionCard({
                     <Edit className="w-4 h-4" />
                   </Button>
                 )}
-                <Button
-                  variant="destructive"
-                  size="icon"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDelete();
-                  }}
-                  aria-label="Delete question"
-                  className="h-8 w-8">
-                  <X className="w-4 h-4" />
-                </Button>
+                <Dialog
+                  open={isDeleteModalOpen}
+                  onOpenChange={(open) => setIsDeleteModalOpen(open)}>
+                  <DialogTrigger asChild>
+                    <Button
+                      variant="destructive"
+                      size="icon"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setIsDeleteModalOpen(true);
+                      }}
+                      aria-label="Delete question"
+                      className="h-8 w-8">
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </DialogTrigger>
+
+                  <DialogContent className="bg-white/95 backdrop-blur-xl border-0 shadow-2xl text-gray-900 max-w-[90vw] sm:max-w-lg rounded-2xl">
+                    <DialogHeader>
+                      <DialogTitle className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-red-600 to-pink-600 bg-clip-text text-transparent">
+                        Delete Question?
+                      </DialogTitle>
+                      <DialogDescription className="text-gray-600 text-sm sm:text-base">
+                        This action cannot be undone. This will permanently
+                        delete
+                        <span className="font-semibold text-gray-900">
+                          {' '}
+                          “{question.prompt}”
+                        </span>
+                        and all of its options.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter className="gap-3 flex-col sm:flex-row">
+                      <Button
+                        variant="outline"
+                        onClick={() => setIsDeleteModalOpen(false)}
+                        className="bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100 text-sm sm:text-base w-full sm:w-auto rounded-lg">
+                        Cancel
+                      </Button>
+                      <Button
+                        onClick={async () => {
+                          await handleDelete();
+                          setIsDeleteModalOpen(false);
+                        }}
+                        className="bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 text-sm sm:text-base w-full sm:w-auto rounded-lg">
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        Delete Forever
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
               </div>
 
               {!isEditingPrompt && (
@@ -604,17 +694,57 @@ export default function QuestionCard({
                     <Edit className="w-4 h-4" />
                   </Button>
                 )}
-                <Button
-                  variant="destructive"
-                  size="icon"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDelete();
-                  }}
-                  aria-label="Delete question"
-                  className="h-8 w-8">
-                  <X className="w-4 h-4" />
-                </Button>
+                <Dialog
+                  open={isDeleteModalOpen}
+                  onOpenChange={(open) => setIsDeleteModalOpen(open)}>
+                  <DialogTrigger asChild>
+                    <Button
+                      variant="destructive"
+                      size="icon"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setIsDeleteModalOpen(true);
+                      }}
+                      aria-label="Delete question"
+                      className="h-8 w-8">
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </DialogTrigger>
+
+                  <DialogContent className="bg-white/95 backdrop-blur-xl border-0 shadow-2xl text-gray-900 max-w-[90vw] sm:max-w-lg rounded-2xl">
+                    <DialogHeader>
+                      <DialogTitle className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-red-600 to-pink-600 bg-clip-text text-transparent">
+                        Delete Question?
+                      </DialogTitle>
+                      <DialogDescription className="text-gray-600 text-sm sm:text-base">
+                        This action cannot be undone. This will permanently
+                        delete
+                        <span className="font-semibold text-gray-900">
+                          {' '}
+                          “{question.prompt}”
+                        </span>
+                        and all of its options.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter className="gap-3 flex-col sm:flex-row">
+                      <Button
+                        variant="outline"
+                        onClick={() => setIsDeleteModalOpen(false)}
+                        className="bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100 text-sm sm:text-base w-full sm:w-auto rounded-lg">
+                        Cancel
+                      </Button>
+                      <Button
+                        onClick={async () => {
+                          await handleDelete();
+                          setIsDeleteModalOpen(false);
+                        }}
+                        className="bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 text-sm sm:text-base w-full sm:w-auto rounded-lg">
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        Delete Forever
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
               </div>
 
               {!isEditingPrompt && (
@@ -843,17 +973,57 @@ export default function QuestionCard({
                     <Edit className="w-4 h-4" />
                   </Button>
                 )}
-                <Button
-                  variant="destructive"
-                  size="icon"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDelete();
-                  }}
-                  aria-label="Delete question"
-                  className="h-8 w-8">
-                  <X className="w-4 h-4" />
-                </Button>
+                <Dialog
+                  open={isDeleteModalOpen}
+                  onOpenChange={(open) => setIsDeleteModalOpen(open)}>
+                  <DialogTrigger asChild>
+                    <Button
+                      variant="destructive"
+                      size="icon"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setIsDeleteModalOpen(true);
+                      }}
+                      aria-label="Delete question"
+                      className="h-8 w-8">
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </DialogTrigger>
+
+                  <DialogContent className="bg-white/95 backdrop-blur-xl border-0 shadow-2xl text-gray-900 max-w-[90vw] sm:max-w-lg rounded-2xl">
+                    <DialogHeader>
+                      <DialogTitle className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-red-600 to-pink-600 bg-clip-text text-transparent">
+                        Delete Question?
+                      </DialogTitle>
+                      <DialogDescription className="text-gray-600 text-sm sm:text-base">
+                        This action cannot be undone. This will permanently
+                        delete
+                        <span className="font-semibold text-gray-900">
+                          {' '}
+                          “{question.prompt}”
+                        </span>
+                        and all of its options.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter className="gap-3 flex-col sm:flex-row">
+                      <Button
+                        variant="outline"
+                        onClick={() => setIsDeleteModalOpen(false)}
+                        className="bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100 text-sm sm:text-base w-full sm:w-auto rounded-lg">
+                        Cancel
+                      </Button>
+                      <Button
+                        onClick={async () => {
+                          await handleDelete();
+                          setIsDeleteModalOpen(false);
+                        }}
+                        className="bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 text-sm sm:text-base w-full sm:w-auto rounded-lg">
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        Delete Forever
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
               </div>
 
               {!isEditingPrompt && (

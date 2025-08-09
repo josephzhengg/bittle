@@ -42,7 +42,7 @@ export default function LoginLayout({ children }: { children: ReactNode }) {
             <button
               onClick={handleGetStarted}
               className="bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 text-white font-semibold py-4 px-8 rounded-full text-lg transition-all duration-300 transform hover:scale-105 hover:shadow-2xl shadow-lg">
-              Get Started
+              Have a code? Click on me!
             </button>
           </div>
         </div>

@@ -452,7 +452,6 @@ export default function EditPage({ user }: EditPageProps) {
   const isMobile = useMediaQuery('(max-width: 640px)');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [isReordering, setIsReordering] = useState(false);
   const { formId, questions, isLoading, refetchQuestions } =
     useFormQuestions(formCode);
   const [orderedQuestions, setOrderedQuestions] = useState(questions);
@@ -517,7 +516,6 @@ export default function EditPage({ user }: EditPageProps) {
     }
     setReorderTimeout(
       setTimeout(async () => {
-        setIsReordering(true);
         try {
           const updatedQuestions = newOrder.map((question, index) => ({
             ...question,
@@ -533,8 +531,6 @@ export default function EditPage({ user }: EditPageProps) {
             (a, b) => a.index - b.index
           );
           setOrderedQuestions(sortedQuestions);
-        } finally {
-          setIsReordering(false);
         }
       }, 500)
     );
@@ -667,12 +663,6 @@ export default function EditPage({ user }: EditPageProps) {
             </Reorder.Group>
           )}
         </div>
-        {isReordering && (
-          <div className="fixed bottom-4 right-4 left-4 sm:left-auto bg-blue-600 text-white px-4 py-2 rounded-lg shadow-lg flex items-center justify-center sm:justify-start gap-2 z-50">
-            <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
-            <span className="text-sm">Saving order...</span>
-          </div>
-        )}
         <CreateQuestionDialog
           isOpen={isDialogOpen}
           onOpenChange={setIsDialogOpen}
