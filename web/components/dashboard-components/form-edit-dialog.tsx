@@ -30,12 +30,16 @@ interface FormEditDialogProps {
   };
   trigger: ReactNode;
   onSuccess?: () => void;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
 export function FormEditDialog({
   form,
   trigger,
-  onSuccess
+  onSuccess,
+  open,
+  onOpenChange
 }: FormEditDialogProps) {
   const {
     isEditModalOpen,
@@ -54,12 +58,23 @@ export function FormEditDialog({
     setIsEditModalOpen
   } = useFormEditor(form);
 
-  const handleSave = () => {
-    saveForm(onSuccess);
+  const handleSave = async () => {
+    try {
+      await saveForm(() => {
+        onSuccess?.();
+      });
+      // ✅ close the dialog after a successful save (syncs parent if controlled)
+      effectiveOnOpenChange(false);
+    } catch {
+      // keep dialog open on error
+    }
   };
 
+  const effectiveOpen = open !== undefined ? open : isEditModalOpen;
+  const effectiveOnOpenChange = onOpenChange || setIsEditModalOpen;
+
   return (
-    <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+    <Dialog open={effectiveOpen} onOpenChange={effectiveOnOpenChange}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
       <DialogContent className="bg-white/95 backdrop-blur-xl border-0 shadow-2xl text-gray-900 max-w-lg rounded-2xl">
         <DialogHeader>

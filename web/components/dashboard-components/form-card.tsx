@@ -6,16 +6,7 @@ import { toast } from 'sonner';
 import { Form } from '@/utils/supabase/models/form';
 import { Card, CardDescription, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
-import {
-  Clock,
-  Calendar,
-  Trash2,
-  Edit3,
-  Calendar as CalendarIcon
-} from 'lucide-react';
+import { Clock, Calendar, Trash2, Edit3 } from 'lucide-react';
 import {
   Dialog,
   DialogTrigger,
@@ -25,19 +16,9 @@ import {
   DialogFooter,
   DialogDescription
 } from '@/components/ui/dialog';
-import { Calendar as CalendarComponent } from '@/components/ui/calendar';
-import {
-  Popover,
-  PopoverTrigger,
-  PopoverContent
-} from '@/components/ui/popover';
-import {
-  deleteForm,
-  updateTitle,
-  updateDescription,
-  updateDeadline
-} from '@/utils/supabase/queries/form';
+import { deleteForm } from '@/utils/supabase/queries/form';
 import { Badge } from '@/components/ui/badge';
+import { FormEditDialog } from './form-edit-dialog'; // Adjust the import path as necessary
 
 export type FormCardProps = {
   form: Form;
@@ -47,27 +28,9 @@ export default function FormCard({ form }: FormCardProps) {
   const router = useRouter();
   const supabase = useSupabase();
   const queryUtils = useQueryClient();
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [preventNavigation, setPreventNavigation] = useState(false);
-
-  const [editTitle, setEditTitle] = useState(form.title);
-  const [editDescription, setEditDescription] = useState(
-    form.description || ''
-  );
-  const [editDeadline, setEditDeadline] = useState<Date | undefined>(
-    form.deadline ? new Date(form.deadline) : undefined
-  );
-  const [editDeadlineTime, setEditDeadlineTime] = useState(() => {
-    if (form.deadline) {
-      const date = new Date(form.deadline);
-      return `${date.getHours().toString().padStart(2, '0')}:${date
-        .getMinutes()
-        .toString()
-        .padStart(2, '0')}`;
-    }
-    return '23:59';
-  });
 
   const handleDialogOpenChange = (
     open: boolean,
@@ -92,41 +55,6 @@ export default function FormCard({ form }: FormCardProps) {
       queryUtils.refetchQueries({ queryKey: ['form'] });
       setIsDeleteModalOpen(false);
     }
-  };
-
-  const handleSaveForm = async () => {
-    if (editTitle.trim() === '') {
-      toast('Title cannot be empty');
-      return;
-    }
-    try {
-      await updateTitle(supabase, form.id, editTitle.trim());
-      await updateDescription(supabase, form.id, editDescription.trim());
-      const deadline = getDeadlineWithTime();
-      await updateDeadline(supabase, form.id, deadline);
-      toast('Form updated successfully!');
-      setIsEditModalOpen(false);
-      queryUtils.refetchQueries({ queryKey: ['form'] });
-    } catch {
-      toast('Error updating form, please try again.');
-    }
-  };
-
-  const handleCancelEdit = () => {
-    setEditTitle(form.title);
-    setEditDescription(form.description || '');
-    setEditDeadline(form.deadline ? new Date(form.deadline) : undefined);
-    setEditDeadlineTime(() => {
-      if (form.deadline) {
-        const date = new Date(form.deadline);
-        return `${date.getHours().toString().padStart(2, '0')}:${date
-          .getMinutes()
-          .toString()
-          .padStart(2, '0')}`;
-      }
-      return '23:59';
-    });
-    setIsEditModalOpen(false);
   };
 
   const isFormActive = () => {
@@ -156,27 +84,6 @@ export default function FormCard({ form }: FormCardProps) {
       hour: '2-digit',
       minute: '2-digit',
       hour12: true
-    });
-  };
-
-  const getDeadlineWithTime = () => {
-    if (!editDeadline) return undefined;
-    const [hours, minutes] = editDeadlineTime.split(':').map(Number);
-    const deadlineWithTime = new Date(editDeadline);
-    deadlineWithTime.setHours(hours, minutes, 0, 0);
-    return deadlineWithTime;
-  };
-
-  const getDeadlineDisplayText = () => {
-    if (!editDeadline) return 'Select a deadline';
-    const finalDeadline = getDeadlineWithTime();
-    return finalDeadline?.toLocaleString('en-US', {
-      weekday: 'short',
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
     });
   };
 
@@ -288,12 +195,18 @@ export default function FormCard({ form }: FormCardProps) {
           {/* Right side - Actions */}
           <div className="flex flex-row sm:flex-col gap-2">
             {/* Edit Button */}
-            <Dialog
-              open={isEditModalOpen}
-              onOpenChange={(open) =>
-                handleDialogOpenChange(open, setIsEditModalOpen)
-              }>
-              <DialogTrigger asChild>
+            <FormEditDialog
+              form={{
+                id: form.id,
+                title: form.title,
+                description: form.description || undefined,
+                deadline: form.deadline
+                  ? typeof form.deadline === 'string'
+                    ? form.deadline
+                    : form.deadline.toISOString()
+                  : undefined
+              }}
+              trigger={
                 <Button
                   variant="ghost"
                   size="icon"
@@ -302,130 +215,15 @@ export default function FormCard({ form }: FormCardProps) {
                   onClick={(e) => e.stopPropagation()}>
                   <Edit3 className="w-4 sm:w-5 h-4 sm:h-5" />
                 </Button>
-              </DialogTrigger>
-              <DialogContent className="bg-white/95 backdrop-blur-xl border-0 shadow-2xl text-gray-900 max-w-lg rounded-2xl">
-                <DialogHeader>
-                  <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-pink-600 to-purple-600 bg-clip-text text-transparent">
-                    Edit Form
-                  </DialogTitle>
-                  <DialogDescription className="text-gray-600 text-sm">
-                    Update the form details below.
-                  </DialogDescription>
-                </DialogHeader>
-
-                <div className="flex flex-col gap-4 py-4">
-                  <div className="flex flex-col gap-4 space-y-1">
-                    <div>
-                      <Label
-                        htmlFor="title"
-                        className="text-gray-700 font-medium text-sm">
-                        Title *
-                      </Label>
-                      <Input
-                        id="title"
-                        value={editTitle}
-                        onChange={(e) => setEditTitle(e.target.value)}
-                        className="mt-1 bg-gray-50 border-gray-200 text-gray-900 placeholder:text-gray-400 focus:border-pink-400 focus:ring-pink-400/20 rounded-lg"
-                        placeholder="Enter form title"
-                      />
-                    </div>
-
-                    <div>
-                      <Label
-                        htmlFor="description"
-                        className="text-gray-700 font-medium text-sm">
-                        Description{' '}
-                        <span className="text-gray-500 font-normal">
-                          (Optional)
-                        </span>
-                      </Label>
-                      <Textarea
-                        id="description"
-                        value={editDescription}
-                        onChange={(e) => setEditDescription(e.target.value)}
-                        className="mt-1 bg-gray-50 border-gray-200 text-gray-900 placeholder:text-gray-400 focus:border-pink-400 focus:ring-pink-400/20 rounded-lg min-h-[80px] resize-none"
-                        rows={3}
-                        placeholder="Enter form description"
-                      />
-                    </div>
-
-                    <div>
-                      <Label
-                        htmlFor="deadline"
-                        className="text-gray-700 font-medium text-sm">
-                        Deadline{' '}
-                        <span className="text-gray-500 font-normal">
-                          (Form&apos;s closing date & time / Optional)
-                        </span>
-                      </Label>
-                      <div className="mt-1">
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <Button
-                              variant="outline"
-                              className="bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100 justify-start w-full rounded-lg">
-                              <CalendarIcon className="mr-2 h-4 w-4 opacity-60" />
-                              <span className="truncate">
-                                {getDeadlineDisplayText()}
-                              </span>
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="bg-white border-gray-200 shadow-xl w-auto p-0 rounded-xl">
-                            <div className="p-4">
-                              <CalendarComponent
-                                mode="single"
-                                selected={editDeadline}
-                                onSelect={setEditDeadline}
-                                disabled={(date) => {
-                                  const today = new Date();
-                                  today.setHours(0, 0, 0, 0);
-                                  return date < today;
-                                }}
-                                className="text-gray-900"
-                              />
-                              {editDeadline && (
-                                <div className="mt-4 pt-4 border-t border-gray-200">
-                                  <Label className="text-gray-700 font-medium text-sm mb-2 block">
-                                    <Clock className="inline w-4 h-4 mr-1" />
-                                    Set Time
-                                  </Label>
-                                  <Input
-                                    type="time"
-                                    value={editDeadlineTime}
-                                    onChange={(e) =>
-                                      setEditDeadlineTime(e.target.value)
-                                    }
-                                    className="bg-gray-50 border-gray-200 text-gray-900 focus:border-pink-400 focus:ring-pink-400/20 rounded-lg"
-                                  />
-                                  <p className="text-xs text-gray-500 mt-2">
-                                    Final deadline: {getDeadlineDisplayText()}
-                                  </p>
-                                </div>
-                              )}
-                            </div>
-                          </PopoverContent>
-                        </Popover>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <DialogFooter className="gap-2 flex-col sm:flex-row">
-                  <Button
-                    variant="outline"
-                    onClick={handleCancelEdit}
-                    className="bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100 rounded-lg w-full sm:w-auto">
-                    Cancel
-                  </Button>
-                  <Button
-                    onClick={handleSaveForm}
-                    disabled={!editTitle.trim()}
-                    className="bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg w-full sm:w-auto">
-                    Save Changes
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
+              }
+              open={isEditModalOpen}
+              onOpenChange={(open) =>
+                handleDialogOpenChange(open, setIsEditModalOpen)
+              }
+              onSuccess={() => {
+                queryUtils.refetchQueries({ queryKey: ['form'] });
+              }}
+            />
             {/* Delete Button */}
             <Dialog
               open={isDeleteModalOpen}
@@ -437,7 +235,7 @@ export default function FormCard({ form }: FormCardProps) {
                   variant="ghost"
                   size="icon"
                   className="h-9 w-9 sm:h-10 sm:w-10 bg-red-50 hover:bg-red-100 border border-red-200 rounded-lg text-red-600 hover:text-red-700 transition-all duration-300"
-                  aria-label="Delete family tree"
+                  aria-label="Delete form"
                   onClick={(e) => e.stopPropagation()}>
                   <Trash2 className="w-4 sm:w-5 h-4 sm:h-5" />
                 </Button>
