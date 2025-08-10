@@ -1693,16 +1693,15 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
                 </DialogTitle>
               </DialogHeader>
               <div className="space-y-6">
-                <div className="space-y-3">
-                  <Label className="text-base font-medium block text-center sm:text-left text-gray-700">
-                    Are you sure you want to remove <b>all connections</b>{' '}
-                    between members in this family tree?
-                    <span className="block text-sm text-gray-500 mt-2">
-                      This will disconnect every &quot;big&quot; and
-                      &quot;little&quot; relationship. <br />
-                      <b>This action cannot be undone.</b>
-                    </span>
-                  </Label>
+                <div className="space-y-4">
+                  <p className="text-base font-medium text-gray-700 text-left">
+                    Are you sure you want to remove all connections between
+                    members in this family tree? This will disconnect every
+                    big-little relationship.
+                  </p>
+                  <p className="text-sm font-semibold text-red-600">
+                    Warning: This action cannot be undone.
+                  </p>
                 </div>
                 <DialogFooter className="flex flex-col gap-3 sm:flex-row sm:justify-end sm:gap-2">
                   <Button

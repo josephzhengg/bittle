@@ -40,7 +40,7 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ onComplete }) => {
       id: 'layout-controls',
       title: 'Control Buttons',
       description: 'Auto layout, recenter view, add members, and more.',
-      videoUrl: '/demos/layout-controls.mp4',
+      videoUrl: '/tutorial_videos/layout_control.mp4',
       videoType: 'mp4'
     },
     {
@@ -48,7 +48,7 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ onComplete }) => {
       title: 'Make Connections',
       description:
         'Drag from bottom handle to top handle to create Big-Little relationships.',
-      videoUrl: '/demos/create-connection.mp4',
+      videoUrl: '/tutorial_videos/create_connections.mp4',
       videoType: 'mp4'
     },
     {
@@ -57,7 +57,7 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ onComplete }) => {
       description: `${
         isMobile ? 'Tap' : 'Click'
       } on members to see responses on form.`,
-      videoUrl: '/demos/details-panel.mp4',
+      videoUrl: '/tutorial_videos/details_panel.mp4',
       videoType: 'mp4'
     },
     {
@@ -66,7 +66,7 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ onComplete }) => {
       description: `${
         isMobile ? 'Double-tap' : 'Double-click'
       } to delete members or edit identifiers.`,
-      videoUrl: '/demos/edit-member.mp4',
+      videoUrl: '/tutorial_videos/edit_members.mp4',
       videoType: 'mp4'
     },
     {
@@ -75,14 +75,14 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ onComplete }) => {
       description: `${
         isMobile ? 'Tap' : 'Click'
       } on a connection line to delete it.`,
-      videoUrl: '/demos/delete-connection.mp4',
+      videoUrl: '/tutorial_videos/delete_connections.mp4',
       videoType: 'mp4'
     },
     {
       id: 'add-member',
       title: 'Add Members',
       description: 'Tap "Add Member" to create new members.',
-      videoUrl: '/demos/add-member.mp4',
+      videoUrl: '/tutorial_videos/add_member.mp4',
       videoType: 'mp4'
     },
     {
@@ -117,22 +117,18 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ onComplete }) => {
 
   const renderVideo = (step: TutorialStep) => {
     if (!step.videoUrl) return null;
-
     return (
       <div className="mb-3 rounded-lg overflow-hidden bg-gray-50 shadow-sm">
         <video
-          className="w-full h-auto object-contain"
-          controls
+          key={`${step.id}-${step.videoUrl}`}
+          className="w-full aspect-video object-contain"
+          src={step.videoUrl}
           loop
           muted
           autoPlay
-          playsInline>
-          <source
-            src={step.videoUrl}
-            type={`video/${step.videoType || 'mp4'}`}
-          />
-          Your browser does not support the video tag.
-        </video>
+          playsInline
+          preload="metadata"
+        />
       </div>
     );
   };
@@ -188,7 +184,6 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ onComplete }) => {
               </svg>
             </button>
           </div>
-
           {/* Progress Bar */}
           <div className="flex gap-1">
             {steps.map((_, index) => (
@@ -206,7 +201,6 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ onComplete }) => {
             ))}
           </div>
         </div>
-
         {/* Content */}
         <div
           className={`overflow-y-auto flex-1 ${
@@ -226,10 +220,8 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ onComplete }) => {
               {steps[currentStep].description}
             </p>
           </div>
-
           {renderVideo(steps[currentStep])}
         </div>
-
         {/* Footer */}
         <div
           className={`border-t border-gray-100 bg-gray-50/80 backdrop-blur-sm ${
@@ -266,7 +258,6 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ onComplete }) => {
                 className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all">
                 ← Previous
               </button>
-
               <div className="flex items-center gap-4">
                 <button
                   onClick={handleSkip}
