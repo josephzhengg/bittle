@@ -251,11 +251,7 @@ export default function FormCard({ form }: FormCardProps) {
                       {' '}
                       &quot;{form.title}&quot;{' '}
                     </span>
-<<<<<<< HEAD
-                    and all of its questions and responses.
-=======
                     and all its responses. Are you sure you want to proceed?
->>>>>>> 2aa452c50fd0b36357c6008cf51a0f0342211f20
                   </DialogDescription>
                 </DialogHeader>
                 <DialogFooter className="gap-3 flex-col sm:flex-row">
