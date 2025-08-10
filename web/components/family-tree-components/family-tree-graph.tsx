@@ -23,7 +23,7 @@ import {
   createConnection,
   removeConnection,
   refetchSubmissions,
-  toggleBig,
+  // toggleBig,
   getFamilyTreeMembers,
   createFamilyMember,
   updateIdentifier,
@@ -1148,66 +1148,66 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
     },
     [setEdges, supabase, nodes, setNodes]
   );
-  const handleToggleBig = useCallback(
-    async (nodeId: string) => {
-      try {
-        const node = nodes.find((n) => n.id === nodeId);
-        if (!node) return;
-        const newIsBig = !node.data.is_big;
-        await toggleBig(supabase, nodeId, newIsBig);
-        toast.success(
-          `Member ${newIsBig ? 'promoted to big' : 'demoted from big'}`
-        );
-        const updatedNodes = nodes.map((n) =>
-          n.id === nodeId
-            ? {
-                ...n,
-                data: {
-                  ...n.data,
-                  is_big: newIsBig,
-                  label: `${getRoleIcon({
-                    ...n.data,
-                    is_big: newIsBig
-                  })} ${n.data.label.split(' ').slice(1).join(' ')}`
-                }
-              }
-            : n
-        );
-        setNodes(updatedNodes);
-        setEdges((eds) =>
-          eds.map((edge) => {
-            const sourceNode = updatedNodes.find((n) => n.id === edge.source);
-            const targetNode = updatedNodes.find((n) => n.id === edge.target);
-            const isBigToLittle =
-              sourceNode?.data.is_big && targetNode?.data.hasBig;
-            const updatedEdge: Edge = {
-              ...edge,
-              type: 'smoothstep',
-              style: getEdgeStyle(sourceNode, targetNode),
-              animated: isBigToLittle,
-              markerEnd: getCustomMarker(
-                isBigToLittle ? 'bigToLittle' : 'general'
-              ),
-              data: {
-                ...(edge.data as Edge),
-                relationshipType: isBigToLittle ? 'bigToLittle' : 'general'
-              }
-            };
-            return updatedEdge;
-          })
-        );
-      } catch (err) {
-        toast.error(
-          `Failed to toggle big status: ${
-            err instanceof Error ? err.message : 'Unknown error'
-          }`
-        );
-      } finally {
-        setContextMenu(null);
-      }
-    },
-    [nodes, setNodes, setEdges, supabase]
-  );
+  // const handleToggleBig = useCallback(
+  //   async (nodeId: string) => {
+  //     try {
+  //       const node = nodes.find((n) => n.id === nodeId);
+  //       if (!node) return;
+  //       const newIsBig = !node.data.is_big;
+  //       await toggleBig(supabase, nodeId, newIsBig);
+  //       toast.success(
+  //         `Member ${newIsBig ? 'promoted to big' : 'demoted from big'}`
+  //       );
+  //       const updatedNodes = nodes.map((n) =>
+  //         n.id === nodeId
+  //           ? {
+  //               ...n,
+  //               data: {
+  //                 ...n.data,
+  //                 is_big: newIsBig,
+  //                 label: `${getRoleIcon({
+  //                   ...n.data,
+  //                   is_big: newIsBig
+  //                 })} ${n.data.label.split(' ').slice(1).join(' ')}`
+  //               }
+  //             }
+  //           : n
+  //       );
+  //       setNodes(updatedNodes);
+  //       setEdges((eds) =>
+  //         eds.map((edge) => {
+  //           const sourceNode = updatedNodes.find((n) => n.id === edge.source);
+  //           const targetNode = updatedNodes.find((n) => n.id === edge.target);
+  //           const isBigToLittle =
+  //             sourceNode?.data.is_big && targetNode?.data.hasBig;
+  //           const updatedEdge: Edge = {
+  //             ...edge,
+  //             type: 'smoothstep',
+  //             style: getEdgeStyle(sourceNode, targetNode),
+  //             animated: isBigToLittle,
+  //             markerEnd: getCustomMarker(
+  //               isBigToLittle ? 'bigToLittle' : 'general'
+  //             ),
+  //             data: {
+  //               ...(edge.data as Edge),
+  //               relationshipType: isBigToLittle ? 'bigToLittle' : 'general'
+  //             }
+  //           };
+  //           return updatedEdge;
+  //         })
+  //       );
+  //     } catch (err) {
+  //       toast.error(
+  //         `Failed to toggle big status: ${
+  //           err instanceof Error ? err.message : 'Unknown error'
+  //         }`
+  //       );
+  //     } finally {
+  //       setContextMenu(null);
+  //     }
+  //   },
+  //   [nodes, setNodes, setEdges, supabase]
+  // );
   const handleDelete = useCallback(
     async (id: string, type: 'node' | 'edge') => {
       try {
@@ -1940,20 +1940,6 @@ const FamilyTreeFlow: React.FC<FamilyTreeFlowProps> = ({
           <div className="py-2">
             {contextMenu.type === 'node' && (
               <>
-                <button
-                  className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 hover:text-blue-700 transition-all duration-150 group"
-                  onClick={() => handleToggleBig(contextMenu.id)}>
-                  <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 text-white text-xs group-hover:shadow-lg transition-shadow">
-                    {nodes.find((n) => n.id === contextMenu.id)?.data.is_big
-                      ? '👑'
-                      : '⭐'}
-                  </div>
-                  <span className="font-medium">
-                    {nodes.find((n) => n.id === contextMenu.id)?.data.is_big
-                      ? 'Demote from Big'
-                      : 'Promote to Big'}
-                  </span>
-                </button>
                 <button
                   className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gradient-to-r hover:from-emerald-50 hover:to-green-50 hover:text-emerald-700 transition-all duration-150 group"
                   onClick={() => {

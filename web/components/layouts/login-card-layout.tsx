@@ -1,5 +1,4 @@
 import { ReactNode } from 'react';
-import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/router';
 
 export default function LoginLayout({ children }: { children: ReactNode }) {
@@ -40,11 +39,11 @@ export default function LoginLayout({ children }: { children: ReactNode }) {
             </p>
 
             {/* Get Started Button */}
-            <Button
+            <button
               onClick={handleGetStarted}
               className="bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 text-white font-semibold py-4 px-8 rounded-full text-lg transition-all duration-300 transform hover:scale-105 hover:shadow-2xl shadow-lg">
               Have a code? Click on me!
-            </Button>
+            </button>
           </div>
         </div>
         {children}

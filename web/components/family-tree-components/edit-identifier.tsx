@@ -4,7 +4,8 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogFooter
+  DialogFooter,
+  DialogDescription
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -61,55 +62,57 @@ const EditIdentifierDialog: React.FC<EditIdentifierDialogProps> = ({
           onClick={onCancel}
         />
       )}
-
       <Dialog open={isOpen} onOpenChange={(open) => !open && onCancel()}>
-        <DialogContent
-          className="w-[95vw] max-w-md mx-auto rounded-lg sm:w-full sm:max-w-lg z-[9999] fixed"
-          style={{ zIndex: 9999 }}>
-          <DialogHeader className="pb-4">
-            <DialogTitle className="text-lg font-semibold text-center sm:text-left">
+        <DialogContent className="bg-white/95 backdrop-blur-xl border-0 shadow-2xl text-gray-900 max-w-lg rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-pink-600 to-purple-600 bg-clip-text text-transparent">
               Edit Identifier
             </DialogTitle>
+            <DialogDescription className="text-gray-600 text-sm">
+              Update the identifier name for this node.
+            </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-6">
-            <div className="space-y-3">
-              <Label
-                htmlFor="identifier-input"
-                className="text-sm font-medium block">
-                Identifier Name
-              </Label>
-              <Input
-                id="identifier-input"
-                type="text"
-                value={identifier}
-                onChange={(e) => setIdentifier(e.target.value)}
-                onKeyDown={handleKeyDown}
-                className="w-full h-12 text-base px-4 rounded-lg border-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all"
-                placeholder="Enter identifier name..."
-                autoFocus
-                autoComplete="off"
-                spellCheck="false"
-              />
+          <div className="flex flex-col gap-4 py-4">
+            <div className="flex flex-col gap-4 space-y-1">
+              <div>
+                <Label
+                  htmlFor="identifier-input"
+                  className="text-gray-700 font-medium text-sm">
+                  Identifier Name *
+                </Label>
+                <Input
+                  id="identifier-input"
+                  type="text"
+                  value={identifier}
+                  onChange={(e) => setIdentifier(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  className="mt-1 bg-gray-50 border-gray-200 text-gray-900 placeholder:text-gray-400 focus:border-pink-400 focus:ring-pink-400/20 rounded-lg"
+                  placeholder="Enter identifier name..."
+                  autoFocus
+                  autoComplete="off"
+                  spellCheck="false"
+                />
+              </div>
             </div>
-
-            <DialogFooter className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end sm:gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={onCancel}
-                className="w-full h-12 text-base font-medium rounded-lg border-2 sm:w-auto sm:h-10 sm:px-6">
-                Cancel
-              </Button>
-              <Button
-                type="button"
-                disabled={!isValid}
-                onClick={handleSubmit}
-                className="w-full h-12 text-base font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed sm:w-auto sm:h-10 sm:px-6">
-                Save Changes
-              </Button>
-            </DialogFooter>
           </div>
+
+          <DialogFooter className="gap-2 flex-col sm:flex-row">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onCancel}
+              className="bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100 rounded-lg w-full sm:w-auto">
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              disabled={!isValid}
+              onClick={handleSubmit}
+              className="bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg w-full sm:w-auto">
+              Save Changes
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </>

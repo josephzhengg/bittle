@@ -12,7 +12,15 @@ import {
   CardTitle
 } from '@/components/ui/card';
 import { toast } from 'sonner';
-import { Building, GraduationCap, Mail, Lock, EyeOff, Eye } from 'lucide-react';
+import {
+  Building,
+  GraduationCap,
+  Mail,
+  Lock,
+  EyeOff,
+  Eye,
+  ArrowRight
+} from 'lucide-react';
 import Link from 'next/link';
 
 type SignupCardProps = {
@@ -27,6 +35,7 @@ export default function SignupCard({ supabase, router }: SignupCardProps) {
   const [name, setName] = useState('');
   const [affiliation, setAffiliation] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<{
     email?: string;
     password?: string;
@@ -64,48 +73,30 @@ export default function SignupCard({ supabase, router }: SignupCardProps) {
   };
 
   const signUp = async () => {
-    if (!validateFields()) {
-      return;
-    }
+    if (!validateFields()) return;
 
+    setIsLoading(true);
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: { data: { name: name, affiliation: affiliation } }
     });
 
+    setIsLoading(false);
+
     if (error) {
       toast.error(error.message);
       return;
     }
 
-    // Supabase signUp behavior:
-    // - For new users: returns user object with identities array
-    // - For existing users: returns user object with empty identities array
     if (data.user) {
       if (data.user.identities && data.user.identities.length === 0) {
-        // User already exists - Supabase sent another confirmation email
         toast.success(
           'An account with this email already exists. A new verification link has been sent to your email address. Please check your inbox and click the link to access your account.'
         );
       } else {
-        // New user registration
-        if (!data.user.email_confirmed_at) {
-          toast.success(
-            'Welcome to Bittle! Please check your email and click the verification link to complete your registration.'
-          );
-          router.push('/login');
-        } else {
-          // User is immediately confirmed (rare case)
-          toast.success('Account created successfully!');
-          router.push('/');
-        }
+        router.push('/dashboard/current');
       }
-    } else {
-      // Fallback message
-      toast.success(
-        'Please check your email for a verification link to complete the process.'
-      );
     }
   };
 
@@ -118,10 +109,9 @@ export default function SignupCard({ supabase, router }: SignupCardProps) {
   return (
     <div className="flex-1 w-full max-w-md">
       <Card className="bg-white/95 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 transform transition-all duration-300 overflow-hidden">
-        {/* Decorative top border */}
         <div className="h-1 bg-gradient-to-r from-pink-500 via-purple-500 to-blue-500"></div>
         <CardHeader className="pb-6">
-          <CardTitle className="text-3xl lg:text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+          <CardTitle className="text-4xl lg:text-5xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
             Welcome to Bittle!
           </CardTitle>
           <CardDescription className="text-lg text-gray-600 mt-1">
@@ -275,23 +265,31 @@ export default function SignupCard({ supabase, router }: SignupCardProps) {
             />
           </div>
 
-          {/* Sign Up Button */}
           <Button
-            className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-bold py-4 px-8 rounded-xl text-lg shadow-lg hover:shadow-xl transform transition-all duration-300 hover:scale-[1.02] mt-6"
-            onClick={signUp}>
-            Sign Up
+            className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-bold py-4 px-8 rounded-xl text-lg shadow-lg hover:shadow-xl transform transition-all duration-300 hover:scale-[1.02] mt-6 flex items-center justify-center gap-2"
+            onClick={signUp}
+            disabled={isLoading}>
+            {isLoading ? (
+              <>
+                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                <span>Signing up...</span>
+              </>
+            ) : (
+              <>
+                <span>Sign Up</span>
+                <ArrowRight className="w-5 h-5" />
+              </>
+            )}
           </Button>
 
           {/* Already have account link */}
-          <div className="text-center pt-4 border-t border-gray-100">
-            <p className="text-base text-gray-600">
-              Already have an account?{' '}
-              <button className="text-lg font-bold text-purple-600 hover:text-purple-800 hover:underline transition-all duration-200">
-                <Link href="/login" className="ml-1">
-                  Login
-                </Link>
-              </button>
-            </p>
+          <div className="text-center pt-6 border-t border-gray-200">
+            <p className="text-gray-600 mb-2">Already have an account?</p>
+            <Link
+              href="/login"
+              className="text-lg font-semibold text-purple-600 hover:text-purple-800 hover:underline transition-colors duration-200">
+              Login
+            </Link>
           </div>
         </CardContent>
       </Card>

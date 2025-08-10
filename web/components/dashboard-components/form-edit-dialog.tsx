@@ -32,7 +32,11 @@ interface FormEditDialogProps {
   onSuccess?: () => void;
 }
 
-export function FormEditDialog({ form, trigger, onSuccess }: FormEditDialogProps) {
+export function FormEditDialog({
+  form,
+  trigger,
+  onSuccess
+}: FormEditDialogProps) {
   const {
     isEditModalOpen,
     isLoading,
@@ -56,111 +60,122 @@ export function FormEditDialog({ form, trigger, onSuccess }: FormEditDialogProps
 
   return (
     <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
-      <DialogTrigger asChild>
-        {trigger}
-      </DialogTrigger>
-      <DialogContent className="bg-gradient-to-br from-slate-900/95 to-purple-900/95 backdrop-blur-xl border border-white/20 text-white max-w-lg">
+      <DialogTrigger asChild>{trigger}</DialogTrigger>
+      <DialogContent className="bg-white/95 backdrop-blur-xl border-0 shadow-2xl text-gray-900 max-w-lg rounded-2xl">
         <DialogHeader>
-          <DialogTitle className="text-3xl font-black bg-gradient-to-r from-pink-400 to-purple-400 bg-clip-text text-transparent">
+          <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-pink-600 to-purple-600 bg-clip-text text-transparent">
             Edit Form
           </DialogTitle>
-          <DialogDescription className="text-blue-200">
+          <DialogDescription className="text-gray-600 text-sm">
             Update the form details below.
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-4 py-4">
-          {/* Title Field */}
-          <div className="space-y-2">
-            <Label htmlFor="title" className="text-blue-100 font-semibold">
-              Title
-            </Label>
-            <Input
-              id="title"
-              value={editTitle}
-              onChange={(e) => setEditTitle(e.target.value)}
-              className="bg-white/10 backdrop-blur-lg border border-white/20 text-white placeholder:text-white/50 focus:border-pink-500/50 focus:ring-pink-500/20"
-              placeholder="Enter form title"
-            />
-          </div>
+        <div className="flex flex-col gap-4 py-4">
+          <div className="flex flex-col gap-4 space-y-1">
+            <div>
+              <Label
+                htmlFor="title"
+                className="text-gray-700 font-medium text-sm">
+                Title *
+              </Label>
+              <Input
+                id="title"
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+                className="mt-1 bg-gray-50 border-gray-200 text-gray-900 placeholder:text-gray-400 focus:border-pink-400 focus:ring-pink-400/20 rounded-lg"
+                placeholder="Enter form title"
+              />
+            </div>
 
-          {/* Description Field */}
-          <div className="space-y-2">
-            <Label htmlFor="description" className="text-blue-100 font-semibold">
-              Description
-            </Label>
-            <Textarea
-              id="description"
-              value={editDescription}
-              onChange={(e) => setEditDescription(e.target.value)}
-              className="bg-white/10 backdrop-blur-lg border border-white/20 text-white placeholder:text-white/50 focus:border-pink-500/50 focus:ring-pink-500/20 resize-none"
-              rows={3}
-              placeholder="Enter form description (optional)"
-            />
-          </div>
+            <div>
+              <Label
+                htmlFor="description"
+                className="text-gray-700 font-medium text-sm">
+                Description{' '}
+                <span className="text-gray-500 font-normal">(Optional)</span>
+              </Label>
+              <Textarea
+                id="description"
+                value={editDescription}
+                onChange={(e) => setEditDescription(e.target.value)}
+                className="mt-1 bg-gray-50 border-gray-200 text-gray-900 placeholder:text-gray-400 focus:border-pink-400 focus:ring-pink-400/20 rounded-lg min-h-[80px] resize-none"
+                rows={3}
+                placeholder="Enter form description"
+              />
+            </div>
 
-          {/* Deadline Field */}
-          <div className="space-y-2">
-            <Label htmlFor="deadline" className="text-blue-100 font-semibold">
-              Deadline (Form&apos;s closing date & time / Optional)
-            </Label>
-            <div className="space-y-2">
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className="bg-white/10 backdrop-blur-lg border border-white/20 text-white hover:bg-white/20 justify-start w-full">
-                    <CalendarIcon className="mr-2 h-4 w-4 opacity-50" />
-                    {getDeadlineDisplayText()}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="bg-gradient-to-br from-slate-900/95 to-purple-900/95 backdrop-blur-xl border border-white/20 w-auto p-0">
-                  <div className="p-4">
-                    <CalendarComponent
-                      mode="single"
-                      selected={editDeadline}
-                      onSelect={setEditDeadline}
-                      disabled={(date) => {
-                        const today = new Date();
-                        today.setHours(0, 0, 0, 0);
-                        return date < today;
-                      }}
-                      className="text-white"
-                    />
-                    {editDeadline && (
-                      <div className="mt-4 pt-4 border-t border-white/20">
-                        <Label className="text-blue-100 font-semibold text-sm mb-2 block">
-                          <Clock className="inline w-4 h-4 mr-1" />
-                          Set Time
-                        </Label>
-                        <Input
-                          type="time"
-                          value={editDeadlineTime}
-                          onChange={(e) => setEditDeadlineTime(e.target.value)}
-                          className="bg-white/10 backdrop-blur-lg border border-white/20 text-white focus:border-pink-500/50 focus:ring-pink-500/20"
-                        />
-                        <p className="text-xs text-blue-200/70 mt-2">
-                          Final deadline: {getDeadlineDisplayText()}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </PopoverContent>
-              </Popover>
+            <div>
+              <Label
+                htmlFor="deadline"
+                className="text-gray-700 font-medium text-sm">
+                Deadline{' '}
+                <span className="text-gray-500 font-normal">
+                  (Form&apos;s closing date & time / Optional)
+                </span>
+              </Label>
+              <div className="mt-1">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100 justify-start w-full rounded-lg">
+                      <CalendarIcon className="mr-2 h-4 w-4 opacity-60" />
+                      <span className="truncate">
+                        {getDeadlineDisplayText()}
+                      </span>
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="bg-white border-gray-200 shadow-xl w-auto p-0 rounded-xl">
+                    <div className="p-4">
+                      <CalendarComponent
+                        mode="single"
+                        selected={editDeadline}
+                        onSelect={setEditDeadline}
+                        disabled={(date) => {
+                          const today = new Date();
+                          today.setHours(0, 0, 0, 0);
+                          return date < today;
+                        }}
+                        className="text-gray-900"
+                      />
+                      {editDeadline && (
+                        <div className="mt-4 pt-4 border-t border-gray-200">
+                          <Label className="text-gray-700 font-medium text-sm mb-2 block">
+                            <Clock className="inline w-4 h-4 mr-1" />
+                            Set Time
+                          </Label>
+                          <Input
+                            type="time"
+                            value={editDeadlineTime}
+                            onChange={(e) =>
+                              setEditDeadlineTime(e.target.value)
+                            }
+                            className="bg-gray-50 border-gray-200 text-gray-900 focus:border-pink-400 focus:ring-pink-400/20 rounded-lg"
+                          />
+                          <p className="text-xs text-gray-500 mt-2">
+                            Final deadline: {getDeadlineDisplayText()}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              </div>
             </div>
           </div>
         </div>
-        <DialogFooter className="gap-2">
+        <DialogFooter className="gap-2 flex-col sm:flex-row">
           <Button
             variant="outline"
             onClick={cancelEdit}
             disabled={isLoading}
-            className="bg-white/10 backdrop-blur-lg border border-white/20 text-white hover:bg-white/20">
+            className="bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100 rounded-lg w-full sm:w-auto">
             Cancel
           </Button>
           <Button
             onClick={handleSave}
             disabled={!editTitle.trim() || isLoading}
-            className="bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
+            className="bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg w-full sm:w-auto">
             {isLoading ? 'Saving...' : 'Save Changes'}
           </Button>
         </DialogFooter>
