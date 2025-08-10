@@ -117,14 +117,12 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ onComplete }) => {
 
   const renderVideo = (step: TutorialStep) => {
     if (!step.videoUrl) return null;
-
     return (
       <div className="mb-3 rounded-lg overflow-hidden bg-gray-50 shadow-sm">
         <video
           key={`${step.id}-${step.videoUrl}`}
-          className={`w-full ${isMobile ? 'h-32' : 'h-40'} object-cover`}
+          className="w-full aspect-video object-contain"
           src={step.videoUrl}
-          controls
           loop
           muted
           autoPlay
@@ -186,7 +184,6 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ onComplete }) => {
               </svg>
             </button>
           </div>
-
           {/* Progress Bar */}
           <div className="flex gap-1">
             {steps.map((_, index) => (
@@ -204,7 +201,6 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ onComplete }) => {
             ))}
           </div>
         </div>
-
         {/* Content */}
         <div
           className={`overflow-y-auto flex-1 ${
@@ -224,10 +220,8 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ onComplete }) => {
               {steps[currentStep].description}
             </p>
           </div>
-
           {renderVideo(steps[currentStep])}
         </div>
-
         {/* Footer */}
         <div
           className={`border-t border-gray-100 bg-gray-50/80 backdrop-blur-sm ${
@@ -264,7 +258,6 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ onComplete }) => {
                 className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all">
                 ← Previous
               </button>
-
               <div className="flex items-center gap-4">
                 <button
                   onClick={handleSkip}
