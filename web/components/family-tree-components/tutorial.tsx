@@ -19,7 +19,6 @@ interface TutorialStep {
   description: string;
   videoUrl?: string;
   videoType?: 'mp4' | 'webm' | 'gif';
-  tips?: string[];
 }
 
 interface TutorialOverlayProps {
@@ -29,7 +28,6 @@ interface TutorialOverlayProps {
 const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ onComplete }) => {
   const isMobile = useIsMobile();
   const [currentStep, setCurrentStep] = useState(0);
-  const [showTips, setShowTips] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const steps: TutorialStep[] = [
@@ -40,100 +38,56 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ onComplete }) => {
     },
     {
       id: 'layout-controls',
-      title: 'Control Buttons 🎮',
-      description:
-        'Reset layout, recenter view, refresh data, or add new members.',
+      title: 'Control Buttons',
+      description: 'Auto layout, recenter view, add members, and more.',
       videoUrl: '/demos/layout-controls.mp4',
-      videoType: 'mp4',
-      tips: [
-        'Reset reorganizes the tree',
-        'Center focuses the view',
-        'Refresh updates data'
-      ]
-    },
-    {
-      id: 'add-member',
-      title: 'Add Members ➕',
-      description: 'Tap "Add Member" to create new nodes with identifiers.',
-      videoUrl: '/demos/add-member.mp4',
-      videoType: 'mp4',
-      tips: [
-        'Use clear identifiers',
-        'New members start unconnected',
-        'Edit identifiers anytime'
-      ]
+      videoType: 'mp4'
     },
     {
       id: 'create-connection',
-      title: 'Make Connections 🔗',
+      title: 'Make Connections',
       description:
         'Drag from bottom handle to top handle to create Big-Little relationships.',
       videoUrl: '/demos/create-connection.mp4',
-      videoType: 'mp4',
-      tips: [
-        'Bottom = Big (mentor)',
-        'Top = Little (mentee)',
-        'Shows family lineage'
-      ]
+      videoType: 'mp4'
     },
     {
-      id: 'edit-member',
-      title: 'Edit Members ✏️',
+      id: 'detail',
+      title: 'Details Panel',
+      description: `${
+        isMobile ? 'Tap' : 'Click'
+      } on members to see responses on form.`,
+      videoUrl: '/demos/details-panel.mp4',
+      videoType: 'mp4'
+    },
+    {
+      id: 'double-click',
+      title: 'Double Clicking',
       description: `${
         isMobile ? 'Double-tap' : 'Double-click'
-      } nodes to edit identifiers.`,
+      } to delete members or edit identifiers.`,
       videoUrl: '/demos/edit-member.mp4',
-      videoType: 'mp4',
-      tips: [
-        'Fix typos quickly',
-        'Auto-saves changes',
-        'Press Enter to confirm'
-      ]
+      videoType: 'mp4'
     },
     {
-      id: 'toggle-big',
-      title: 'Change Status 👑',
+      id: 'delete-connection',
+      title: 'Remove Connections',
       description: `${
-        isMobile ? 'Long press' : 'Right-click'
-      } to promote/demote Big status.`,
-      videoUrl: '/demos/toggle-status.mp4',
-      videoType: 'mp4',
-      tips: [
-        'Affects node appearance',
-        'Only Bigs have Littles',
-        'Updates legend automatically'
-      ]
+        isMobile ? 'Tap' : 'Click'
+      } on a connection line to delete it.`,
+      videoUrl: '/demos/delete-connection.mp4',
+      videoType: 'mp4'
     },
     {
-      id: 'delete',
-      title: 'Delete Items 🗑️',
-      description: `${
-        isMobile ? 'Long press' : 'Right-click'
-      } nodes or connections to delete.`,
-      videoUrl: '/demos/delete-items.mp4',
-      videoType: 'mp4',
-      tips: [
-        'Deleting nodes removes connections',
-        'Connection deletion preserves nodes',
-        'Changes cannot be undone'
-      ]
-    },
-    {
-      id: 'legend',
-      title: 'Legend Guide 📋',
-      description:
-        'Icons show roles: Big+Little (👑🌱), Big (⭐), Little (🌱), Unconnected (⚪).',
-      videoUrl: '/demos/legend-guide.mp4',
-      videoType: 'mp4',
-      tips: [
-        'Icons identify member roles',
-        'Colors show connection status',
-        'Updates automatically'
-      ]
+      id: 'add-member',
+      title: 'Add Members',
+      description: 'Tap "Add Member" to create new members.',
+      videoUrl: '/demos/add-member.mp4',
+      videoType: 'mp4'
     },
     {
       id: 'conclusion',
-      title: "You're Ready! 🎉",
+      title: "You're Ready!",
       description:
         'Great! You can restart this tutorial anytime from the control buttons.'
     }
@@ -167,7 +121,7 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ onComplete }) => {
     return (
       <div className="mb-3 rounded-lg overflow-hidden bg-gray-50 shadow-sm">
         <video
-          className={`w-full ${isMobile ? 'h-32' : 'h-40'} object-cover`}
+          className="w-full h-auto object-contain"
           controls
           loop
           muted
@@ -179,57 +133,6 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ onComplete }) => {
           />
           Your browser does not support the video tag.
         </video>
-      </div>
-    );
-  };
-
-  const renderTips = (tips?: string[]) => {
-    if (!tips || tips.length === 0) return null;
-
-    if (isMobile) {
-      return (
-        <div className="mb-3">
-          <button
-            onClick={() => setShowTips(!showTips)}
-            className="flex items-center gap-2 text-blue-600 hover:text-blue-700 text-sm font-medium">
-            <span>💡</span>
-            <span>Tips</span>
-            <span
-              className={`transform transition-transform ${
-                showTips ? 'rotate-180' : ''
-              }`}>
-              ▼
-            </span>
-          </button>
-          {showTips && (
-            <div className="mt-2 p-2 bg-blue-50 rounded-md border border-blue-100">
-              <ul className="space-y-1 text-xs text-blue-800">
-                {tips.map((tip, index) => (
-                  <li key={index} className="flex items-start gap-1.5">
-                    <span className="text-blue-400 mt-0.5 text-xs">•</span>
-                    <span>{tip}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </div>
-      );
-    }
-
-    return (
-      <div className="mb-4 p-3 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg border border-blue-100">
-        <h4 className="mb-2 font-medium text-sm text-blue-800 flex items-center gap-1">
-          <span>💡</span> Quick Tips
-        </h4>
-        <ul className="space-y-1.5 text-sm text-blue-700">
-          {tips.map((tip, index) => (
-            <li key={index} className="flex items-start gap-2">
-              <span className="text-blue-400 mt-0.5">•</span>
-              <span>{tip}</span>
-            </li>
-          ))}
-        </ul>
       </div>
     );
   };
@@ -325,7 +228,6 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ onComplete }) => {
           </div>
 
           {renderVideo(steps[currentStep])}
-          {renderTips(steps[currentStep].tips)}
         </div>
 
         {/* Footer */}
