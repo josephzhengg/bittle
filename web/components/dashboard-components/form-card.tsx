@@ -437,7 +437,7 @@ export default function FormCard({ form }: FormCardProps) {
                   variant="ghost"
                   size="icon"
                   className="h-9 w-9 sm:h-10 sm:w-10 bg-red-50 hover:bg-red-100 border border-red-200 rounded-lg text-red-600 hover:text-red-700 transition-all duration-300"
-                  aria-label="Delete form"
+                  aria-label="Delete family tree"
                   onClick={(e) => e.stopPropagation()}>
                   <Trash2 className="w-4 sm:w-5 h-4 sm:h-5" />
                 </Button>
