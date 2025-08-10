@@ -40,7 +40,7 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ onComplete }) => {
       id: 'layout-controls',
       title: 'Control Buttons',
       description: 'Auto layout, recenter view, add members, and more.',
-      videoUrl: '/demos/layout-controls.mp4',
+      videoUrl: '/tutorial_videos/layout_control.mp4',
       videoType: 'mp4'
     },
     {
@@ -48,7 +48,7 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ onComplete }) => {
       title: 'Make Connections',
       description:
         'Drag from bottom handle to top handle to create Big-Little relationships.',
-      videoUrl: '/demos/create-connection.mp4',
+      videoUrl: '/tutorial_videos/create_connections.mp4',
       videoType: 'mp4'
     },
     {
@@ -57,7 +57,7 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ onComplete }) => {
       description: `${
         isMobile ? 'Tap' : 'Click'
       } on members to see responses on form.`,
-      videoUrl: '/demos/details-panel.mp4',
+      videoUrl: '/tutorial_videos/details_panel.mp4',
       videoType: 'mp4'
     },
     {
@@ -66,7 +66,7 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ onComplete }) => {
       description: `${
         isMobile ? 'Double-tap' : 'Double-click'
       } to delete members or edit identifiers.`,
-      videoUrl: '/demos/edit-member.mp4',
+      videoUrl: '/tutorial_videos/edit_members.mp4',
       videoType: 'mp4'
     },
     {
@@ -75,14 +75,14 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ onComplete }) => {
       description: `${
         isMobile ? 'Tap' : 'Click'
       } on a connection line to delete it.`,
-      videoUrl: '/demos/delete-connection.mp4',
+      videoUrl: '/tutorial_videos/delete_connections.mp4',
       videoType: 'mp4'
     },
     {
       id: 'add-member',
       title: 'Add Members',
       description: 'Tap "Add Member" to create new members.',
-      videoUrl: '/demos/add-member.mp4',
+      videoUrl: '/tutorial_videos/add_member.mp4',
       videoType: 'mp4'
     },
     {
@@ -121,18 +121,16 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ onComplete }) => {
     return (
       <div className="mb-3 rounded-lg overflow-hidden bg-gray-50 shadow-sm">
         <video
-          className="w-full h-auto object-contain"
+          key={`${step.id}-${step.videoUrl}`}
+          className={`w-full ${isMobile ? 'h-32' : 'h-40'} object-cover`}
+          src={step.videoUrl}
           controls
           loop
           muted
           autoPlay
-          playsInline>
-          <source
-            src={step.videoUrl}
-            type={`video/${step.videoType || 'mp4'}`}
-          />
-          Your browser does not support the video tag.
-        </video>
+          playsInline
+          preload="metadata"
+        />
       </div>
     );
   };
