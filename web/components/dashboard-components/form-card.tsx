@@ -437,7 +437,7 @@ export default function FormCard({ form }: FormCardProps) {
                   variant="ghost"
                   size="icon"
                   className="h-9 w-9 sm:h-10 sm:w-10 bg-red-50 hover:bg-red-100 border border-red-200 rounded-lg text-red-600 hover:text-red-700 transition-all duration-300"
-                  aria-label="Delete family tree"
+                  aria-label="Delete form"
                   onClick={(e) => e.stopPropagation()}>
                   <Trash2 className="w-4 sm:w-5 h-4 sm:h-5" />
                 </Button>
@@ -445,7 +445,7 @@ export default function FormCard({ form }: FormCardProps) {
               <DialogContent className="bg-white/95 backdrop-blur-xl border-0 shadow-2xl text-gray-900 max-w-[90vw] sm:max-w-lg rounded-2xl">
                 <DialogHeader>
                   <DialogTitle className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-red-600 to-pink-600 bg-clip-text text-transparent">
-                    Delete Family Tree?
+                    Delete Form?
                   </DialogTitle>
                   <DialogDescription className="text-gray-600 text-sm sm:text-base">
                     This action cannot be undone. This will permanently delete
@@ -453,7 +453,7 @@ export default function FormCard({ form }: FormCardProps) {
                       {' '}
                       &quot;{form.title}&quot;{' '}
                     </span>
-                    and all of its members and connections.
+                    and all its responses. Are you sure you want to proceed?
                   </DialogDescription>
                 </DialogHeader>
                 <DialogFooter className="gap-3 flex-col sm:flex-row">

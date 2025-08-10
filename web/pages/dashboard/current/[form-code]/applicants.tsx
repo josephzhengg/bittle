@@ -22,7 +22,8 @@ import { createSupabaseServerClient } from '@/utils/supabase/clients/server-prop
 import {
   getFormTitle,
   getFormIdByCode,
-  getFormDeadline
+  getFormDeadline,
+  getFormByCode
 } from '@/utils/supabase/queries/form';
 import { getQuestions, getOptions } from '@/utils/supabase/queries/question';
 import {
@@ -43,6 +44,8 @@ import FormNavigationTabs from '@/components/dashboard-components/form-navigatio
 import FormStatusBadge from '@/components/dashboard-components/form-status-badge';
 import { ProcessedSubmission } from '@/utils/types';
 import { useSupabase } from '@/lib/supabase';
+import { useQuery } from '@tanstack/react-query';
+import { Clock } from 'lucide-react';
 
 export type CurrentFormsPageProps = {
   user: User;
@@ -97,6 +100,26 @@ export default function FormPage({
     }
     return filtered;
   }, [submissions, searchTerm]);
+
+  const formData = useQuery({
+    queryKey: ['formData', formCode],
+    queryFn: async () => {
+      return await getFormByCode(supabase, formCode);
+    }
+  });
+
+  const formatDateTime = (dateInput: string | Date) => {
+    const date =
+      typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
+    return date.toLocaleString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
+  };
 
   // Statistics
   const stats = useMemo(() => {
@@ -224,8 +247,31 @@ export default function FormPage({
               </div>
             </div>
             <p className="text-muted-foreground text-sm">
-              View and manage form responses
+              Form preview and structure
             </p>
+            {formData.data?.description && (
+              <div className="bg-slate-50/50 rounded-lg p-4 border border-slate-100">
+                <p className="text-sm text-slate-700 leading-relaxed">
+                  {formData.data.description}
+                </p>
+              </div>
+            )}
+
+            {deadline && (
+              <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg p-4 border border-purple-100">
+                <div className="flex items-center gap-2 text-sm">
+                  <Clock
+                    className={`w-4 h-4 ${
+                      deadline ? 'text-green-600' : 'text-muted-foreground'
+                    }`}
+                  />
+                  <span className="text-slate-600 font-medium">Deadline:</span>
+                  <span className="font-semibold text-green-600">
+                    {formatDateTime(deadline)}
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
           <div className="flex flex-col sm:flex-row gap-2 sm:gap-2">
             <Button
