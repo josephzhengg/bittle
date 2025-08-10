@@ -43,7 +43,7 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ onComplete }) => {
       title: 'Control Buttons 🎮',
       description:
         'Reset layout, recenter view, refresh data, or add new members.',
-      videoUrl: '/demos/layout-controls.mp4',
+      videoUrl: '/tutorial_video/control_buttons.mp4',
       videoType: 'mp4',
       tips: [
         'Reset reorganizes the tree',
@@ -55,7 +55,7 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ onComplete }) => {
       id: 'add-member',
       title: 'Add Members ➕',
       description: 'Tap "Add Member" to create new nodes with identifiers.',
-      videoUrl: '/demos/add-member.mp4',
+      videoUrl: '/tutorial_video/add_members.mp4',
       videoType: 'mp4',
       tips: [
         'Use clear identifiers',
@@ -68,7 +68,7 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ onComplete }) => {
       title: 'Make Connections 🔗',
       description:
         'Drag from bottom handle to top handle to create Big-Little relationships.',
-      videoUrl: '/demos/create-connection.mp4',
+      videoUrl: '/tutorial_video/make_connections.mp4',
       videoType: 'mp4',
       tips: [
         'Bottom = Big (mentor)',
@@ -82,7 +82,7 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ onComplete }) => {
       description: `${
         isMobile ? 'Double-tap' : 'Double-click'
       } nodes to edit identifiers.`,
-      videoUrl: '/demos/edit-member.mp4',
+      videoUrl: '/tutorial_video/edit_members.mp4',
       videoType: 'mp4',
       tips: [
         'Fix typos quickly',
@@ -96,7 +96,7 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ onComplete }) => {
       description: `${
         isMobile ? 'Long press' : 'Right-click'
       } to promote/demote Big status.`,
-      videoUrl: '/demos/toggle-status.mp4',
+      videoUrl: '/tutorial_video/status_change.mp4',
       videoType: 'mp4',
       tips: [
         'Affects node appearance',
@@ -110,7 +110,7 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ onComplete }) => {
       description: `${
         isMobile ? 'Long press' : 'Right-click'
       } nodes or connections to delete.`,
-      videoUrl: '/demos/delete-items.mp4',
+      videoUrl: '/tutorial_video/delete.mp4',
       videoType: 'mp4',
       tips: [
         'Deleting nodes removes connections',
@@ -119,11 +119,26 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ onComplete }) => {
       ]
     },
     {
+      id: 'remove-all-connections',
+      title: 'Remove All Connections 🧹',
+      description: `${
+        isMobile ? 'Long press' : 'Right-click'
+      } Use the "Remove All Connections" button to clear all relationships and reset all member roles.`,
+      videoUrl: '/tutorial_video/delete_all.mp4',
+      videoType: 'mp4',
+      tips: [
+        'Removes every connection in the tree',
+        'Resets all Big/Little statuses',
+        'Nodes remain unchanged',
+        'Cannot be undone'
+      ]
+    },
+    {
       id: 'legend',
       title: 'Legend Guide 📋',
       description:
         'Icons show roles: Big+Little (👑🌱), Big (⭐), Little (🌱), Unconnected (⚪).',
-      videoUrl: '/demos/legend-guide.mp4',
+      videoUrl: '/tutorial_video/legend.mp4',
       videoType: 'mp4',
       tips: [
         'Icons identify member roles',
@@ -167,6 +182,7 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ onComplete }) => {
     return (
       <div className="mb-3 rounded-lg overflow-hidden bg-gray-50 shadow-sm">
         <video
+          key={step.videoUrl} // Add this line to force re-creation on URL change
           className={`w-full ${isMobile ? 'h-32' : 'h-40'} object-cover`}
           controls
           loop
