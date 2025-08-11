@@ -7,11 +7,8 @@ export default class MyDocument extends Document {
         <Head>
           <meta
             name="description"
-            content="A modern web application for managing forms and data, built with Next.js and Supabase."
+            content="Your best companion in creating families in your organization"
           />
-          <title>Bittle</title>
-          <link rel="preload" href="/styles/globals.css" as="style" />
-          <link rel="stylesheet" href="/styles/globals.css" />
         </Head>
         <body>
           <Main />

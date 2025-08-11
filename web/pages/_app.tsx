@@ -7,6 +7,7 @@ import { User } from '@supabase/supabase-js';
 import { useSupabase } from '@/lib/supabase';
 import { ThemeProvider } from '@/components/theme/theme-provider';
 import { Toaster } from 'sonner';
+import Head from 'next/head';
 
 const queryClient = new QueryClient();
 
@@ -41,21 +42,20 @@ export default function App({ Component, pageProps }: AppProps) {
     return null;
   }
 
-  if (!isExcludedRoute && !user) {
-    return (
-      <ThemeProvider
-        attribute="class"
-        defaultTheme="system"
-        enableSystem
-        disableTransitionOnChange
-        themes={['light', 'dark']}>
-        <Toaster />
-      </ThemeProvider>
-    );
-  }
-
   return (
     <QueryClientProvider client={queryClient}>
+      <Head>
+        <title>Bittle</title>
+        <meta
+          name="description"
+          content="Your best companion in creating families in your organization"
+        />
+        <meta property="og:title" content="Bittle" />
+        <meta
+          property="og:description"
+          content="Your best companion in creating families in your organization"
+        />
+      </Head>
       <ThemeProvider
         attribute="class"
         defaultTheme="system"
@@ -63,7 +63,7 @@ export default function App({ Component, pageProps }: AppProps) {
         disableTransitionOnChange
         themes={['light', 'dark']}>
         <Toaster />
-        <Component {...pageProps} />
+        {!isExcludedRoute && !user ? null : <Component {...pageProps} />}
       </ThemeProvider>
     </QueryClientProvider>
   );
