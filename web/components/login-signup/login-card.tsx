@@ -53,8 +53,7 @@ export default function LoginCard({ supabase, router }: LoginCardProps) {
         toast.success('Logged in successfully!');
         router.push('/dashboard/current');
       }
-    } catch (err) {
-      console.error('Login error:', err);
+    } catch {
       toast.error('An unexpected error occurred. Please try again.');
       setIsLoading(false);
     }

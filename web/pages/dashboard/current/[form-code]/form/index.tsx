@@ -281,7 +281,7 @@ export default function FormPage({
               disabled={!formCode}
               className="w-full sm:w-auto sm:min-w-[160px]">
               <QrCode className="w-4 h-4 mr-2" />
-              Download QR Code
+              Download Form QR Code
             </Button>
             <Button
               onClick={() => {
