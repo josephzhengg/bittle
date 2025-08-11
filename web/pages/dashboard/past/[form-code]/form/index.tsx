@@ -30,6 +30,8 @@ import { Question } from '@/utils/supabase/models/question';
 import { FormStatsCards } from '@/components/dashboard-components/form-stats-card';
 import FormNavigationTabs from '@/components/dashboard-components/form-navigation-tabs';
 import FormStatusBadge from '@/components/dashboard-components/form-status-badge';
+import { QrCode } from 'lucide-react';
+import { toast } from 'sonner';
 
 export type PastFormsPageProps = {
   user: User;
@@ -37,7 +39,7 @@ export type PastFormsPageProps = {
     id: string;
     title: string;
     description?: string;
-    deadline?: string; // ISO string for serialization
+    deadline?: string;
     formId: string;
     questions: Question[];
     formCode: string;
@@ -101,6 +103,31 @@ export default function FormPage({
   const sortedQuestions = useMemo(() => {
     return questions ? [...questions].sort((a, b) => a.index - b.index) : [];
   }, [questions]);
+
+  const handleDownloadQR = async () => {
+    if (!formCode || typeof formCode !== 'string') return;
+    try {
+      const targetUrl = `bittle.me/input-code/${formCode}`;
+      const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(
+        targetUrl
+      )}&size=200x200&format=png`;
+      const response = await fetch(qrApiUrl);
+      if (!response.ok) {
+        throw new Error('Failed to fetch QR code');
+      }
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `qr-code-${formCode}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch {
+      toast.error('Failed to download QR code');
+    }
+  };
 
   const stats = useMemo(() => {
     if (!sortedQuestions) return null;
@@ -247,6 +274,15 @@ export default function FormPage({
                 }
               />
             )}
+
+            <Button
+              variant="outline"
+              onClick={handleDownloadQR}
+              disabled={!formCode}
+              className="w-full sm:w-auto sm:min-w-[160px]">
+              <QrCode className="w-4 h-4 mr-2" />
+              Download Form QR Code
+            </Button>
 
             <Button
               onClick={() => {

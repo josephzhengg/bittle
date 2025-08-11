@@ -276,6 +276,99 @@ export default function QuestionnairePage() {
     );
   }
 
+  if (
+    formData &&
+    formData.deadline &&
+    new Date(formData.deadline) < new Date()
+  ) {
+    return (
+      <div className="animated-bg-container">
+        <div className="animated-bg-elements">
+          <div className="bg-blob-1"></div>
+          <div className="bg-blob-2"></div>
+          <div className="bg-blob-3"></div>
+        </div>
+        <div className="relative z-10 h-screen flex items-center justify-center px-4">
+          <div className="text-center text-white max-w-lg animate-fade-in-up">
+            <div className="mb-6">
+              <svg
+                className="w-20 h-20 mx-auto text-red-300 mb-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+              <h1 className="text-3xl font-bold text-white mb-2">
+                Form Expired
+              </h1>
+              <div className="h-1 w-16 bg-gradient-to-r from-red-500 to-orange-500 rounded-full mx-auto mb-4"></div>
+            </div>
+
+            <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 mb-8 border border-white/20">
+              <p className="text-lg text-red-100 mb-4 leading-relaxed">
+                <span className="font-semibold text-white">
+                  &quot;{formData.title || 'This form'}&quot;
+                </span>{' '}
+                expired on{' '}
+                <span className="font-medium text-red-200">
+                  {new Date(formData.deadline).toLocaleDateString('en-US', {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                  })}
+                </span>
+              </p>
+              <p className="text-base text-blue-100 leading-relaxed">
+                This form is no longer accepting responses.
+              </p>
+            </div>
+
+            {authorData && (
+              <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 mb-8 border border-white/20">
+                <p className="text-base text-blue-100 leading-relaxed">
+                  If you think this is a mistake, please contact{' '}
+                  <span className="font-semibold text-white">
+                    {authorData.name}
+                  </span>
+                  {authorData.affiliation && (
+                    <>
+                      {' '}
+                      from{' '}
+                      <span className="font-medium text-blue-200">
+                        {authorData.affiliation}
+                      </span>
+                    </>
+                  )}
+                </p>
+              </div>
+            )}
+
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <button
+                onClick={() => router.back()}
+                className="flex items-center px-6 py-3 rounded-xl font-semibold border border-white/20 bg-white/10 text-white hover:bg-white/20 transition-all duration-300 transform hover:scale-105">
+                <RotateCcw className="w-5 h-5 mr-2" />
+                Go Back
+              </button>
+              <button
+                onClick={() => router.push('/input-code')}
+                className="flex items-center px-6 py-3 rounded-xl font-semibold bg-gradient-to-r from-pink-500 to-purple-500 text-white shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
+                <MoveRight className="w-5 h-5 mr-2" />
+                Try Another Form
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (!questionsData || questionsData.length === 0) {
     return (
       <div className="animated-bg-container">
