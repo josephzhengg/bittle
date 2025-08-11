@@ -111,7 +111,8 @@ export default function InputCodePage() {
           <div className="text-center animate-fade-in-up px-4">
             <div className="bg-white/15 backdrop-blur-lg rounded-2xl px-6 sm:px-8 py-4 border border-white/30 inline-block">
               <p className="text-base sm:text-lg text-blue-100">
-                Want to make your own form?{' '}
+                Want to make your own form?
+                <br />
                 <Link
                   href="/login"
                   className="text-white font-semibold hover:text-pink-300 transition-colors duration-300 underline decoration-pink-400 hover:decoration-pink-300 underline-offset-4">

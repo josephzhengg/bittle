@@ -10,7 +10,15 @@ import {
   CardTitle
 } from '@/components/ui/card';
 import { useSupabase } from '@/lib/supabase';
-import { Edit, FileText, Eye, RefreshCw, Clock, Settings } from 'lucide-react';
+import {
+  Edit,
+  FileText,
+  Eye,
+  RefreshCw,
+  Clock,
+  Settings,
+  QrCode
+} from 'lucide-react';
 import ReadOnlyQuestionCard from '@/components/question-components/read-only-question-card';
 import { FormEditDialog } from '@/components/dashboard-components/form-edit-dialog';
 import { createSupabaseServerClient } from '@/utils/supabase/clients/server-props';
@@ -30,6 +38,7 @@ import { Question } from '@/utils/supabase/models/question';
 import { FormStatsCards } from '@/components/dashboard-components/form-stats-card';
 import FormNavigationTabs from '@/components/dashboard-components/form-navigation-tabs';
 import FormStatusBadge from '@/components/dashboard-components/form-status-badge';
+import { toast } from 'sonner';
 
 export type CurrentFormsPageProps = {
   user: User;
@@ -37,7 +46,7 @@ export type CurrentFormsPageProps = {
     id: string;
     title: string;
     description?: string;
-    deadline?: string; // ISO string for serialization
+    deadline?: string;
     formId: string;
     questions: Question[];
     formCode: string;
@@ -104,13 +113,11 @@ export default function FormPage({
 
   const stats = useMemo(() => {
     if (!sortedQuestions) return null;
-
     const total = sortedQuestions.length;
     const typeBreakdown = sortedQuestions.reduce((acc, question) => {
       acc[question.type] = (acc[question.type] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
-
     return { total, typeBreakdown };
   }, [sortedQuestions]);
 
@@ -133,6 +140,31 @@ export default function FormPage({
       await Promise.all([refetchForm(), refetchQuestions()]);
     } finally {
       setIsRefreshing(false);
+    }
+  };
+
+  const handleDownloadQR = async () => {
+    if (!formCode || typeof formCode !== 'string') return;
+    try {
+      const targetUrl = `bittle.me/input-code/${formCode}`;
+      const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(
+        targetUrl
+      )}&size=200x200&format=png`;
+      const response = await fetch(qrApiUrl);
+      if (!response.ok) {
+        throw new Error('Failed to fetch QR code');
+      }
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `qr-code-${formCode}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch {
+      toast.error('Failed to download QR code');
     }
   };
 
@@ -187,7 +219,6 @@ export default function FormPage({
               Form preview and structure
             </p>
           </div>
-
           {/* Description Section */}
           {formData?.description && (
             <div className="bg-slate-50/50 rounded-lg p-4 border border-slate-100">
@@ -196,7 +227,6 @@ export default function FormPage({
               </p>
             </div>
           )}
-
           {/* Deadline Section */}
           {formData?.deadline && (
             <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg p-4 border border-purple-100">
@@ -215,7 +245,6 @@ export default function FormPage({
               </div>
             </div>
           )}
-
           <div className="flex flex-col sm:flex-row gap-2">
             <Button
               variant="outline"
@@ -227,7 +256,6 @@ export default function FormPage({
               />
               {isRefreshing ? 'Refreshing...' : 'Refresh'}
             </Button>
-
             {formData && (
               <FormEditDialog
                 form={{
@@ -247,7 +275,14 @@ export default function FormPage({
                 }
               />
             )}
-
+            <Button
+              variant="outline"
+              onClick={handleDownloadQR}
+              disabled={!formCode}
+              className="w-full sm:w-auto sm:min-w-[160px]">
+              <QrCode className="w-4 h-4 mr-2" />
+              Download QR Code
+            </Button>
             <Button
               onClick={() => {
                 router.push(
@@ -262,14 +297,12 @@ export default function FormPage({
             </Button>
           </div>
         </div>
-
         {/* Navigation Tabs */}
         <FormNavigationTabs
           formCode={typeof formCode === 'string' ? formCode : ''}
           currentTab="forms"
           basePath="current"
         />
-
         {/* Statistics Cards */}
         <FormStatsCards
           formCode={typeof formCode === 'string' ? formCode : 'N/A'}
@@ -277,7 +310,6 @@ export default function FormPage({
           stats={stats}
           isPageLoading={isPageLoading}
         />
-
         {/* Form Content */}
         <Card>
           <CardHeader>
@@ -330,7 +362,6 @@ export default function FormPage({
 export async function getServerSideProps(context: GetServerSidePropsContext) {
   const supabase = createSupabaseServerClient(context);
   const { data: userData, error: authError } = await supabase.auth.getUser();
-
   if (!userData || authError) {
     return {
       redirect: {
@@ -339,10 +370,8 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
       }
     };
   }
-
   const { 'form-code': formCode } = context.query;
   const currentPath = context.resolvedUrl;
-
   if (!formCode || typeof formCode !== 'string') {
     return {
       props: {
@@ -352,12 +381,10 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
       }
     };
   }
-
   try {
     const deadline = await getFormDeadline(supabase, formCode);
     const now = new Date();
     const isDeadlinePassed = deadline ? new Date(deadline) < now : false;
-
     if (currentPath.includes('/dashboard/past/form/') && !isDeadlinePassed) {
       return {
         redirect: {
@@ -366,7 +393,6 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
         }
       };
     }
-
     if (currentPath.includes('/dashboard/current/form/') && isDeadlinePassed) {
       return {
         redirect: {
@@ -375,12 +401,10 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
         }
       };
     }
-
     const [formData, formId] = await Promise.all([
       getFormData(supabase, formCode),
       getFormIdByCode(supabase, formCode)
     ]);
-
     if (!formData || !formId) {
       return {
         props: {
@@ -390,9 +414,7 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
         }
       };
     }
-
     const questions = await getQuestions(supabase, formId);
-
     return {
       props: {
         user: userData.user,
@@ -413,7 +435,6 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
         getFormData(supabase, formCode),
         getFormIdByCode(supabase, formCode)
       ]);
-
       if (!formData || !formId) {
         return {
           props: {
@@ -423,9 +444,7 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
           }
         };
       }
-
       const questions = await getQuestions(supabase, formId);
-
       return {
         props: {
           user: userData.user,

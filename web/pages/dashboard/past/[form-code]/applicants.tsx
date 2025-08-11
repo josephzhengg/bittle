@@ -46,6 +46,7 @@ import { ProcessedSubmission } from '@/utils/types';
 import { useSupabase } from '@/lib/supabase';
 import { useQuery } from '@tanstack/react-query';
 import { Clock } from 'lucide-react';
+import { QrCode } from 'lucide-react';
 
 export type PastFormsPageProps = {
   user: User;
@@ -131,6 +132,31 @@ export default function FormPage({
       return await getFormByCode(supabase, formCode);
     }
   });
+
+  const handleDownloadQR = async () => {
+    if (!formCode || typeof formCode !== 'string') return;
+    try {
+      const targetUrl = `bittle.me/input-code/${formCode}`;
+      const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(
+        targetUrl
+      )}&size=200x200&format=png`;
+      const response = await fetch(qrApiUrl);
+      if (!response.ok) {
+        throw new Error('Failed to fetch QR code');
+      }
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `qr-code-${formCode}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch {
+      toast.error('Failed to download QR code');
+    }
+  };
 
   const handleSearch = useCallback((value: string) => {
     setSearchTerm(value);
@@ -286,6 +312,15 @@ export default function FormPage({
               className="w-full sm:w-auto sm:min-w-[120px]">
               <Download className="w-4 h-4 mr-2" />
               Export CSV
+            </Button>
+
+            <Button
+              variant="outline"
+              onClick={handleDownloadQR}
+              disabled={!formCode}
+              className="w-full sm:w-auto sm:min-w-[160px]">
+              <QrCode className="w-4 h-4 mr-2" />
+              Download QR Code
             </Button>
             <Button
               onClick={() =>
