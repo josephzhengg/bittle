@@ -1,8 +1,13 @@
 import Head from 'next/head';
+import Link from 'next/link';
 import { createSupabaseServerClient } from '@/utils/supabase/clients/server-props';
 import type { GetServerSidePropsContext } from 'next';
 
-export default function Home() {
+type HomeProps = {
+  isLoggedIn: boolean;
+};
+
+export default function Home({ isLoggedIn }: HomeProps) {
   return (
     <>
       <Head>
@@ -12,41 +17,38 @@ export default function Home() {
           content="Welcome to Bittle, your companion for creating families in your organization."
         />
       </Head>
-      {null}
+      <main style={{ padding: '2rem', textAlign: 'center' }}>
+        <h1>Welcome to Bittle</h1>
+        <p>Your best companion in creating families in your organization.</p>
+        {!isLoggedIn && (
+          <p>
+            <Link href="/login">Log in</Link> or{' '}
+            <Link href="/signup">Sign up</Link> to get started.
+          </p>
+        )}
+      </main>
     </>
   );
 }
 
 export async function getServerSideProps(context: GetServerSidePropsContext) {
-  const accessToken = context.req.cookies['sb-access-token'];
-  if (!accessToken) {
-    return {
-      redirect: {
-        destination: '/login',
-        permanent: true
-      }
-    };
-  }
-
   const supabase = createSupabaseServerClient(context);
   const {
-    data: { session },
-    error
+    data: { session }
   } = await supabase.auth.getSession();
 
-  if (error || !session?.user) {
+  if (session?.user) {
     return {
       redirect: {
-        destination: '/login',
-        permanent: true
+        destination: '/dashboard/current',
+        permanent: false
       }
     };
   }
 
   return {
-    redirect: {
-      destination: '/dashboard/current',
-      permanent: true
+    props: {
+      isLoggedIn: false
     }
   };
 }
