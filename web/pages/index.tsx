@@ -23,7 +23,7 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
     return {
       redirect: {
         destination: '/login',
-        permanent: false
+        permanent: true
       }
     };
   }
@@ -38,7 +38,7 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
     return {
       redirect: {
         destination: '/login',
-        permanent: false
+        permanent: true
       }
     };
   }
@@ -46,7 +46,7 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
   return {
     redirect: {
       destination: '/dashboard/current',
-      permanent: false
+      permanent: true
     }
   };
 }
