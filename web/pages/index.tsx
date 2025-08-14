@@ -27,7 +27,6 @@ export default function Home({ isLoggedIn = false }: HomeProps) {
         <h1>Welcome to Bittle</h1>
         <p>Your best companion in creating families in your organization.</p>
         <p>Redirecting to login...</p>{' '}
-        {/* Optional: Show a message during redirect */}
       </main>
     </>
   );

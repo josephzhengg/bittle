@@ -21,12 +21,12 @@ export default function LoginPage() {
   return (
     <>
       <Head>
-        <title>Login – Bittle</title>
+        <title>Bittle</title>
         <meta
           name="description"
           content="Log in to Bittle to manage families in your organization."
         />
-        <meta property="og:title" content="Login – Bittle" />
+        <meta property="og:title" content="Bittle" />
         <meta
           property="og:description"
           content="Log in to Bittle to manage families in your organization."
