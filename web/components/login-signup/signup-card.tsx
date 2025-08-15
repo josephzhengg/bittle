@@ -266,9 +266,12 @@ export default function SignupCard({ supabase, router }: SignupCardProps) {
           </div>
 
           <Button
-            className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-bold py-4 px-8 rounded-xl text-lg shadow-lg hover:shadow-xl transform transition-all duration-300 hover:scale-[1.02] mt-6 flex items-center justify-center gap-2"
+            className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-bold h-14 rounded-xl text-lg shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center gap-2 mt-6"
             onClick={signUp}
-            disabled={isLoading}>
+            disabled={
+              isLoading || !email || !password || !confirmPassword || !name
+            }
+            name="signup-button">
             {isLoading ? (
               <>
                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
