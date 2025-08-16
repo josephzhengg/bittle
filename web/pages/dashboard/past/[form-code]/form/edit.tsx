@@ -32,14 +32,14 @@ import {
 } from '@/components/ui/dialog';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Input } from '@/components/ui/input';
 import { DoorOpen, Plus, Save, Trash2, GripVertical } from 'lucide-react';
 import { toast } from 'sonner';
 import { Reorder, useDragControls } from 'framer-motion';
 import { Question } from '@/utils/supabase/models/question';
 import { useMediaQuery } from '@/hooks/use-media-query';
 import { Badge } from '@/components/ui/badge';
+import { EmojiTextArea } from '@/components/general/emoji-textarea';
+import { EmojiInput } from '@/components/general/emoji-input';
 
 const QUESTION_TYPES = [
   {
@@ -117,11 +117,11 @@ const OptionInput = ({
   canRemove
 }: OptionInputProps) => (
   <div className="flex gap-2 items-center">
-    <Input
+    <EmojiInput
       value={value}
-      onChange={(e) => onChange(index, e.target.value)}
+      onChange={(val) => onChange(index, val)}
       placeholder={`Option ${index + 1}`}
-      className="flex-1 min-w-0"
+      id={`option-${index}`}
     />
     {canRemove && (
       <Button
@@ -289,7 +289,7 @@ const CreateQuestionDialog = ({
               <Label htmlFor="prompt" className="text-base font-medium">
                 {formData.type === 'section' ? 'Title *' : 'Question Prompt *'}
               </Label>
-              <Textarea
+              <EmojiTextArea
                 id="prompt"
                 placeholder={
                   formData.type === 'section'
@@ -297,11 +297,10 @@ const CreateQuestionDialog = ({
                     : 'Enter your question here...'
                 }
                 value={formData.prompt}
-                onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, prompt: e.target.value }))
+                onChange={(val) =>
+                  setFormData((prev) => ({ ...prev, prompt: val }))
                 }
-                className="min-h-[80px]"
-                style={{ whiteSpace: 'pre-wrap' }}
+                minHeight={80}
               />
             </div>
           )}
@@ -310,18 +309,17 @@ const CreateQuestionDialog = ({
               <Label htmlFor="description" className="text-base font-medium">
                 Description
               </Label>
-              <Textarea
+              <EmojiTextArea
                 id="description"
                 placeholder="Enter section description... (newlines and spacing will be preserved)"
                 value={formData.description || ''}
-                onChange={(e) =>
+                onChange={(val) =>
                   setFormData((prev) => ({
                     ...prev,
-                    description: e.target.value
+                    description: val
                   }))
                 }
-                className="min-h-[120px]"
-                style={{ whiteSpace: 'pre-wrap' }}
+                minHeight={120}
               />
             </div>
           )}

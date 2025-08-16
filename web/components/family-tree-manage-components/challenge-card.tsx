@@ -44,7 +44,8 @@ import {
   Clock,
   Target,
   ArrowRight,
-  User
+  User,
+  MoreVertical
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
@@ -64,14 +65,13 @@ export default function ChallengeCard({
   const supabase = useSupabase();
   const queryClient = useQueryClient();
   const [submissionOpen, setSubmissionOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [selectedConnection, setSelectedConnection] =
     useState<Connections | null>(null);
-
   const { data: connections = [] } = useQuery({
     queryKey: ['connections', family_id],
     queryFn: async () => getConnections(supabase, family_id)
   });
-
   const { data: challengeSubmissions = [], refetch: refetchSubmissions } =
     useQuery({
       queryKey: ['challengeSubmissions', challenge.id],
@@ -90,7 +90,6 @@ export default function ChallengeCard({
       refetchOnWindowFocus: true,
       staleTime: 0
     });
-
   const { data: pairings } = useQuery({
     queryKey: ['pairings', family_id],
     queryFn: async () => {
@@ -116,7 +115,6 @@ export default function ChallengeCard({
     },
     enabled: connections.length > 0
   });
-
   const handleSubmitPointSubmissionWithChallenge = async (
     connection: Connections
   ) => {
@@ -152,29 +150,24 @@ export default function ChallengeCard({
       setSelectedConnection(null);
     }
   };
-
   const hasConnectionSubmitted = (connectionId: string) => {
     return challengeSubmissions.some(
       (s) => s.challenge_id === challenge.id && s.connection_id === connectionId
     );
   };
-
   const isDeadlinePassed = challenge.deadline
     ? new Date(challenge.deadline) < new Date()
     : false;
-
   const formatDeadline = (deadline: string) => {
     const date = new Date(deadline);
     const now = new Date();
     const diffTime = date.getTime() - now.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
     if (diffDays < 0) return 'Expired';
     if (diffDays === 0) return 'Due today';
     if (diffDays === 1) return 'Due tomorrow';
     return `${diffDays} days left`;
   };
-
   const totalPairs = connections.length;
   const completedPairs = connections.filter((connection) =>
     challengeSubmissions.some(
@@ -188,9 +181,7 @@ export default function ChallengeCard({
 
   return (
     <Card className="group relative bg-gradient-to-br from-white via-white to-gray-50/30 shadow-lg border border-gray-200/60 hover:shadow-xl hover:border-blue-200/60 transition-all duration-300 hover:-translate-y-1 overflow-hidden h-full flex flex-col">
-      {/* Gradient accent bar */}
       <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-indigo-500" />
-
       <CardHeader className="pb-2 sm:pb-3 flex-shrink-0">
         <div className="flex justify-between items-start gap-2 sm:gap-3">
           <div className="flex-1 min-w-0">
@@ -248,25 +239,44 @@ export default function ChallengeCard({
               )}
             </div>
           </div>
-          <div className="flex items-center gap-0.5 sm:gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onEdit}
-              className="h-6 w-6 sm:h-8 sm:w-8 p-0 hover:bg-blue-100 hover:text-blue-700">
-              <Edit className="w-3 h-3 sm:w-4 sm:h-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onDelete}
-              className="h-6 w-6 sm:h-8 sm:w-8 p-0 hover:bg-red-100 hover:text-red-700">
-              <Trash2 className="w-3 h-3 sm:w-4 sm:h-4" />
-            </Button>
-          </div>
+          <Popover open={menuOpen} onOpenChange={setMenuOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 w-6 sm:h-8 sm:w-8 p-0 hover:bg-gray-100">
+                <MoreVertical className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-32 bg-white/98 backdrop-blur-sm border-gray-200 shadow-lg p-1">
+              <div className="flex flex-col gap-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    onEdit();
+                    setMenuOpen(false);
+                  }}
+                  className="justify-start h-8 text-sm text-gray-800 hover:bg-blue-100 hover:text-blue-700">
+                  <Edit className="w-4 h-4 mr-2" />
+                  Edit
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    onDelete();
+                    setMenuOpen(false);
+                  }}
+                  className="justify-start h-8 text-sm text-gray-800 hover:bg-red-100 hover:text-red-700">
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Delete
+                </Button>
+              </div>
+            </PopoverContent>
+          </Popover>
         </div>
       </CardHeader>
-
       <CardContent className="py-2 sm:py-3 flex-grow flex flex-col justify-between">
         <div>
           {challenge.deadline && (
@@ -303,7 +313,6 @@ export default function ChallengeCard({
           )}
         </div>
       </CardContent>
-
       <CardFooter className="pt-2 sm:pt-3 bg-gray-50/30 flex-shrink-0">
         <Dialog open={submissionOpen} onOpenChange={setSubmissionOpen}>
           <DialogTrigger asChild>
@@ -318,7 +327,6 @@ export default function ChallengeCard({
                 : 'Mark as Completed'}
             </Button>
           </DialogTrigger>
-
           <DialogContent className="bg-white/98 backdrop-blur-sm border-0 shadow-2xl w-[95vw] max-w-md mx-auto rounded-xl p-4 sm:p-6 max-h-[90vh] overflow-y-auto">
             <DialogHeader className="space-y-2 sm:space-y-3">
               <div className="flex items-center gap-2 sm:gap-3">
@@ -335,7 +343,6 @@ export default function ChallengeCard({
                 </div>
               </div>
             </DialogHeader>
-
             <div className="space-y-3 sm:space-y-4 mt-3 sm:mt-4">
               <div className="p-3 sm:p-4 bg-gray-50 rounded-lg border border-gray-100">
                 <h4 className="font-semibold text-gray-900 text-sm sm:text-base mb-1.5 sm:mb-2">
@@ -353,7 +360,6 @@ export default function ChallengeCard({
                   </div>
                 )}
               </div>
-
               <div className="space-y-1.5 sm:space-y-2">
                 <Label className="text-xs sm:text-sm font-medium text-gray-700">
                   Select Connection Pair
@@ -444,13 +450,11 @@ export default function ChallengeCard({
                                       </div>
                                     </div>
                                   </div>
-
                                   <div className="flex-shrink-0 mx-1 sm:mx-2">
                                     <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gradient-to-r from-gray-100 to-gray-200 flex items-center justify-center">
                                       <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600" />
                                     </div>
                                   </div>
-
                                   <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
                                     <div className="relative">
                                       <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center shadow-sm">
@@ -467,7 +471,6 @@ export default function ChallengeCard({
                                     </div>
                                   </div>
                                 </div>
-
                                 <div className="flex-shrink-0 ml-3 sm:ml-4">
                                   {hasSubmitted ? (
                                     <Badge
@@ -483,7 +486,6 @@ export default function ChallengeCard({
                                   )}
                                 </div>
                               </div>
-
                               {selectedConnection?.id === connection.id && (
                                 <div className="absolute inset-0 rounded-lg border-2 border-blue-400 pointer-events-none" />
                               )}
@@ -495,7 +497,6 @@ export default function ChallengeCard({
                   </PopoverContent>
                 </Popover>
               </div>
-
               <div className="grid grid-cols-3 gap-2 sm:gap-3 text-center">
                 <div className="p-2 sm:p-3 bg-blue-50 rounded-lg">
                   <div className="text-lg sm:text-xl font-bold text-blue-600">
@@ -522,7 +523,6 @@ export default function ChallengeCard({
                   </div>
                 </div>
               </div>
-
               {totalPairs > 0 && (
                 <div className="space-y-1.5 sm:space-y-2">
                   <div className="flex justify-between text-xs sm:text-sm text-gray-600">
@@ -545,7 +545,6 @@ export default function ChallengeCard({
                 </div>
               )}
             </div>
-
             <DialogFooter className="flex flex-col sm:flex-row gap-2 mt-4 sm:mt-6">
               <Button
                 variant="outline"
