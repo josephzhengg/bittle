@@ -32,8 +32,8 @@ import {
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useState } from 'react';
-import { Textarea } from '@/components/ui/textarea';
-import { Input } from '@/components/ui/input';
+import { EmojiTextArea } from '@/components/general/emoji-textarea'; // Import EmojiTextArea
+import { EmojiInput } from '@/components/general/emoji-input'; // Import EmojiInput
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getOptions, createOption } from '@/utils/supabase/queries/question';
 import { useSupabase } from '@/lib/supabase';
@@ -130,7 +130,7 @@ export default function QuestionCard({
         supabase,
         question.id,
         editedPrompt,
-        question.type === 'SECTION_HEADER' ? editedDescription : undefined
+        question.type === 'FREE_RESPONSE' ? editedDescription : undefined
       );
       setIsEditingPrompt(false);
       toast.success('Question updated successfully.');
@@ -224,23 +224,19 @@ export default function QuestionCard({
     return (
       <Card>
         <CardHeader className="pb-2">
-          {/* Mobile-friendly header layout */}
           <div className="space-y-3">
-            {/* Main content area - full width on mobile */}
             <div className="w-full">
               {isEditingPrompt ? (
                 <div className="space-y-2">
-                  <Input
+                  <EmojiInput // Replaced Input with EmojiInput
                     value={editedPrompt}
-                    onChange={(e) => setEditedPrompt(e.target.value)}
-                    className="text-lg font-semibold"
+                    onChange={(val) => setEditedPrompt(val)}
+                    placeholder="Enter section title..."
                   />
-                  <Textarea
+                  <EmojiTextArea // Replaced Textarea with EmojiTextArea
                     value={editedDescription}
-                    onChange={(e) => setEditedDescription(e.target.value)}
+                    onChange={(val) => setEditedDescription(val)}
                     placeholder="Add a description (optional, newlines and spacing preserved)"
-                    className="min-h-[60px]"
-                    style={{ whiteSpace: 'pre-wrap' }}
                   />
                   <div className="flex gap-2 flex-wrap">
                     <Button size="sm" onClick={handleSavePrompt}>
@@ -269,8 +265,6 @@ export default function QuestionCard({
                 </div>
               )}
             </div>
-
-            {/* Action buttons row - horizontal on mobile */}
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 {!isEditingPrompt && (
@@ -301,7 +295,6 @@ export default function QuestionCard({
                       <X className="w-4 h-4" />
                     </Button>
                   </DialogTrigger>
-
                   <DialogContent className="bg-white/95 backdrop-blur-xl border-0 shadow-2xl text-gray-900 max-w-[90vw] sm:max-w-lg rounded-2xl">
                     <DialogHeader>
                       <DialogTitle className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-red-600 to-pink-600 bg-clip-text text-transparent">
@@ -337,7 +330,6 @@ export default function QuestionCard({
                   </DialogContent>
                 </Dialog>
               </div>
-
               {!isEditingPrompt && (
                 <Button
                   variant="ghost"
@@ -355,7 +347,6 @@ export default function QuestionCard({
             </div>
           </div>
         </CardHeader>
-
         {isOpen && (
           <CardContent>
             {question.description && (
@@ -394,10 +385,10 @@ export default function QuestionCard({
             <div className="w-full">
               {isEditingPrompt ? (
                 <div className="space-y-2">
-                  <Input
+                  <EmojiInput // Replaced Input with EmojiInput
                     value={editedPrompt}
-                    onChange={(e) => setEditedPrompt(e.target.value)}
-                    className="text-lg font-semibold"
+                    onChange={(val) => setEditedPrompt(val)}
+                    placeholder="Enter your question here..."
                   />
                   <div className="flex gap-2 flex-wrap">
                     <Button size="sm" onClick={handleSavePrompt}>
@@ -425,7 +416,6 @@ export default function QuestionCard({
                 </div>
               )}
             </div>
-
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 {!isEditingPrompt && (
@@ -456,7 +446,6 @@ export default function QuestionCard({
                       <X className="w-4 h-4" />
                     </Button>
                   </DialogTrigger>
-
                   <DialogContent className="bg-white/95 backdrop-blur-xl border-0 shadow-2xl text-gray-900 max-w-[90vw] sm:max-w-lg rounded-2xl">
                     <DialogHeader>
                       <DialogTitle className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-red-600 to-pink-600 bg-clip-text text-transparent">
@@ -492,7 +481,6 @@ export default function QuestionCard({
                   </DialogContent>
                 </Dialog>
               </div>
-
               {!isEditingPrompt && (
                 <Button
                   variant="ghost"
@@ -510,7 +498,6 @@ export default function QuestionCard({
             </div>
           </div>
         </CardHeader>
-
         {isOpen && (
           <CardContent>
             <RadioGroup value={selectedValue} onValueChange={handleRadioChange}>
@@ -527,7 +514,6 @@ export default function QuestionCard({
                 </div>
               ))}
             </RadioGroup>
-
             <div className="mt-4 space-y-2">
               <h4 className="text-sm font-medium">Edit Options:</h4>
               {questionOption?.map((option) => (
@@ -536,10 +522,10 @@ export default function QuestionCard({
                   className="space-y-2 p-2 bg-gray-50 rounded">
                   {editingOptionId === option.id ? (
                     <div className="space-y-2">
-                      <Input
+                      <EmojiInput // Replaced Input with EmojiInput
                         value={editedOptionLabel}
-                        onChange={(e) => setEditedOptionLabel(e.target.value)}
-                        className="w-full"
+                        onChange={(val) => setEditedOptionLabel(val)}
+                        placeholder="Enter option label..."
                       />
                       <div className="flex gap-2 flex-wrap">
                         <Button
@@ -592,14 +578,12 @@ export default function QuestionCard({
                   )}
                 </div>
               ))}
-
               {isAddingOption ? (
                 <div className="space-y-2 p-2 bg-blue-50 rounded">
-                  <Input
+                  <EmojiInput // Replaced Input with EmojiInput
                     placeholder="New option label"
                     value={newOptionLabel}
-                    onChange={(e) => setNewOptionLabel(e.target.value)}
-                    className="w-full"
+                    onChange={(val) => setNewOptionLabel(val)}
                   />
                   <div className="flex gap-2 flex-wrap">
                     <Button size="sm" onClick={handleAddOption}>
@@ -648,10 +632,10 @@ export default function QuestionCard({
             <div className="w-full">
               {isEditingPrompt ? (
                 <div className="space-y-2">
-                  <Input
+                  <EmojiInput // Replaced Input with EmojiInput
                     value={editedPrompt}
-                    onChange={(e) => setEditedPrompt(e.target.value)}
-                    className="text-lg font-semibold"
+                    onChange={(val) => setEditedPrompt(val)}
+                    placeholder="Enter your question here..."
                   />
                   <div className="flex gap-2 flex-wrap">
                     <Button size="sm" onClick={handleSavePrompt}>
@@ -679,7 +663,6 @@ export default function QuestionCard({
                 </div>
               )}
             </div>
-
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 {!isEditingPrompt && (
@@ -710,7 +693,6 @@ export default function QuestionCard({
                       <X className="w-4 h-4" />
                     </Button>
                   </DialogTrigger>
-
                   <DialogContent className="bg-white/95 backdrop-blur-xl border-0 shadow-2xl text-gray-900 max-w-[90vw] sm:max-w-lg rounded-2xl">
                     <DialogHeader>
                       <DialogTitle className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-red-600 to-pink-600 bg-clip-text text-transparent">
@@ -746,7 +728,6 @@ export default function QuestionCard({
                   </DialogContent>
                 </Dialog>
               </div>
-
               {!isEditingPrompt && (
                 <Button
                   variant="ghost"
@@ -764,7 +745,6 @@ export default function QuestionCard({
             </div>
           </div>
         </CardHeader>
-
         {isOpen && (
           <CardContent>
             <Popover open={openPopover} onOpenChange={setOpenPopover}>
@@ -808,8 +788,6 @@ export default function QuestionCard({
                 </Command>
               </PopoverContent>
             </Popover>
-
-            {/* Option Editing UI */}
             <div className="mt-4 space-y-2">
               <h4 className="text-sm font-medium">Edit Options:</h4>
               {questionOption?.map((option) => (
@@ -818,10 +796,10 @@ export default function QuestionCard({
                   className="space-y-2 p-2 bg-gray-50 rounded">
                   {editingOptionId === option.id ? (
                     <div className="space-y-2">
-                      <Input
+                      <EmojiInput // Replaced Input with EmojiInput
                         value={editedOptionLabel}
-                        onChange={(e) => setEditedOptionLabel(e.target.value)}
-                        className="w-full"
+                        onChange={(val) => setEditedOptionLabel(val)}
+                        placeholder="Enter option label..."
                       />
                       <div className="flex gap-2 flex-wrap">
                         <Button
@@ -874,14 +852,12 @@ export default function QuestionCard({
                   )}
                 </div>
               ))}
-
               {isAddingOption ? (
                 <div className="space-y-2 p-2 bg-blue-50 rounded">
-                  <Input
+                  <EmojiInput // Replaced Input with EmojiInput
                     placeholder="New option label"
                     value={newOptionLabel}
-                    onChange={(e) => setNewOptionLabel(e.target.value)}
-                    className="w-full"
+                    onChange={(val) => setNewOptionLabel(val)}
                   />
                   <div className="flex gap-2 flex-wrap">
                     <Button size="sm" onClick={handleAddOption}>
@@ -927,10 +903,10 @@ export default function QuestionCard({
             <div className="w-full">
               {isEditingPrompt ? (
                 <div className="space-y-2">
-                  <Input
+                  <EmojiInput // Replaced Input with EmojiInput
                     value={editedPrompt}
-                    onChange={(e) => setEditedPrompt(e.target.value)}
-                    className="text-lg font-semibold"
+                    onChange={(val) => setEditedPrompt(val)}
+                    placeholder="Enter your question here..."
                   />
                   <div className="flex gap-2 flex-wrap">
                     <Button size="sm" onClick={handleSavePrompt}>
@@ -958,7 +934,6 @@ export default function QuestionCard({
                 </div>
               )}
             </div>
-
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 {!isEditingPrompt && (
@@ -989,7 +964,6 @@ export default function QuestionCard({
                       <X className="w-4 h-4" />
                     </Button>
                   </DialogTrigger>
-
                   <DialogContent className="bg-white/95 backdrop-blur-xl border-0 shadow-2xl text-gray-900 max-w-[90vw] sm:max-w-lg rounded-2xl">
                     <DialogHeader>
                       <DialogTitle className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-red-600 to-pink-600 bg-clip-text text-transparent">
@@ -1025,7 +999,6 @@ export default function QuestionCard({
                   </DialogContent>
                 </Dialog>
               </div>
-
               {!isEditingPrompt && (
                 <Button
                   variant="ghost"
@@ -1043,15 +1016,12 @@ export default function QuestionCard({
             </div>
           </div>
         </CardHeader>
-
         {isOpen && (
           <CardContent>
-            <Textarea
+            <EmojiTextArea // Replaced Textarea with EmojiTextArea
               placeholder="Write your response here..."
               value={textAnswer}
-              onChange={(e) => handleTextChange(e.target.value)}
-              className="min-h-[100px]"
-              disabled={true}
+              onChange={(val) => handleTextChange(val)}
             />
           </CardContent>
         )}
