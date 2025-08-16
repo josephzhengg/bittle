@@ -32,8 +32,8 @@ import {
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useState } from 'react';
-import { EmojiTextArea } from '@/components/general/emoji-textarea'; // Import EmojiTextArea
-import { EmojiInput } from '@/components/general/emoji-input'; // Import EmojiInput
+import { EmojiTextArea } from '@/components/general/emoji-textarea';
+import { EmojiInput } from '@/components/general/emoji-input';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getOptions, createOption } from '@/utils/supabase/queries/question';
 import { useSupabase } from '@/lib/supabase';
@@ -228,12 +228,12 @@ export default function QuestionCard({
             <div className="w-full">
               {isEditingPrompt ? (
                 <div className="space-y-2">
-                  <EmojiInput // Replaced Input with EmojiInput
+                  <EmojiInput
                     value={editedPrompt}
                     onChange={(val) => setEditedPrompt(val)}
                     placeholder="Enter section title..."
                   />
-                  <EmojiTextArea // Replaced Textarea with EmojiTextArea
+                  <EmojiTextArea
                     value={editedDescription}
                     onChange={(val) => setEditedDescription(val)}
                     placeholder="Add a description (optional, newlines and spacing preserved)"
@@ -385,7 +385,7 @@ export default function QuestionCard({
             <div className="w-full">
               {isEditingPrompt ? (
                 <div className="space-y-2">
-                  <EmojiInput // Replaced Input with EmojiInput
+                  <EmojiInput
                     value={editedPrompt}
                     onChange={(val) => setEditedPrompt(val)}
                     placeholder="Enter your question here..."
@@ -522,7 +522,7 @@ export default function QuestionCard({
                   className="space-y-2 p-2 bg-gray-50 rounded">
                   {editingOptionId === option.id ? (
                     <div className="space-y-2">
-                      <EmojiInput // Replaced Input with EmojiInput
+                      <EmojiInput
                         value={editedOptionLabel}
                         onChange={(val) => setEditedOptionLabel(val)}
                         placeholder="Enter option label..."
@@ -580,7 +580,7 @@ export default function QuestionCard({
               ))}
               {isAddingOption ? (
                 <div className="space-y-2 p-2 bg-blue-50 rounded">
-                  <EmojiInput // Replaced Input with EmojiInput
+                  <EmojiInput
                     placeholder="New option label"
                     value={newOptionLabel}
                     onChange={(val) => setNewOptionLabel(val)}
@@ -632,7 +632,7 @@ export default function QuestionCard({
             <div className="w-full">
               {isEditingPrompt ? (
                 <div className="space-y-2">
-                  <EmojiInput // Replaced Input with EmojiInput
+                  <EmojiInput
                     value={editedPrompt}
                     onChange={(val) => setEditedPrompt(val)}
                     placeholder="Enter your question here..."
@@ -796,7 +796,7 @@ export default function QuestionCard({
                   className="space-y-2 p-2 bg-gray-50 rounded">
                   {editingOptionId === option.id ? (
                     <div className="space-y-2">
-                      <EmojiInput // Replaced Input with EmojiInput
+                      <EmojiInput
                         value={editedOptionLabel}
                         onChange={(val) => setEditedOptionLabel(val)}
                         placeholder="Enter option label..."
@@ -854,7 +854,7 @@ export default function QuestionCard({
               ))}
               {isAddingOption ? (
                 <div className="space-y-2 p-2 bg-blue-50 rounded">
-                  <EmojiInput // Replaced Input with EmojiInput
+                  <EmojiInput
                     placeholder="New option label"
                     value={newOptionLabel}
                     onChange={(val) => setNewOptionLabel(val)}
@@ -903,7 +903,7 @@ export default function QuestionCard({
             <div className="w-full">
               {isEditingPrompt ? (
                 <div className="space-y-2">
-                  <EmojiInput // Replaced Input with EmojiInput
+                  <EmojiInput
                     value={editedPrompt}
                     onChange={(val) => setEditedPrompt(val)}
                     placeholder="Enter your question here..."
@@ -1018,7 +1018,7 @@ export default function QuestionCard({
         </CardHeader>
         {isOpen && (
           <CardContent>
-            <EmojiTextArea // Replaced Textarea with EmojiTextArea
+            <EmojiTextArea
               placeholder="Write your response here..."
               value={textAnswer}
               onChange={(val) => handleTextChange(val)}

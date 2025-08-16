@@ -9,7 +9,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { EMOJI_CATEGORIES, EMOJIS_BY_CATEGORY } from '@/utils/emoji/emoji-list';
 
-// Prevent accidental taps while dragging
 function EmojiCell({
   emoji,
   onSelect

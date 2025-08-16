@@ -41,7 +41,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { CalendarIcon, Clock } from 'lucide-react';
 import {
@@ -74,14 +73,13 @@ import {
   SheetTrigger
 } from '@/components/ui/sheet';
 import { Badge } from '@/components/ui/badge';
-
+import { EmojiTextArea } from '@/components/general/emoji-textarea';
 const Pairing = z.object({
   id: z.string(),
   big: z.string(),
   little: z.string()
 });
 type Pairing = z.infer<typeof Pairing>;
-
 const handleIntegerInput = (
   value: string,
   setter: (value: number | null) => void
@@ -90,20 +88,16 @@ const handleIntegerInput = (
     setter(null);
     return;
   }
-
   const intValue = parseInt(value, 10);
   if (!isNaN(intValue) && intValue >= 0 && intValue.toString() === value) {
     setter(intValue);
   }
 };
-
 type ManageFamilyTreePageProps = {
   user: User;
   familyTreeData: FamilyTree | null;
 };
-
 type SortOption = 'alphabetical' | 'points-desc' | 'points-asc';
-
 export default function ManageFamilyTreePage({
   user,
   familyTreeData
@@ -128,14 +122,11 @@ export default function ManageFamilyTreePage({
   const [customPointPrompt, setCustomPointPrompt] = useState<string>('');
   const [customPointValue, setCustomPointValue] = useState<number | null>(null);
   const [sortBy, setSortBy] = useState<SortOption>('alphabetical');
-
   const { 'form-code': formCode } = router.query as { 'form-code': string };
-
   const { data: familyTree } = useQuery<FamilyTree | null, Error>({
     queryKey: ['familyTree', formCode],
     queryFn: async () => await getFamilyTreeByCode(supabase, formCode)
   });
-
   const {
     data: challenges = [],
     isLoading: challengesLoading,
@@ -149,7 +140,6 @@ export default function ManageFamilyTreePage({
     },
     enabled: !!familyTree?.id
   });
-
   const { data: connections = [] } = useQuery<Connections[], Error>({
     queryKey: ['connections', familyTree?.id],
     queryFn: async () => {
@@ -158,7 +148,6 @@ export default function ManageFamilyTreePage({
     },
     enabled: !!familyTree?.id
   });
-
   const { data: pairings = [] } = useQuery<Pairing[], Error>({
     queryKey: ['pairings', familyTree?.id],
     queryFn: async () => {
@@ -186,7 +175,6 @@ export default function ManageFamilyTreePage({
     },
     enabled: connections.length > 0
   });
-
   const { data: connectionSubmissions = [] } = useQuery<
     PointSubmission[],
     Error
@@ -198,13 +186,11 @@ export default function ManageFamilyTreePage({
     },
     enabled: !!selectedConnection?.id && submitChallengeOpen
   });
-
   const sortedPairings = [...pairings].sort((a, b) => {
     const connectionA = connections.find((c) => c.id === a.id);
     const connectionB = connections.find((c) => c.id === b.id);
     const pointsA = connectionA?.points || 0;
     const pointsB = connectionB?.points || 0;
-
     switch (sortBy) {
       case 'points-desc':
         return pointsB - pointsA;
@@ -215,7 +201,6 @@ export default function ManageFamilyTreePage({
         return a.big.localeCompare(b.big);
     }
   });
-
   const handleCreateCustomPointSubmission = async () => {
     if (!selectedConnection?.id || customPointValue === null) return;
     try {
@@ -225,7 +210,6 @@ export default function ManageFamilyTreePage({
         customPointPrompt || 'Custom point award',
         customPointValue
       );
-
       queryUtils.invalidateQueries({
         queryKey: ['connections', familyTree?.id]
       });
@@ -233,7 +217,6 @@ export default function ManageFamilyTreePage({
       queryUtils.invalidateQueries({
         queryKey: ['pairingSubmissions', selectedConnection.id]
       });
-
       toast.success('Custom points added successfully!');
     } catch (error) {
       toast.error(
@@ -248,7 +231,6 @@ export default function ManageFamilyTreePage({
       setSelectedConnection(null);
     }
   };
-
   const handleCreateChallenge = async () => {
     if (!familyTree?.id || !prompt) return;
     try {
@@ -268,7 +250,6 @@ export default function ManageFamilyTreePage({
       setDeadline(null);
     }
   };
-
   const handleEditChallenge = async (challengeId: string) => {
     if (!familyTree?.id || !prompt) return;
     try {
@@ -289,17 +270,14 @@ export default function ManageFamilyTreePage({
       setSelectedChallengeId(null);
     }
   };
-
   const handleDeleteChallenge = async (challengeId: string) => {
     try {
       await deleteChallenge(supabase, challengeId);
-
       queryUtils.invalidateQueries({ queryKey: ['challenges', formCode] });
       queryUtils.invalidateQueries({
         queryKey: ['connections', familyTree?.id]
       });
       queryUtils.invalidateQueries({ queryKey: ['pairings', familyTree?.id] });
-
       toast.success('Challenge deleted successfully!');
     } catch (error) {
       toast.error(
@@ -309,7 +287,6 @@ export default function ManageFamilyTreePage({
       );
     }
   };
-
   const handleSubmitChallenge = async () => {
     if (!selectedConnection?.id || !selectedChallengeId) return;
     try {
@@ -318,7 +295,6 @@ export default function ManageFamilyTreePage({
         selectedConnection.id,
         selectedChallengeId
       );
-
       queryUtils.invalidateQueries({
         queryKey: ['connections', familyTree?.id]
       });
@@ -331,7 +307,6 @@ export default function ManageFamilyTreePage({
       queryUtils.invalidateQueries({
         queryKey: ['pairingSubmissions', selectedConnection.id]
       });
-
       toast.success('Challenge submitted successfully!');
     } catch (error) {
       toast.error(
@@ -345,7 +320,6 @@ export default function ManageFamilyTreePage({
       setSelectedChallengeId(null);
     }
   };
-
   return (
     <DashBoardLayout user={user}>
       <div className="max-w-10xl mx-auto p-3 sm:p-6 space-y-4 sm:space-y-6">
@@ -368,7 +342,6 @@ export default function ManageFamilyTreePage({
             )}
           </div>
         </div>
-
         <div className="bg-white/60 backdrop-blur-sm rounded-xl border border-slate-200 p-1 mb-4">
           <Tabs className="w-full" defaultValue="manage">
             <TabsList className="h-10 sm:h-12 p-1 bg-transparent rounded-lg w-full grid grid-cols-2">
@@ -392,11 +365,17 @@ export default function ManageFamilyTreePage({
             </TabsList>
           </Tabs>
         </div>
-
         <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
           <Dialog open={challengeOpen} onOpenChange={setChallengeOpen}>
             <DialogTrigger asChild>
-              <Button className="bg-blue-600 hover:bg-blue-700 w-full sm:w-auto h-12 sm:h-10 text-sm sm:text-base">
+              <Button
+                className="bg-blue-600 hover:bg-blue-700 w-full sm:w-auto h-12 sm:h-10 text-sm sm:text-base"
+                onClick={() => {
+                  setPrompt('');
+                  setPoint(null);
+                  setDeadline(null);
+                  setChallengeOpen(true);
+                }}>
                 <PlusCircle className="w-4 h-4 mr-2" />
                 Create Challenge
               </Button>
@@ -414,12 +393,12 @@ export default function ManageFamilyTreePage({
                     className="text-gray-800 font-semibold text-sm">
                     Challenge Prompt
                   </Label>
-                  <Textarea
+                  <EmojiTextArea
                     id="prompt"
-                    onChange={(e) => setPrompt(e.target.value)}
-                    placeholder="Enter challenge prompt..."
+                    onChange={(value) => setPrompt(value)}
+                    placeholder="Enter challenge prompt... 🎯"
                     value={prompt}
-                    className="mt-1 min-h-[80px] text-sm"
+                    minHeight={80}
                   />
                 </div>
                 <div>
@@ -544,7 +523,12 @@ export default function ManageFamilyTreePage({
               <DialogFooter className="flex flex-col sm:flex-row gap-2">
                 <Button
                   variant="outline"
-                  onClick={() => setChallengeOpen(false)}
+                  onClick={() => {
+                    setChallengeOpen(false);
+                    setPrompt('');
+                    setPoint(null);
+                    setDeadline(null);
+                  }}
                   className="w-full sm:w-auto order-2 sm:order-1">
                   Cancel
                 </Button>
@@ -558,7 +542,6 @@ export default function ManageFamilyTreePage({
             </DialogContent>
           </Dialog>
         </div>
-
         <div className="bg-white/90 shadow-lg rounded-xl border border-gray-100 p-4 sm:p-6">
           <h2 className="text-lg sm:text-xl font-semibold text-gray-800 mb-4">
             Challenges
@@ -612,8 +595,6 @@ export default function ManageFamilyTreePage({
             </div>
           )}
         </div>
-
-        {/* Edit Challenge Dialog - Mobile Optimized */}
         <Dialog open={editChallengeOpen} onOpenChange={setEditChallengeOpen}>
           <DialogContent className="bg-white/95 backdrop-blur-sm w-[95vw] max-w-md mx-auto rounded-xl">
             <DialogHeader>
@@ -628,12 +609,12 @@ export default function ManageFamilyTreePage({
                   className="text-gray-800 font-semibold text-sm">
                   Challenge Prompt
                 </Label>
-                <Textarea
+                <EmojiTextArea
                   id="editPrompt"
-                  onChange={(e) => setPrompt(e.target.value)}
-                  placeholder="Enter challenge prompt..."
+                  onChange={(value) => setPrompt(value)}
+                  placeholder="Enter challenge prompt... 🎯"
                   value={prompt}
-                  className="mt-1 min-h-[80px] text-sm"
+                  minHeight={80}
                 />
               </div>
               <div>
@@ -758,7 +739,13 @@ export default function ManageFamilyTreePage({
             <DialogFooter className="flex flex-col sm:flex-row gap-2">
               <Button
                 variant="outline"
-                onClick={() => setEditChallengeOpen(false)}
+                onClick={() => {
+                  setEditChallengeOpen(false);
+                  setPrompt('');
+                  setPoint(null);
+                  setDeadline(null);
+                  setSelectedChallengeId(null);
+                }}
                 className="w-full sm:w-auto order-2 sm:order-1">
                 Cancel
               </Button>
@@ -774,15 +761,11 @@ export default function ManageFamilyTreePage({
             </DialogFooter>
           </DialogContent>
         </Dialog>
-
-        {/* Mobile-Optimized Connections Section */}
         <div className="bg-white/90 shadow-lg rounded-xl border border-gray-100 p-4 sm:p-6">
           <div className="flex flex-col space-y-4 sm:space-y-0 sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
             <h2 className="text-lg sm:text-xl font-semibold text-gray-800">
               Connections
             </h2>
-
-            {/* Mobile-Friendly Sort Controls */}
             <div className="flex items-center gap-2 sm:gap-3">
               <ArrowUpDown className="w-4 h-4 text-gray-500 flex-shrink-0" />
               <Select
@@ -814,7 +797,6 @@ export default function ManageFamilyTreePage({
               </Select>
             </div>
           </div>
-
           {pairings.length === 0 ? (
             <div className="text-center py-8 sm:py-12 text-gray-500">
               <User2 className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-4 text-gray-300" />
@@ -830,12 +812,10 @@ export default function ManageFamilyTreePage({
               {sortedPairings.map((pairing) => {
                 const connection = connections.find((c) => c.id === pairing.id);
                 const points = connection?.points || 0;
-
                 return (
                   <div
                     key={pairing.id}
                     className="group bg-gradient-to-br from-white via-white to-blue-50/30 shadow-lg rounded-2xl border border-gray-200/60 hover:shadow-xl hover:border-blue-200/60 transition-all duration-300 hover:-translate-y-1 overflow-hidden">
-                    {/* Mobile-Optimized Header with gradient accent */}
                     <div className="relative bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 p-3 sm:p-4">
                       <div className="flex justify-between items-start">
                         <div className="text-white">
@@ -859,10 +839,7 @@ export default function ManageFamilyTreePage({
                         </div>
                       </div>
                     </div>
-
-                    {/* Mobile-Optimized Content */}
                     <div className="p-4 sm:p-6">
-                      {/* Big and Little Display - Mobile Optimized */}
                       <div className="space-y-3 sm:space-y-4 mb-4 sm:mb-6">
                         <div className="flex items-center space-x-3 sm:space-x-4">
                           <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-purple-500 to-purple-600 rounded-full flex items-center justify-center flex-shrink-0">
@@ -877,7 +854,6 @@ export default function ManageFamilyTreePage({
                             </p>
                           </div>
                         </div>
-
                         <div className="flex items-center justify-center py-1 sm:py-2">
                           <div className="flex-1 h-px bg-gradient-to-r from-transparent via-gray-300 to-transparent"></div>
                           <div className="mx-3 sm:mx-4 p-1.5 sm:p-2 bg-gray-100 rounded-full">
@@ -894,7 +870,6 @@ export default function ManageFamilyTreePage({
                           </div>
                           <div className="flex-1 h-px bg-gradient-to-r from-transparent via-gray-300 to-transparent"></div>
                         </div>
-
                         <div className="flex items-center space-x-3 sm:space-x-4">
                           <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-green-500 to-green-600 rounded-full flex items-center justify-center flex-shrink-0">
                             <User2 className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
@@ -909,7 +884,6 @@ export default function ManageFamilyTreePage({
                           </div>
                         </div>
                       </div>
-
                       <div className="space-y-2 sm:space-y-3">
                         <Dialog
                           open={
@@ -1014,7 +988,6 @@ export default function ManageFamilyTreePage({
                             </DialogFooter>
                           </DialogContent>
                         </Dialog>
-
                         <div className="grid grid-cols-2 gap-2 sm:gap-3">
                           <Dialog
                             open={
@@ -1063,14 +1036,14 @@ export default function ManageFamilyTreePage({
                                     className="text-gray-800 font-semibold text-sm">
                                     Reason for Points
                                   </Label>
-                                  <Textarea
+                                  <EmojiTextArea
                                     id="customPointPrompt"
-                                    onChange={(e) =>
-                                      setCustomPointPrompt(e.target.value)
+                                    onChange={(value) =>
+                                      setCustomPointPrompt(value)
                                     }
-                                    placeholder="Enter reason for awarding points..."
+                                    placeholder="Enter reason for awarding points... 🏆"
                                     value={customPointPrompt}
-                                    className="mt-1 min-h-[80px] text-sm"
+                                    minHeight={80}
                                   />
                                 </div>
                                 <div>
@@ -1121,7 +1094,6 @@ export default function ManageFamilyTreePage({
                               </DialogFooter>
                             </DialogContent>
                           </Dialog>
-
                           <Sheet
                             open={
                               submissionLogsOpen &&
@@ -1189,16 +1161,13 @@ export default function ManageFamilyTreePage({
     </DashBoardLayout>
   );
 }
-
 export const getServerSideProps = async (
   context: GetServerSidePropsContext
 ) => {
   const supabase = createSupabaseServerClient(context);
   const { data: userData, error } = await supabase.auth.getUser();
   const { 'form-code': formCode } = context.query as { 'form-code': string };
-
   const familyTreeData = await getFamilyTreeByCode(supabase, formCode);
-
   if (!userData || error) {
     return {
       redirect: {
